@@ -127,7 +127,7 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
     # find if the prompt matches any preset
     preset_table = get_all_preset_entries(fill_null=True)
     matching_preset = preset_table.loc[
-        (preset_table["system_prompt"] == system_prompt) &
+        (preset_table.get("system_prompt") == system_prompt) &
         (preset_table["prompt"] == prompt)
     ]
 
