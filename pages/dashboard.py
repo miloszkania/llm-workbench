@@ -87,46 +87,34 @@ def export_chart(fig, filename, height, font_size=14):
 ### Categories
 
 def p_ai_judge_success_rate(history_df, canvas):
-    history_df_1 = history_df.loc[
-        (history_df["judge_label"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
-    ]
-    history_df_2 = history_df.loc[
-        (history_df["judge_label_2"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
-    ]
-
-    if history_df_1.empty:
-        rate_1 = 0
-    else:
-        rate_1 = len(history_df_1.loc[history_df_1["judge_label"] == history_df_1["label"]])
-        rate_1 /= len(history_df_1)
-        rate_1 = round(rate_1 * 100, 2)
-
-
-    if history_df_2.empty:
-        rate_2 = 0
-    else:
-        rate_2 = len(history_df_2.loc[history_df_2["judge_label_2"] == history_df_2["label"]])
-        rate_2 /= len(history_df_2)
-        rate_2 = round(rate_2 * 100, 2)
-
-    canvas.markdown(f"##### **Percentage of right LLM-as-a-Judge labels (Gemma)**: **`{rate_1} %`**")
-    canvas.markdown(f"##### **Percentage of right LLM-as-a-Judge labels (Llama)**: **`{rate_2} %`**")
-
-
-def p_ai_judge_match_rate(history_df, canvas):
     history_df = history_df.loc[
-        (history_df["judge_label"].isin(LABEL_OPTIONS))
-        & (history_df["judge_label_2"].isin(LABEL_OPTIONS))
+        (history_df["judge_label"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
     ]
 
     if history_df.empty:
         rate = 0
     else:
-        rate = len(history_df.loc[history_df["judge_label"] == history_df["judge_label_2"]])
+        rate = len(history_df.loc[history_df["judge_label"] == history_df["label"]])
         rate /= len(history_df)
         rate = round(rate * 100, 2)
 
-    canvas.markdown(f"##### **Percentage of matching LLM-as-a-Judge labels**: **`{rate} %`**")
+    canvas.markdown(f"##### **Percentage of right LLM-as-a-Judge labels (Gemma)**: **`{rate} %`**")
+
+
+# def p_ai_judge_match_rate(history_df, canvas):
+#     history_df = history_df.loc[
+#         (history_df["judge_label"].isin(LABEL_OPTIONS))
+#         & (history_df["judge_label_2"].isin(LABEL_OPTIONS))
+#     ]
+#
+#     if history_df.empty:
+#         rate = 0
+#     else:
+#         rate = len(history_df.loc[history_df["judge_label"] == history_df["judge_label_2"]])
+#         rate /= len(history_df)
+#         rate = round(rate * 100, 2)
+#
+#     canvas.markdown(f"##### **Percentage of matching LLM-as-a-Judge labels**: **`{rate} %`**")
 
 
 def p_chart_label_distribution_per_category(history_df, canvas, category_subset_name, label_column="label"):
@@ -734,7 +722,7 @@ if not history_table.empty:
 
     # percentage-based stats
     p_ai_judge_success_rate(history_table, tab_percentage)
-    p_ai_judge_match_rate(history_table, tab_percentage)
+    # p_ai_judge_match_rate(history_table, tab_percentage)
 
     with tab_percentage.expander("Categories", expanded=True) as expander:
         expander.subheader("Category statistics")
@@ -748,28 +736,15 @@ if not history_table.empty:
 
 
         if chart_category:
-            col1, col2 = expander.columns(2)
-            col1.subheader("Gemma:")
-            col2.subheader("Llama:")
-
             history_with_chart_category = history_table[history_table["categories"].apply(
                 lambda x: chart_category in x if isinstance(x, list) else False
             )]
-            p_chart_label_distribution_per_model(history_with_chart_category, col1, "judge_label")
-            p_chart_label_distribution_per_model(history_with_chart_category, col2, "judge_label_2")
+            p_chart_label_distribution_per_model(history_with_chart_category, expander, "judge_label")
 
         else:
-            expander.subheader("Gemma:")
             col1, col2 = expander.columns(2)
             p_chart_label_distribution_per_category(history_table, col1, "TEMPLATE_CATEGORIES", "judge_label")
             p_chart_label_distribution_per_category(history_table, col2, "TASK_CATEGORIES", "judge_label")
-
-            # expander.divider()
-            #
-            # expander.subheader("Llama:")
-            # col1, col2 = expander.columns(2)
-            # p_chart_label_distribution_per_category(history_table, col1, "TEMPLATE_CATEGORIES", "judge_label_2")
-            # p_chart_label_distribution_per_category(history_table, col2, "TASK_CATEGORIES", "judge_label_2")
 
         expander.divider()
 
@@ -808,16 +783,15 @@ if not history_table.empty:
 
             expander.subheader("Llama:")
             col1, col2 = expander.columns(2)
-            p_chart_label_distribution_per_category_for_model(history_table, col1, chart_model, "TEMPLATE_CATEGORIES", "judge_label_2")
-            p_chart_label_distribution_per_category_for_model(history_table, col2, chart_model, "TASK_CATEGORIES", "judge_label_2")
+            # p_chart_label_distribution_per_category_for_model(history_table, col1, chart_model, "TEMPLATE_CATEGORIES", "judge_label_2")
+            # p_chart_label_distribution_per_category_for_model(history_table, col2, chart_model, "TASK_CATEGORIES", "judge_label_2")
 
         else:
             col1, col2 = expander.columns(2)
             col1.subheader("Gemma:")
-            col2.subheader("Llama:")
 
             p_chart_label_distribution_per_model(history_table, col1, "judge_label")
-            p_chart_label_distribution_per_model(history_table, col2, "judge_label_2")
+            # p_chart_label_distribution_per_model(history_table, col2, "judge_label_2")
 
         expander.divider()
 

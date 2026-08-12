@@ -149,7 +149,7 @@ def set_prompt_label(prompt_id, label):
 def set_prompt_judge_label(prompt_id, judge_label):
     run_sqlite_command("""
         update history
-        set judge_label_2 = ?
+        set judge_label = ?
         where id = ?
     """, (
         judge_label,

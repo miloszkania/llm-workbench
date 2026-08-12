@@ -456,8 +456,3 @@ p_model_label_distribution(
     filename="chart_asr_models_gemma.pdf",
 )
 st.divider()
-p_model_label_distribution(
-    history_table,
-    label_column="judge_label_2",
-    filename="chart_asr_models_llama.pdf",
-)
