@@ -1,4 +1,5 @@
 import plotly.graph_objects as go
+import streamlit
 from plotly.subplots import make_subplots
 import streamlit as st
 
@@ -219,13 +220,13 @@ def p_combined_asr_heatmaps(history_df):
         showticklabels=True,
     )
 
-    filename = "heatmap_models_conditions_and_payloads.pdf"
-    fig.write_image(
-        f"../Paper/figures/results/{filename}",
-        width=1250,
-        height=1140,
-    )
-    # canvas.plotly_chart(fig, use_container_width=True)
+    # filename = "heatmap_models_conditions_and_payloads.pdf"
+    # fig.write_image(
+    #     f"../Paper/figures/results/{filename}",
+    #     width=1250,
+    #     height=1140,
+    # )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def build_label_distribution(
@@ -382,11 +383,13 @@ def export_label_distribution(
         ),
     )
 
-    fig.write_image(
-        f"../Paper/figures/results/{filename}",
-        width=BAR_FIGURE_WIDTH,
-        height=figure_height,
-    )
+    streamlit.plotly_chart(fig)
+
+    # fig.write_image(
+    #     f"../Paper/figures/results/{filename}",
+    #     width=BAR_FIGURE_WIDTH,
+    #     height=figure_height,
+    # )
 
 
 def p_category_label_distribution(
@@ -405,12 +408,12 @@ def p_category_label_distribution(
         for category in distribution.index
     ]
 
-    # export_label_distribution(
-    #     distribution,
-    #     displayed_categories,
-    #     filename,
-    #     hover_row_name="Category",
-    # )
+    export_label_distribution(
+        distribution,
+        displayed_categories,
+        filename,
+        hover_row_name="Category",
+    )
 
 
 def p_model_label_distribution(
@@ -423,32 +426,33 @@ def p_model_label_distribution(
         label_column,
     )
 
-    # export_label_distribution(
-    #     distribution,
-    #     distribution.index.tolist(),
-    #     filename,
-    #     hover_row_name="Target model",
-    # )
+    export_label_distribution(
+        distribution,
+        distribution.index.tolist(),
+        filename,
+        hover_row_name="Target model",
+    )
 
 
-p_combined_asr_heatmaps(history_table)
-st.divider()
-p_category_label_distribution(
-    history_table,
-    TEMPLATE_ORDER,
-    filename=(
-        "chart_label_distribution_"
-        "template_categories_gemma.pdf"
-    ),
-    label_column="judge_label",
-)
-st.divider()
-p_category_label_distribution(
-    history_table,
-    PAYLOAD_ORDER,
-    filename="chart_asr_task_categories_gemma.pdf",
-    label_column="judge_label",
-)
+if history_table["categories"].explode().dropna().unique().tolist():
+    p_combined_asr_heatmaps(history_table)
+    st.divider()
+    p_category_label_distribution(
+        history_table,
+        TEMPLATE_ORDER,
+        filename=(
+            "chart_label_distribution_"
+            "template_categories_gemma.pdf"
+        ),
+        label_column="judge_label",
+    )
+    st.divider()
+    p_category_label_distribution(
+        history_table,
+        PAYLOAD_ORDER,
+        filename="chart_asr_task_categories_gemma.pdf",
+        label_column="judge_label",
+    )
 st.divider()
 p_model_label_distribution(
     history_table,
