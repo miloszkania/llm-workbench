@@ -32,7 +32,7 @@ def fill_preset_fields():
         preset_row = preset_row.iloc[0]
         st.session_state["system_prompt"] = preset_row["system_prompt"]
         st.session_state["prompt"] = preset_row["prompt"]
-        st.session_state["categories"] = preset_row["categories"]
+        st.session_state["categories"] = preset_row["categories"] if preset_row["categories"] else []
 
 if not all_presets.empty:
     preset = st.selectbox(
