@@ -1,18 +1,21 @@
 import streamlit as st
 
-from src import widgets
 from src.config import get_env_config, EnvironmentConfigError
-
-try:
-    env_config = get_env_config()
-except EnvironmentConfigError as e:
-    st.error(f"Configuration error: {e}")
-    exit()
 
 st.set_page_config(
     layout="wide",
     page_title="Pipeline: Home"
 )
+
+# Check the presence of required environment variables
+try:
+    env_config = get_env_config()
+except EnvironmentConfigError as e:
+    st.error(f"Configuration error: {e}")
+    st.stop()
+
+from src import widgets
+
 
 # Define all subpages
 new_prompt = st.Page("pages/new_prompt.py", title="New Prompt")

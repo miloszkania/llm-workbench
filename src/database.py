@@ -1,14 +1,17 @@
 import sqlite3
-from os import getenv
 
-from dotenv import load_dotenv
+from src.config import get_env_config
 
 
 def connect():
-    load_dotenv()
-    connection = sqlite3.connect(getenv("DB_PATH"))
+    db_path = get_env_config().db_path
 
-    # switch to getting Row-objects when fetching data from db:
+    # if it doesn't exist, create the full specified path from env
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    connection = sqlite3.connect(db_path)
+
+    # switch to getting Row-objects when fetching data from db
     connection.row_factory = sqlite3.Row
 
     cursor = connection.cursor()

@@ -1,13 +1,9 @@
 from datetime import datetime
-from os import getenv
-
-from dotenv import load_dotenv
 from openrouter import OpenRouter
 
+from src.config import get_env_config
 
-load_dotenv()
-client = OpenRouter(api_key=getenv("OPENROUTER_API_KEY"))
-
+client = OpenRouter(api_key=get_env_config().openrouter_api_key)
 
 def get_model_list():
     model_list = client.models.list().data
