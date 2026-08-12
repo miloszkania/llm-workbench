@@ -73,6 +73,10 @@ MODEL_ORDER = [
 
 history_table = view_utils.get_all_history_entries(fill_null=True)
 
+if history_table.empty:
+   st.info("No data yet!")
+   st.stop()
+
 
 def parse_model_ids(i: str):
     i = i.replace(
@@ -401,12 +405,12 @@ def p_category_label_distribution(
         for category in distribution.index
     ]
 
-    export_label_distribution(
-        distribution,
-        displayed_categories,
-        filename,
-        hover_row_name="Category",
-    )
+    # export_label_distribution(
+    #     distribution,
+    #     displayed_categories,
+    #     filename,
+    #     hover_row_name="Category",
+    # )
 
 
 def p_model_label_distribution(
@@ -419,12 +423,12 @@ def p_model_label_distribution(
         label_column,
     )
 
-    export_label_distribution(
-        distribution,
-        distribution.index.tolist(),
-        filename,
-        hover_row_name="Target model",
-    )
+    # export_label_distribution(
+    #     distribution,
+    #     distribution.index.tolist(),
+    #     filename,
+    #     hover_row_name="Target model",
+    # )
 
 
 p_combined_asr_heatmaps(history_table)
