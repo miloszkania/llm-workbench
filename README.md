@@ -16,7 +16,7 @@ This is a pipeline used to produce and evaluate *jailbreak* experiments on LLMs.
 - An internet connection while the app is running
 
 ## Quick Start
-The steps below are intended for Linux and macOS.
+The steps below are intended for Linux and macOS, after cloning this repository.
 
 ### 1. Create and activate a virtual environment
 ```shell
