@@ -1,6 +1,13 @@
 import streamlit as st
 
 from src import widgets
+from src.config import get_env_config, EnvironmentConfigError
+
+try:
+    env_config = get_env_config()
+except EnvironmentConfigError as e:
+    st.error(f"Configuration error: {e}")
+    exit()
 
 st.set_page_config(
     layout="wide",
