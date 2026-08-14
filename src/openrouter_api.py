@@ -5,9 +5,10 @@ from src.config import get_env_config
 
 client = OpenRouter(api_key=get_env_config().openrouter_api_key)
 
-def get_model_list():
-    model_list = client.models.list().data
-    return sorted(model_list, key=lambda x: x.id)
+
+def get_model_list(sort="most-popular"):
+    model_list = client.models.list(sort=sort).data
+    return model_list
 
 
 def send_prompt(model, prompt, system_prompt):

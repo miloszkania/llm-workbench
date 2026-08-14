@@ -197,13 +197,12 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
 
 ###### MODELS
 
-@st.cache_data
-def get_model_ids(only_free=False):
-    model_ids = [i.id for i in openrouter_api.get_model_list()]
+@st.cache_data(ttl="1h")
+def get_model_ids(sort="most-popular", only_free_models=False):
+    model_ids = [i.id for i in openrouter_api.get_model_list(sort)]
 
-    if only_free:
-        return [i for i in model_ids if i.endswith("free")]
-    else:
-        return model_ids
+    # Get the deserved model ids
+    if only_free_models:
+        model_ids = [i for i in model_ids if i.endswith("free")]
 
-
+    return model_ids
