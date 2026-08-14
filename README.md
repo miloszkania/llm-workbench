@@ -21,7 +21,7 @@ The steps below are intended for Linux and macOS, after cloning this repository.
 ### 1. Create and activate a virtual environment
 ```shell
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate # For fish shell: .venv/bin/activate.fish
 ```
 
 ### 2. Install dependencies
