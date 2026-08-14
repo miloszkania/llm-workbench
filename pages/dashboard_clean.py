@@ -1,4 +1,5 @@
 import plotly.graph_objects as go
+import streamlit
 from plotly.subplots import make_subplots
 import streamlit as st
 
@@ -72,6 +73,10 @@ MODEL_ORDER = [
 ]
 
 history_table = view_utils.get_all_history_entries(fill_null=True)
+
+if history_table.empty:
+   st.info("No data yet!")
+   st.stop()
 
 
 def parse_model_ids(i: str):
@@ -215,13 +220,13 @@ def p_combined_asr_heatmaps(history_df):
         showticklabels=True,
     )
 
-    filename = "heatmap_models_conditions_and_payloads.pdf"
-    fig.write_image(
-        f"../Paper/figures/results/{filename}",
-        width=1250,
-        height=1140,
-    )
-    # canvas.plotly_chart(fig, use_container_width=True)
+    # filename = "heatmap_models_conditions_and_payloads.pdf"
+    # fig.write_image(
+    #     f"../Paper/figures/results/{filename}",
+    #     width=1250,
+    #     height=1140,
+    # )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def build_label_distribution(
@@ -378,11 +383,13 @@ def export_label_distribution(
         ),
     )
 
-    fig.write_image(
-        f"../Paper/figures/results/{filename}",
-        width=BAR_FIGURE_WIDTH,
-        height=figure_height,
-    )
+    streamlit.plotly_chart(fig)
+
+    # fig.write_image(
+    #     f"../Paper/figures/results/{filename}",
+    #     width=BAR_FIGURE_WIDTH,
+    #     height=figure_height,
+    # )
 
 
 def p_category_label_distribution(
@@ -427,24 +434,25 @@ def p_model_label_distribution(
     )
 
 
-p_combined_asr_heatmaps(history_table)
-st.divider()
-p_category_label_distribution(
-    history_table,
-    TEMPLATE_ORDER,
-    filename=(
-        "chart_label_distribution_"
-        "template_categories_gemma.pdf"
-    ),
-    label_column="judge_label",
-)
-st.divider()
-p_category_label_distribution(
-    history_table,
-    PAYLOAD_ORDER,
-    filename="chart_asr_task_categories_gemma.pdf",
-    label_column="judge_label",
-)
+if history_table["categories"].explode().dropna().unique().tolist():
+    p_combined_asr_heatmaps(history_table)
+    st.divider()
+    p_category_label_distribution(
+        history_table,
+        TEMPLATE_ORDER,
+        filename=(
+            "chart_label_distribution_"
+            "template_categories_gemma.pdf"
+        ),
+        label_column="judge_label",
+    )
+    st.divider()
+    p_category_label_distribution(
+        history_table,
+        PAYLOAD_ORDER,
+        filename="chart_asr_task_categories_gemma.pdf",
+        label_column="judge_label",
+    )
 st.divider()
 p_model_label_distribution(
     history_table,
@@ -452,8 +460,3 @@ p_model_label_distribution(
     filename="chart_asr_models_gemma.pdf",
 )
 st.divider()
-p_model_label_distribution(
-    history_table,
-    label_column="judge_label_2",
-    filename="chart_asr_models_llama.pdf",
-)

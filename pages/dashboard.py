@@ -1,5 +1,3 @@
-import os
-
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -20,18 +18,8 @@ label_colors = {
     "⏳": "#7F7F7F",
 }
 
-TASK_CATEGORIES = [
-    "credit-card", "genocide", "keylogger", "election"
-]
-
-TEMPLATE_CATEGORIES = [
-    "distractions", "emotions", "low-res-languages", "obfuscation", "role-playing", "style-injection", "direct"
-]
-
-
 st.title("Dashboard")
 tab_percentage, tab_count = st.tabs(["Percentage", "Count"])
-
 
 
 def export_chart(fig, filename, height, font_size=14):
@@ -77,8 +65,8 @@ def export_chart(fig, filename, height, font_size=14):
             ],
         )
 
-    if not os.path.exists(f"figures/{filename}"):
-        fig.write_image(f"figures/{filename}", height=height)
+    # if not os.path.exists(f"figures/{filename}"):
+    #     fig.write_image(f"figures/{filename}", height=height)
 
 
 
@@ -87,52 +75,39 @@ def export_chart(fig, filename, height, font_size=14):
 ### Categories
 
 def p_ai_judge_success_rate(history_df, canvas):
-    history_df_1 = history_df.loc[
-        (history_df["judge_label"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
-    ]
-    history_df_2 = history_df.loc[
-        (history_df["judge_label_2"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
-    ]
-
-    if history_df_1.empty:
-        rate_1 = 0
-    else:
-        rate_1 = len(history_df_1.loc[history_df_1["judge_label"] == history_df_1["label"]])
-        rate_1 /= len(history_df_1)
-        rate_1 = round(rate_1 * 100, 2)
-
-
-    if history_df_2.empty:
-        rate_2 = 0
-    else:
-        rate_2 = len(history_df_2.loc[history_df_2["judge_label_2"] == history_df_2["label"]])
-        rate_2 /= len(history_df_2)
-        rate_2 = round(rate_2 * 100, 2)
-
-    canvas.markdown(f"##### **Percentage of right LLM-as-a-Judge labels (Gemma)**: **`{rate_1} %`**")
-    canvas.markdown(f"##### **Percentage of right LLM-as-a-Judge labels (Llama)**: **`{rate_2} %`**")
-
-
-def p_ai_judge_match_rate(history_df, canvas):
     history_df = history_df.loc[
-        (history_df["judge_label"].isin(LABEL_OPTIONS))
-        & (history_df["judge_label_2"].isin(LABEL_OPTIONS))
+        (history_df["judge_label"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
     ]
 
     if history_df.empty:
         rate = 0
     else:
-        rate = len(history_df.loc[history_df["judge_label"] == history_df["judge_label_2"]])
+        rate = len(history_df.loc[history_df["judge_label"] == history_df["label"]])
         rate /= len(history_df)
         rate = round(rate * 100, 2)
 
-    canvas.markdown(f"##### **Percentage of matching LLM-as-a-Judge labels**: **`{rate} %`**")
+    canvas.markdown(f"##### **Percentage of right LLM-as-a-Judge labels (Gemma)**: **`{rate} %`**")
 
 
-def p_chart_label_distribution_per_category(history_df, canvas, category_subset_name, label_column="label"):
+# def p_ai_judge_match_rate(history_df, canvas):
+#     history_df = history_df.loc[
+#         (history_df["judge_label"].isin(LABEL_OPTIONS))
+#         & (history_df["judge_label_2"].isin(LABEL_OPTIONS))
+#     ]
+#
+#     if history_df.empty:
+#         rate = 0
+#     else:
+#         rate = len(history_df.loc[history_df["judge_label"] == history_df["judge_label_2"]])
+#         rate /= len(history_df)
+#         rate = round(rate * 100, 2)
+#
+#     canvas.markdown(f"##### **Percentage of matching LLM-as-a-Judge labels**: **`{rate} %`**")
+
+
+def p_chart_label_distribution_per_category(history_df, canvas, label_column="label"):
     label_per_category_counts = (
         history_df.explode("categories")
-        .query(f"categories in @{category_subset_name}")
         .groupby(["categories", label_column])
         .size()
         .reset_index(name="counts")
@@ -165,9 +140,9 @@ def p_chart_label_distribution_per_category(history_df, canvas, category_subset_
         category_orders={"categories": sorted_categories},
     )
 
-    export_chart(fig, f"chart_asr_{category_subset_name.lower()}_{"llama" if label_column.endswith("2") else "gemma"}.pdf", height=260)
+    # export_chart(fig, f"chart_asr_{category_subset_name.lower()}_{"llama" if label_column.endswith("2") else "gemma"}.pdf", height=260)
 
-    canvas.plotly_chart(fig, key=f"p_chart_label_distribution_per_{category_subset_name.lower()}_{label_column}")
+    canvas.plotly_chart(fig, key=f"p_chart_label_distribution_per_category_{label_column}")
 
 
 def p_chart_date_category_success_over_time(history_df, canvas, label_column="label"):
@@ -273,10 +248,9 @@ def p_chart_label_distribution_per_model_in_category(history_df, canvas, categor
         title_standoff=15,
     )
 
-    chart_filename = f"figures/chart_asr_cat_{"llama" if label_column.endswith("2") else "gemma"}.pdf"
-
-    if not os.path.exists(chart_filename):
-        fig.write_image(chart_filename)
+    # chart_filename = f"figures/chart_asr_cat_{"llama" if label_column.endswith("2") else "gemma"}.pdf"
+    # if not os.path.exists(chart_filename):
+    #     fig.write_image(chart_filename)
 
 
     canvas.plotly_chart(fig, key=f"p_chart_label_distribution_per_model_in_category_{label_column}")
@@ -436,18 +410,17 @@ def p_chart_label_distribution_per_model(history_df, canvas, label_column="label
         category_orders={"model": sorted_models},
     )
 
-    export_chart(fig, f"chart_asr_models_{"llama" if label_column.endswith("2") else "gemma"}.pdf", height=300)
+    # export_chart(fig, f"chart_asr_models_{"llama" if label_column.endswith("2") else "gemma"}.pdf", height=300)
 
     canvas.plotly_chart(fig, key=f"p_chart_label_distribution_per_model_{label_column}")
 
 
-def p_chart_label_distribution_per_category_for_model(history_df, canvas, model, category_subset_name, label_column="label"):
+def p_chart_label_distribution_per_category_for_model(history_df, canvas, model, label_column="label"):
     # take only records with selected model
     history_df = history_df[history_df["model"] == model]
 
     label_per_category_counts = (
         history_df.explode("categories")
-        .query(f"categories in @{category_subset_name}")
         .groupby(["categories", label_column])
         .size()
         .reset_index(name="counts")
@@ -480,11 +453,11 @@ def p_chart_label_distribution_per_category_for_model(history_df, canvas, model,
         labels={"percentage": "ASR (percentage)"},
         orientation="h",
         category_orders={"categories": sorted_categories},
-    ), key=f"p_chart_label_distribution_per_{category_subset_name.lower()}_for_model_{label_column}")
+    ), key=f"p_chart_label_distribution_per_category_for_model_{label_column}")
 
 
-def p_heatmap_per_category(history_df, canvas, category_subset_name):
-    history_df = history_df.explode('categories').query(f"categories in @{category_subset_name}")
+def p_heatmap_per_category(history_df, canvas):
+    history_df = history_df.explode('categories')
     history_df['categories'] = history_df['categories'].astype(str)
     history_df["model"] = history_df["model"].apply(view_utils.clear_model_id).apply(parse_model_ids)
 
@@ -526,7 +499,7 @@ def p_heatmap_per_category(history_df, canvas, category_subset_name):
 
     fig.update_traces(textfont_size=18)
 
-    export_chart(fig, f"heatmap_models_{category_subset_name.lower()}.pdf", height=700, font_size=20)
+    # export_chart(fig, f"heatmap_models_{category_subset_name.lower()}.pdf", height=700, font_size=20)
 
     # Podgląd w Streamlit (jeśli używasz)
     canvas.plotly_chart(fig)
@@ -734,44 +707,32 @@ if not history_table.empty:
 
     # percentage-based stats
     p_ai_judge_success_rate(history_table, tab_percentage)
-    p_ai_judge_match_rate(history_table, tab_percentage)
+    # p_ai_judge_match_rate(history_table, tab_percentage)
 
     with tab_percentage.expander("Categories", expanded=True) as expander:
         expander.subheader("Category statistics")
 
-        chart_category = expander.selectbox(
-            "Chart category",
-            options=view_utils.get_all_categories(),
-            key="categories",
-            index=None,
-        )
-
-
-        if chart_category:
-            col1, col2 = expander.columns(2)
-            col1.subheader("Gemma:")
-            col2.subheader("Llama:")
-
-            history_with_chart_category = history_table[history_table["categories"].apply(
-                lambda x: chart_category in x if isinstance(x, list) else False
-            )]
-            p_chart_label_distribution_per_model(history_with_chart_category, col1, "judge_label")
-            p_chart_label_distribution_per_model(history_with_chart_category, col2, "judge_label_2")
+        if not history_table["categories"].explode().dropna().unique().tolist():
+            st.info("No categories were used in any prompt!")
 
         else:
-            expander.subheader("Gemma:")
-            col1, col2 = expander.columns(2)
-            p_chart_label_distribution_per_category(history_table, col1, "TEMPLATE_CATEGORIES", "judge_label")
-            p_chart_label_distribution_per_category(history_table, col2, "TASK_CATEGORIES", "judge_label")
+            chart_category = expander.selectbox(
+                "Chart category",
+                options=view_utils.get_all_categories(),
+                key="categories",
+                index=None,
+            )
 
-            # expander.divider()
-            #
-            # expander.subheader("Llama:")
-            # col1, col2 = expander.columns(2)
-            # p_chart_label_distribution_per_category(history_table, col1, "TEMPLATE_CATEGORIES", "judge_label_2")
-            # p_chart_label_distribution_per_category(history_table, col2, "TASK_CATEGORIES", "judge_label_2")
+            if chart_category:
+                history_with_chart_category = history_table[history_table["categories"].apply(
+                    lambda x: chart_category in x if isinstance(x, list) else False
+                )]
+                p_chart_label_distribution_per_model(history_with_chart_category, expander, "judge_label")
 
-        expander.divider()
+            else:
+                p_chart_label_distribution_per_category(history_table, expander, "judge_label")
+
+            expander.divider()
 
 
         # p_chart_date_category_success_over_time(history_table, expander)
@@ -785,11 +746,11 @@ if not history_table.empty:
 
         only_free_models = st.segmented_control(
             "Model type",
-            options=["All", "Free", "Study"],
-            default="Study"
+            options=["All", "Free"],
+            default="All",
         )
 
-        model_ids = view_utils.get_model_ids(only_free_models)
+        model_ids = view_utils.get_model_ids(only_free_models == "Free")
 
         chart_model = expander.selectbox(
             "Chart model",
@@ -799,34 +760,18 @@ if not history_table.empty:
         )
 
         if chart_model:
-            expander.subheader("Gemma:")
-            col1, col2 = expander.columns(2)
-            p_chart_label_distribution_per_category_for_model(history_table, col1, chart_model, "TEMPLATE_CATEGORIES", "judge_label")
-            p_chart_label_distribution_per_category_for_model(history_table, col2, chart_model, "TASK_CATEGORIES", "judge_label")
-
-            expander.divider()
-
-            expander.subheader("Llama:")
-            col1, col2 = expander.columns(2)
-            p_chart_label_distribution_per_category_for_model(history_table, col1, chart_model, "TEMPLATE_CATEGORIES", "judge_label_2")
-            p_chart_label_distribution_per_category_for_model(history_table, col2, chart_model, "TASK_CATEGORIES", "judge_label_2")
+            p_chart_label_distribution_per_category_for_model(history_table, expander, chart_model, "judge_label")
 
         else:
-            col1, col2 = expander.columns(2)
-            col1.subheader("Gemma:")
-            col2.subheader("Llama:")
-
-            p_chart_label_distribution_per_model(history_table, col1, "judge_label")
-            p_chart_label_distribution_per_model(history_table, col2, "judge_label_2")
+            p_chart_label_distribution_per_model(history_table, expander, "judge_label")
 
         expander.divider()
 
         st.subheader("Heatmap for categories:")
-        p_heatmap_per_category(history_table, expander, "TEMPLATE_CATEGORIES")
-
-        expander.divider()
-        st.subheader("Heatmap for tasks:")
-        p_heatmap_per_category(history_table, expander, "TASK_CATEGORIES")
+        if not history_table["categories"].explode().dropna().unique().tolist():
+            st.info("No categories were used in any prompt!")
+        else:
+            p_heatmap_per_category(history_table, expander)
 
         expander.divider()
 
@@ -853,10 +798,12 @@ if not history_table.empty:
 
 
     # count-based stats
-    c_chart_labels_per_category(history_table, tab_count)
-    tab_count.divider()
-    c_chart_category_use_count(history_table, tab_count)
-    tab_count.divider()
+    if history_table["categories"].explode().dropna().unique().tolist():
+        c_chart_labels_per_category(history_table, tab_count)
+        tab_count.divider()
+        c_chart_category_use_count(history_table, tab_count)
+        tab_count.divider()
+
     c_chart_labels_per_length(history_table, tab_count)
     tab_count.divider()
 

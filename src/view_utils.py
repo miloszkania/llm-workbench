@@ -127,7 +127,7 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
     # find if the prompt matches any preset
     preset_table = get_all_preset_entries(fill_null=True)
     matching_preset = preset_table.loc[
-        (preset_table["system_prompt"] == system_prompt) &
+        (preset_table.get("system_prompt") == system_prompt) &
         (preset_table["prompt"] == prompt)
     ]
 
@@ -197,30 +197,12 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
 
 ###### MODELS
 
-@st.cache_data
-def get_model_ids(group):
-    model_ids = [i.id for i in openrouter_api.get_model_list()]
+@st.cache_data(ttl="1h")
+def get_model_ids(sort="most-popular", only_free_models=False):
+    model_ids = [i.id for i in openrouter_api.get_model_list(sort)]
 
-    if group == "Free":
-        return [i for i in model_ids if i.endswith("free")]
-    elif group == "Study":
-        available = []
-        needed = [
-            "google/gemma-4-31b-it",
-            "meta-llama/llama-3.2-3b-instruct",
-            "meta-llama/llama-3.3-70b-instruct",
-            "openai/gpt-oss-20b",
-            "openai/gpt-oss-120b",
-            "qwen/qwen3-next-80b-a3b-instruct",
-            "nousresearch/hermes-4-70b",
-        ]
+    # Get the deserved model ids
+    if only_free_models:
+        model_ids = [i for i in model_ids if i.endswith("free")]
 
-        for i in needed:
-            if i in model_ids:
-                available.append(i)
-
-        return available
-    else:
-        return model_ids
-
-
+    return model_ids

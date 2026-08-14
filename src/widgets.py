@@ -10,17 +10,36 @@ LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 
 
 def model_picker(prompt_data=None):
+    SORTING_OPTIONS = {
+        "most-popular": "Most popular",
+        "newest": "Newest",
+        "latency-low-to-high": "Lowest latency",
+        "pricing-low-to-high": "Lowest price",
+        "throughput-high-to-low": "Highest throughput",
+        "intelligence-high-to-low": "Highest intelligence",
+        "context-high-to-low": "Largest context window",
+    }
+
     def set_random_free_model(): st.session_state["model"] = "openrouter/free"
 
     st.header("Model")
 
-    only_free_models = st.segmented_control(
+    model_filter = st.segmented_control(
         "Model type",
-        options=["All", "Free", "Study"],
-        default="Study"
+        options=["All", "Free"],
+        default="All",
+        required=True,
     )
 
-    model_ids = view_utils.get_model_ids(only_free_models)
+    model_sorting = st.segmented_control(
+        "Sort by",
+        options=list(SORTING_OPTIONS),
+        format_func=lambda x: SORTING_OPTIONS[x],
+        default="most-popular",
+        required=True,
+    )
+
+    model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
 
     with st.spinner("Loading available models...", show_time=True):
         # Starting a new prompt, with no previous data as placeholder
@@ -54,7 +73,7 @@ def model_picker(prompt_data=None):
             )
 
         # Button for "openrouter/free" - random model will be selected
-        if only_free_models == "Free" and "openrouter/free" in view_utils.get_model_ids(group="Free"):
+        if model_filter == "Free" and "openrouter/free" in model_ids:
             st.button(
                 "Random free model",
                 type="secondary",

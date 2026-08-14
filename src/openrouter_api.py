@@ -1,34 +1,35 @@
 from datetime import datetime
-from os import getenv
-
-from dotenv import load_dotenv
 from openrouter import OpenRouter
 
+from src.config import get_env_config
 
-load_dotenv()
-client = OpenRouter(api_key=getenv("OPENROUTER_API_KEY"))
+client = OpenRouter(api_key=get_env_config().openrouter_api_key)
 
 
-def get_model_list():
-    model_list = client.models.list().data
-    return sorted(model_list, key=lambda x: x.id)
+def get_model_list(sort="most-popular"):
+    model_list = client.models.list(sort=sort).data
+    return model_list
 
 
 def send_prompt(model, prompt, system_prompt):
     # Measure running time
     timestamp_start = datetime.now()
+
+    messages = []
+    if system_prompt:
+        messages.append({
+            "role": "system",
+            "content": system_prompt,
+        })
+
+    messages.append({
+        "role": "user",
+        "content": prompt,
+    })
+
     response = client.chat.send(
-        model = model,
-        messages = [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
+        model=model,
+        messages=messages,
     )
     timestamp_end = datetime.now()
 
