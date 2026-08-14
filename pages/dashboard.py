@@ -1,5 +1,3 @@
-import os
-
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -748,11 +746,11 @@ if not history_table.empty:
 
         only_free_models = st.segmented_control(
             "Model type",
-            options=["All", "Free", "Study"],
-            default="Study"
+            options=["All", "Free"],
+            default="All",
         )
 
-        model_ids = view_utils.get_model_ids(only_free_models)
+        model_ids = view_utils.get_model_ids(only_free_models == "Free")
 
         chart_model = expander.selectbox(
             "Chart model",

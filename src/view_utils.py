@@ -198,28 +198,11 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
 ###### MODELS
 
 @st.cache_data
-def get_model_ids(group):
+def get_model_ids(only_free=False):
     model_ids = [i.id for i in openrouter_api.get_model_list()]
 
-    if group == "Free":
+    if only_free:
         return [i for i in model_ids if i.endswith("free")]
-    elif group == "Study":
-        available = []
-        needed = [
-            "google/gemma-4-31b-it",
-            "meta-llama/llama-3.2-3b-instruct",
-            "meta-llama/llama-3.3-70b-instruct",
-            "openai/gpt-oss-20b",
-            "openai/gpt-oss-120b",
-            "qwen/qwen3-next-80b-a3b-instruct",
-            "nousresearch/hermes-4-70b",
-        ]
-
-        for i in needed:
-            if i in model_ids:
-                available.append(i)
-
-        return available
     else:
         return model_ids
 

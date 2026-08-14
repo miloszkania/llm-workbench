@@ -14,13 +14,13 @@ def model_picker(prompt_data=None):
 
     st.header("Model")
 
-    only_free_models = st.segmented_control(
+    model_filter = st.segmented_control(
         "Model type",
-        options=["All", "Free", "Study"],
-        default="Study"
+        options=["All", "Free"],
+        default="All",
     )
 
-    model_ids = view_utils.get_model_ids(only_free_models)
+    model_ids = view_utils.get_model_ids(model_filter == "Free")
 
     with st.spinner("Loading available models...", show_time=True):
         # Starting a new prompt, with no previous data as placeholder
@@ -54,7 +54,7 @@ def model_picker(prompt_data=None):
             )
 
         # Button for "openrouter/free" - random model will be selected
-        if only_free_models == "Free" and "openrouter/free" in view_utils.get_model_ids(group="Free"):
+        if model_filter == "Free" and "openrouter/free" in view_utils.get_model_ids(only_free=True):
             st.button(
                 "Random free model",
                 type="secondary",

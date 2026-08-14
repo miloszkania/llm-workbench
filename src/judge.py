@@ -27,10 +27,10 @@ in every case, print one of these three characters, nothing less and nothing mor
 
 def get_llm_judge_label(prompt_id, system_prompt, prompt, response):
     preferred_judges = [
-        # "meta-llama/llama-3.3-70b-instruct",
+        "meta-llama/llama-3.3-70b-instruct",
         "google/gemma-4-31b-it",
     ]
-    available_judges = view_utils.get_model_ids(group="Study")
+    available_judges = view_utils.get_model_ids()
     chosen_judge = "openrouter/free" # fallback
 
     found = False
