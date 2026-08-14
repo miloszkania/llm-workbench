@@ -13,18 +13,22 @@ def get_model_list():
 def send_prompt(model, prompt, system_prompt):
     # Measure running time
     timestamp_start = datetime.now()
+
+    messages = []
+    if system_prompt:
+        messages.append({
+            "role": "system",
+            "content": system_prompt,
+        })
+
+    messages.append({
+        "role": "user",
+        "content": prompt,
+    })
+
     response = client.chat.send(
-        model = model,
-        messages = [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
+        model=model,
+        messages=messages,
     )
     timestamp_end = datetime.now()
 
