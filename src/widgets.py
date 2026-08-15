@@ -43,7 +43,7 @@ def model_picker(prompt_data=None):
 
     model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
 
-    with st.spinner("Loading available models...", show_time=True):
+    with st.spinner("Loading available models…"):
         # Starting a new prompt, with no previous data as placeholder
         if prompt_data is None or prompt_data.empty:
             st.selectbox(
@@ -142,7 +142,7 @@ def send_prompt_button_with_repetitions(button_label="Send"):
     prompt = st.session_state["prompt"]
     categories = st.session_state["categories"]
 
-    with st.spinner("Sending the request and waiting for response...", show_time=True):
+    with st.spinner("Sending the request and waiting for response…", show_time=True):
         col1, col2 = st.columns([1, 5])
         repetition_count = col2.number_input(
             "Repetitions",
@@ -216,7 +216,7 @@ def single_prompt_response_display(prompt_data):
             type="secondary",
             key=f"btn_get_judge_label_{prompt_data["id"]}",
         ):
-            with st.spinner("Waiting for judge response...", show_time=True):
+            with st.spinner("Waiting for judge response…", show_time=True):
                 judge_model, judge_label_response = judge.get_llm_judge_label(
                     prompt_data["id"],
                     prompt_data["system_prompt"],
@@ -286,7 +286,7 @@ def prompt_other_information_display(prompt_data):
 
 
 def preset_table_preview(preset_table=None):
-    with st.spinner("Getting preset data...", show_time=True):
+    with st.spinner("Getting preset data…"):
         if preset_table is None:
             preset_table = view_utils.get_all_preset_entries()
 
@@ -354,8 +354,9 @@ def api_key_details(canvas=st.sidebar):
 
     # check if the api key can be authentified
     try:
-        metadata = openrouter_api.get_key_metadata()
-        credits = openrouter_api.get_credits()
+        with canvas.spinner(text="Fetching account information…"):
+            metadata = openrouter_api.get_key_metadata()
+            credits = openrouter_api.get_credits()
     except openrouter.errors.UnauthorizedResponseError:
         canvas.caption("**API Key:** 🔴 Authentication failed, check `OPENROUTER_API_KEY`")
         return
@@ -375,14 +376,14 @@ def api_key_details(canvas=st.sidebar):
 
     # credits
     remaining_credits = credits.total_credits - credits.total_usage
-    canvas.write(f"**Remaining credits:** \${remaining_credits:.2f}")
+    canvas.write(f"**Remaining credits:** ${remaining_credits:.2f}")
 
     canvas.space("xxsmall")
 
     # key limit
     if metadata.limit:
         canvas.progress(metadata.limit_remaining / metadata.limit)
-        canvas.write(f"**Credit limit:** \${metadata.limit_remaining:.2f} / \${metadata.limit:.2f} remaining")
+        canvas.write(f"**Credit limit:** ${metadata.limit_remaining:.2f} / ${metadata.limit:.2f} remaining")
 
         canvas.space("xxsmall")
 
