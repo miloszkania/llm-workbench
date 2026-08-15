@@ -1,10 +1,12 @@
 import json
+from datetime import datetime, timedelta
 from operator import indexOf
+from zoneinfo import ZoneInfo
 
 import openrouter.errors.openroutererror
 import streamlit as st
 
-from src import view_utils, database, judge
+from src import view_utils, database, judge, openrouter_api
 
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 
@@ -328,7 +330,7 @@ def batch_ids_picker(history_table=None, canvas=st):
         history_table = view_utils.get_all_history_entries()
 
     if history_table.empty:
-        return []
+        return
 
     canvas.subheader("Show prompt/batch details")
 
@@ -345,3 +347,46 @@ def batch_ids_picker(history_table=None, canvas=st):
             st.switch_page("pages/batch_details.py", query_params={"ids": param_string})
 
     canvas.divider()
+
+
+def api_key_details(canvas=st.sidebar):
+    canvas.subheader("OpenRouter Details")
+
+    # check if the api key can be authentified
+    try:
+        metadata = openrouter_api.get_key_metadata()
+        credits = openrouter_api.get_credits()
+    except openrouter.errors.UnauthorizedResponseError:
+        canvas.caption("**API Key:** 🔴 Authentication failed, check `OPENROUTER_API_KEY`")
+        return
+
+    # key label
+    canvas.write(f"**API Key:** 🟢 `{metadata.label}`")
+
+    # key expiration
+    if metadata.expires_at:
+        local_expiration_date = metadata.expires_at.astimezone(datetime.now().astimezone().tzinfo)
+
+        # check if the key expires in less than 24 hours
+        if metadata.expires_at - datetime.now(ZoneInfo("UTC")) < timedelta(days=1):
+            canvas.write(f"**Expires at:** ⚠️ {local_expiration_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            canvas.write(f"**Expires at:** {local_expiration_date.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # credits
+    remaining_credits = credits.total_credits - credits.total_usage
+    canvas.write(f"**Remaining credits:** \${remaining_credits:.2f}")
+
+    canvas.space("xxsmall")
+
+    # key limit
+    if metadata.limit:
+        canvas.progress(metadata.limit_remaining / metadata.limit)
+        canvas.write(f"**Credit limit:** \${metadata.limit_remaining:.2f} / \${metadata.limit:.2f} remaining")
+
+        canvas.space("xxsmall")
+
+    # usage
+    canvas.write(f"**Daily usage:** ${metadata.usage_daily:.2f}")
+    canvas.write(f"**Weekly usage:** ${metadata.usage_weekly:.2f}")
+    canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.2f}")
