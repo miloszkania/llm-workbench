@@ -12,7 +12,7 @@ LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 
 
 def model_picker(prompt_data=None):
-    SORTING_OPTIONS = {
+    sorting_options = {
         "most-popular": "Most popular",
         "newest": "Newest",
         "latency-low-to-high": "Lowest latency",
@@ -35,8 +35,8 @@ def model_picker(prompt_data=None):
 
     model_sorting = st.segmented_control(
         "Sort by",
-        options=list(SORTING_OPTIONS),
-        format_func=lambda x: SORTING_OPTIONS[x],
+        options=list(sorting_options),
+        format_func=lambda x: sorting_options[x],
         default="most-popular",
         required=True,
     )

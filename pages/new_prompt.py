@@ -2,10 +2,7 @@ import streamlit as st
 
 from src import view_utils, widgets
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: New Prompt"
-)
+view_utils.page_config("New prompt")
 
 
 st.title("New Prompt")

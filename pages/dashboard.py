@@ -4,10 +4,7 @@ import plotly.express as px
 
 from src import view_utils, widgets
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: Dashboard"
-)
+view_utils.page_config("Dashboard")
 
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 

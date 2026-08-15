@@ -4,10 +4,7 @@ import streamlit as st
 
 from src import database, view_utils
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: Presets"
-)
+view_utils.page_config("Presets")
 
 
 def save_changes(original_df):

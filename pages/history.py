@@ -5,10 +5,7 @@ import streamlit as st
 
 from src import database, view_utils, widgets
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: History"
-)
+view_utils.page_config("History")
 
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 

@@ -10,6 +10,13 @@ from src import database, openrouter_api, judge
 
 ###### UTILS
 
+def page_config(name=None):
+    st.set_page_config(
+        layout="wide",
+        page_title=f"{name} | LLM Workbench" if name else "LLM Workbench"
+    )
+
+
 def unparse_categories_from_json(text):
     if not text or not isinstance(text, str) or text == "[]":
         return None

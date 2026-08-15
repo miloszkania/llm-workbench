@@ -2,10 +2,7 @@ import streamlit as st
 
 from src import view_utils, widgets
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: Batch Details"
-)
+view_utils.page_config("Batch details")
 
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 

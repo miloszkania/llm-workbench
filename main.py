@@ -2,10 +2,6 @@ import streamlit as st
 
 from src.config import get_env_config, EnvironmentConfigError
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: Home"
-)
 
 # Check the presence of required environment variables
 try:
@@ -14,7 +10,10 @@ except EnvironmentConfigError as e:
     st.error(f"Configuration error: {e}")
     st.stop()
 
-from src import widgets
+
+from src import widgets, view_utils
+
+view_utils.page_config()
 
 
 # Define all subpages

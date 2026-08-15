@@ -2,19 +2,14 @@ import streamlit as st
 
 from src import view_utils, widgets
 
-st.set_page_config(
-    layout="wide",
-    page_title="Pipeline: Prompt Details"
-)
-
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
-
 
 # get prompt id
 if "id" not in st.query_params:
     st.switch_page("pages/history.py")
 prompt_id = int(st.query_params["id"])
 
+view_utils.page_config(f"Prompt #{prompt_id} details")
 
 # initialize change listeners
 if "categories_changed" not in st.session_state:
