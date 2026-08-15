@@ -1,5 +1,7 @@
 import json
+from datetime import datetime, timedelta
 from operator import indexOf
+from zoneinfo import ZoneInfo
 
 import openrouter.errors.openroutererror
 import streamlit as st
@@ -347,30 +349,44 @@ def batch_ids_picker(history_table=None, canvas=st):
     canvas.divider()
 
 
-def api_key_details():
-    st.sidebar.subheader("API Key details")
+def api_key_details(canvas=st.sidebar):
+    canvas.subheader("OpenRouter Details")
 
+    # check if the api key can be authentified
     try:
         metadata = openrouter_api.get_key_metadata()
         credits = openrouter_api.get_credits()
     except openrouter.errors.UnauthorizedResponseError:
-        st.sidebar.caption("🔴 Not connected: Check your environment variables!")
+        canvas.caption("**API Key:** 🔴 Authentication failed, check `OPENROUTER_API_KEY`")
         return
 
-    st.sidebar.write(f"🟢 `{metadata.label}`")
+    # key label
+    canvas.write(f"**API Key:** 🟢 `{metadata.label}`")
+
+    # key expiration
     if metadata.expires_at:
-        st.sidebar.write(f"**Expires at:** {metadata.expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
-    st.sidebar.space("xxsmall")
+        local_expiration_date = metadata.expires_at.astimezone(datetime.now().astimezone().tzinfo)
 
-    available_credits = credits.total_credits - credits.total_usage
+        # check if the key expires in less than 24 hours
+        if metadata.expires_at - datetime.now(ZoneInfo("UTC")) < timedelta(days=1):
+            canvas.write(f"**Expires at:** ⚠️ {local_expiration_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            canvas.write(f"**Expires at:** {local_expiration_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    st.sidebar.progress(credits.total_usage / credits.total_credits)
-    st.sidebar.write(f"**Credits:** \${available_credits:.2f} of \${credits.total_credits:.2f} available")
+    # credits
+    remaining_credits = credits.total_credits - credits.total_usage
+    canvas.write(f"**Remaining credits:** \${remaining_credits:.2f}")
 
-    st.sidebar.space("xxsmall")
+    canvas.space("xxsmall")
 
-    st.sidebar.write(f"**Daily usage:** ${metadata.usage_daily:.2f}")
-    st.sidebar.write(f"**Weekly usage:** ${metadata.usage_weekly:.2f}")
-    st.sidebar.write(f"**Monthly usage:** ${metadata.usage_monthly:.2f}")
+    # key limit
+    if metadata.limit:
+        canvas.progress(metadata.limit_remaining / metadata.limit)
+        canvas.write(f"**Credit limit:** \${metadata.limit_remaining:.2f} / \${metadata.limit:.2f} remaining")
 
-    st.sidebar.space("xxsmall")
+        canvas.space("xxsmall")
+
+    # usage
+    canvas.write(f"**Daily usage:** ${metadata.usage_daily:.2f}")
+    canvas.write(f"**Weekly usage:** ${metadata.usage_weekly:.2f}")
+    canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.2f}")
