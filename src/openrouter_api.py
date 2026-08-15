@@ -34,3 +34,11 @@ def send_prompt(model, prompt, system_prompt):
     timestamp_end = datetime.now()
 
     return response, timestamp_start, timestamp_end - timestamp_start
+
+
+def get_key_metadata():
+    return client.api_keys.get_current_key_metadata().data
+
+
+def get_credits():
+    return client.credits.get_credits().data

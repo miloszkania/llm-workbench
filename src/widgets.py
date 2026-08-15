@@ -4,7 +4,7 @@ from operator import indexOf
 import openrouter.errors.openroutererror
 import streamlit as st
 
-from src import view_utils, database, judge
+from src import view_utils, database, judge, openrouter_api
 
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 
@@ -328,7 +328,7 @@ def batch_ids_picker(history_table=None, canvas=st):
         history_table = view_utils.get_all_history_entries()
 
     if history_table.empty:
-        return []
+        return
 
     canvas.subheader("Show prompt/batch details")
 
@@ -345,3 +345,32 @@ def batch_ids_picker(history_table=None, canvas=st):
             st.switch_page("pages/batch_details.py", query_params={"ids": param_string})
 
     canvas.divider()
+
+
+def api_key_details():
+    st.sidebar.subheader("API Key details")
+
+    try:
+        metadata = openrouter_api.get_key_metadata()
+        credits = openrouter_api.get_credits()
+    except openrouter.errors.UnauthorizedResponseError:
+        st.sidebar.caption("🔴 Not connected: Check your environment variables!")
+        return
+
+    st.sidebar.write(f"🟢 `{metadata.label}`")
+    if metadata.expires_at:
+        st.sidebar.write(f"**Expires at:** {metadata.expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    st.sidebar.space("xxsmall")
+
+    available_credits = credits.total_credits - credits.total_usage
+
+    st.sidebar.progress(credits.total_usage / credits.total_credits)
+    st.sidebar.write(f"**Credits:** \${available_credits:.2f} of \${credits.total_credits:.2f} available")
+
+    st.sidebar.space("xxsmall")
+
+    st.sidebar.write(f"**Daily usage:** ${metadata.usage_daily:.2f}")
+    st.sidebar.write(f"**Weekly usage:** ${metadata.usage_weekly:.2f}")
+    st.sidebar.write(f"**Monthly usage:** ${metadata.usage_monthly:.2f}")
+
+    st.sidebar.space("xxsmall")
