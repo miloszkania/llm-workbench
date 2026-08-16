@@ -41,6 +41,28 @@ def connect():
             foreign key (preset) references presets(id)
         );
     """)
+    cursor.execute("""
+        create table if not exists judge_configs (
+            id                  integer not null primary key,
+            judge_prompt        text not null,
+            require_explanation integer not null default 0
+                check (require_explanation in (0, 1))
+        );
+    """)
+    cursor.execute("""
+        create table if not exists judge_results (
+            id              integer not null primary key,
+            interaction_id  integer not null,
+            judge_config_id integer not null,
+            model           text not null,
+            label           text
+                check (label in ('success', 'refusal', 'unclear')),
+            explanation     text,
+            
+            foreign key (interaction_id) references history(id),
+            foreign key (judge_config_id) references judge_configs(id)
+        );
+    """)
     connection.commit()
 
     return connection
