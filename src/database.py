@@ -89,13 +89,18 @@ def connect():
 
 def run_sqlite_command(command, params):
     connection = connect()
-    cursor = connection.cursor()
 
-    cursor.execute(command, params)
+    try:
+        cursor = connection.execute(command, params)
+        connection.commit()
+        return cursor.lastrowid
 
-    connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
 
-    return cursor.lastrowid
+    finally:
+        connection.close()
 
 
 def insert_prompt_record(data):
