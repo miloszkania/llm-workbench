@@ -25,12 +25,14 @@ batch_details = st.Page("pages/batch_details.py", title="Batch Details", visibil
 dashboard = st.Page("pages/dashboard.py", title="Dashboard")
 dashboard_clean = st.Page("pages/dashboard_clean.py", title="Dashboard (Clean)")
 judge_settings = st.Page("pages/judge_settings.py", title="Judge Settings")
+new_judge_configuration = st.Page("pages/judge_new_configuration.py", title="New Judge Configuration")
 
 
 navigation = st.navigation({
     "LLM Workbench": [
         new_prompt,
         judge_settings,
+        new_judge_configuration,
         history,
         presets,
         dashboard,
