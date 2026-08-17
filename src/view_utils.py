@@ -47,7 +47,7 @@ def clear_model_id(model_id):
 ###### HISTORY
 
 def get_all_history_entries(fill_null=False):
-    df = pd.DataFrame(database.get_all_prompt_records())
+    df = pd.DataFrame(database.get_all_interactions())
 
     if df.empty:
         return df
@@ -172,7 +172,8 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
                     "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
                     "response": response_content,
                     "duration": str(duration),
-                    "token_usage": response.usage.total_tokens
+                    "token_usage": response.usage.total_tokens,
+                    "price": response.usage.cost,
                 })
 
                 # get llm-as-a-judge classification

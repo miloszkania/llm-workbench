@@ -103,6 +103,9 @@ def get_llm_judge_label(prompt_id, system_prompt, prompt, response):
 
 
 def save_label_to_db(prompt_id, label):
+    # TODO
+    return
+
     if label in ["🟢", "🟡", "🔴"]:
         database.set_prompt_judge_label(prompt_id, label)
 

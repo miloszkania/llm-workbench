@@ -10,56 +10,75 @@ def connect():
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     connection = sqlite3.connect(db_path)
+    connection.execute("pragma foreign_keys = on")
 
     # switch to getting Row-objects when fetching data from db
     connection.row_factory = sqlite3.Row
 
+    # create tables if they don't already exist
     cursor = connection.cursor()
     cursor.execute("""
+        create table if not exists app_settings (
+            property    text not null primary key,
+            value       text
+        )
+    """)
+    cursor.execute("""
         create table if not exists presets (
-            id              integer not null primary key autoincrement,
+            id              integer not null primary key,
+            name            varchar(64) not null unique,
             prompt          text not null,
             system_prompt   text,
             categories      text
+                            check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
+            created_at      timestamp default current_timestamp
         );
     """)
     cursor.execute("""
-        create table if not exists history (
-            id              integer not null primary key autoincrement,
+        create table if not exists interactions (
+            id              integer not null primary key,
             time            datetime not null,
             model           varchar(255) not null,
-            preset          integer,
+            preset_id       integer,
             prompt          text not null,
             system_prompt   text,
-            categories      text,
+            categories      text
+                            check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
             response        text,
-            label           char default '⏳',
-            judge_label     char default '⏳',
+            manual_label    text
+                            check (manual_label in ('success', 'refusal', 'unclear')),
             duration        time,
-            token_usage     integer,
+            token_usage     integer
+                            check (token_usage is null or token_usage >= 0),
+            price           real
+                            check (price is null or price >= 0),
             
-            foreign key (preset) references presets(id)
+            foreign key (preset_id) references presets(id) on delete set null
         );
     """)
     cursor.execute("""
         create table if not exists judge_configs (
             id                  integer not null primary key,
+            name                varchar(64) not null unique,
             judge_prompt        text not null,
             require_explanation integer not null default 0
-                check (require_explanation in (0, 1))
+                                check (require_explanation in (0, 1))
         );
     """)
     cursor.execute("""
         create table if not exists judge_results (
             id              integer not null primary key,
+            time            datetime not null,
             interaction_id  integer not null,
             judge_config_id integer not null,
             model           text not null,
             label           text
-                check (label in ('success', 'refusal', 'unclear')),
+                            check (label in ('success', 'refusal', 'unclear')),
             explanation     text,
+            price           real
+                            check (price is null or price >= 0),
             
-            foreign key (interaction_id) references history(id),
+            foreign key (interaction_id) references interactions(id) on delete cascade,
             foreign key (judge_config_id) references judge_configs(id)
         );
     """)
@@ -82,8 +101,9 @@ def run_sqlite_command(command, params):
 def insert_prompt_record(data):
     # returns the id of the inserted record
     return run_sqlite_command("""
-        insert into history (time, model, preset, prompt, system_prompt, categories, response, duration, token_usage)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        insert into interactions
+            (time, model, preset_id, prompt, system_prompt, categories, response, duration, token_usage, price)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
         data["time"],
         data["model"],
@@ -93,13 +113,14 @@ def insert_prompt_record(data):
         data["categories"],
         data["response"],
         data["duration"],
-        data["token_usage"]
+        data["token_usage"],
+        data["price"],
     ))
 
 
 def get_prompt_record(prompt_id):
     result = connect().cursor().execute("""
-        select * from history
+        select * from interactions
             where id = ?
     """, [int(prompt_id)])
     return [dict(i) for i in result.fetchall()]
@@ -107,7 +128,7 @@ def get_prompt_record(prompt_id):
 
 def delete_prompt_record(prompt_id):
     run_sqlite_command("""
-        delete from history
+        delete from interactions
         where id = ?
     """, [prompt_id])
 
@@ -139,7 +160,7 @@ def modify_preset(preset_id, column, new_value):
                 where id = ?
         """, (
             new_value,
-            int(preset_id)
+            int(preset_id),
         ))
 
 
@@ -150,41 +171,28 @@ def get_all_presets():
     return [dict(i) for i in result.fetchall()]
 
 
-def get_all_prompt_records():
-    result = connect().cursor().execute("""
-        select * from history;
+def get_all_interactions():
+    result = connect().execute("""
+        select * from interactions;
     """)
     return [dict(i) for i in result.fetchall()]
 
 
+def modify_interaction(prompt_id, column, new_value):
+    if column in ["manual_label", "categories"]: # only allowed columns
+        run_sqlite_command(f"""
+            update interactions
+                set {column} = ? -- column is already filtered, so it's injection-safe
+                where id = ?
+        """, (
+            new_value,
+            int(prompt_id),
+        ))
+
+
 def set_prompt_label(prompt_id, label):
-    run_sqlite_command("""
-        update history
-            set label = ?
-            where id = ?
-    """, (
-        label,
-        int(prompt_id)
-    ))
-
-
-def set_prompt_judge_label(prompt_id, judge_label):
-    run_sqlite_command("""
-        update history
-        set judge_label = ?
-        where id = ?
-    """, (
-        judge_label,
-        int(prompt_id)
-    ))
+    modify_interaction(prompt_id, "manual_label", label)
 
 
 def set_prompt_categories(prompt_id, categories):
-    run_sqlite_command("""
-        update history
-            set categories = ?
-            where id = ?
-    """, (
-        categories,
-        int(prompt_id)
-    ))
+    modify_interaction(prompt_id, "categories", categories)

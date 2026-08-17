@@ -117,7 +117,8 @@ def save_record(time, prompt, system_prompt, categories, preset, duration, respo
         "categories": categories if categories else None,
         "response": response.choices[0].message.content,
         "duration": str(duration),
-        "token_usage": response.usage.total_tokens
+        "token_usage": response.usage.total_tokens,
+        "price": response.usage.cost,
     })
     return record_id
 
@@ -129,7 +130,7 @@ def show_string_preview(s, length):
 
 
 while True:
-    prompt_history = database.get_all_prompt_records()
+    prompt_history = database.get_all_interactions()
 
     if len(prompt_history) > 0:
         last_record = prompt_history[-1]

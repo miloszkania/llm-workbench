@@ -77,8 +77,8 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count):
                     "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
                     "response": response_content,
                     "duration": str(duration),
-                    # "token_usage": response.usage.total_tokens,
-                    "token_usage": 0,
+                    "token_usage": response.usage.total_tokens,
+                    "price": response.usage.cost,
                 })
 
                 # get llm-as-a-judge classification
