@@ -7,6 +7,12 @@ view_utils.page_config("Judge settings")
 
 st.title("Judge Settings")
 
+# Show information about a successfully created config (when redirected here from the add-page)
+created_config_name = st.session_state.pop("created_config", None)
+if created_config_name:
+    st.success(f"A new configuration `{created_config_name}` has been successfully created!")
+
+
 ### Default settings
 st.header("Default settings")
 st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")

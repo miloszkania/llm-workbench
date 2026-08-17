@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src import view_utils
+from src import view_utils, database
 
 view_utils.page_config("New Judge Configuration")
 
@@ -11,10 +11,10 @@ if st.button("Back to judge settings"):
 
 st.divider()
 
+
 ### Name
 st.subheader("Name")
-st.write("The identifier of the configuration containing max. 64 characters "
-         "(allowed characters: letters, numbers, `-`, `_`).")
+st.write("The identifier of the configuration containing max. 64 characters.")
 config_name = st.text_input(
     "Configuration name",
     placeholder="my-configuration",
@@ -66,5 +66,27 @@ judge_prompt = st.text_area(
 
 st.divider()
 
+### Submit
 if st.button("Save configuration", type="primary"):
-    pass
+    config_name = config_name.strip()
+    judge_prompt = judge_prompt.strip()
+
+    if not config_name:
+        st.error("You need to enter the configuration name!")
+    elif len(config_name) > 64:
+        st.error("The configuration name can have at most 64 characters!")
+    elif len(database.find_judge_configuration_by_name(config_name)) > 0:
+        st.error(f"A configuration with name `{config_name}` already exists!")
+
+    elif not judge_prompt:
+        st.error("You need to enter the evaluation instructions!")
+    elif len(judge_prompt) > 2000:
+        st.error("The evaluation instructions can have at most 2000 characters!")
+    elif "[PROMPT]" not in judge_prompt or "[RESPONSE]" not in judge_prompt:
+        st.error("The instructions must contain **`[PROMPT]`** and **`[RESPONSE]`**!")
+
+    else:
+        database.insert_judge_configuration(config_name, judge_prompt, require_explanation)
+        st.success("Saved!")
+        st.session_state["created_config"] = config_name
+        st.switch_page("pages/judge_settings.py")

@@ -218,3 +218,15 @@ def get_all_judge_configurations():
        select * from judge_configs;
    """)
     return [dict(i) for i in result.fetchall()]
+
+
+def insert_judge_configuration(config_name, judge_prompt, require_explanation):
+    run_sqlite_command("""
+        insert into judge_configs (name, judge_prompt, require_explanation) values (?, ?, ?)
+    """, (config_name, judge_prompt, require_explanation))
+
+
+def find_judge_configuration_by_name(config_name):
+    return connect().execute("""
+        select * from judge_configs where name = ?
+    """, (config_name,)).fetchall()
