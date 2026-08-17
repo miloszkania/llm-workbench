@@ -8,12 +8,13 @@ view_utils.page_config("New prompt")
 st.title("New Prompt")
 
 ##### MODEL
+st.header("Model")
 widgets.model_picker()
 
 
 ##### PRESET
 
-st.subheader("Prompt")
+st.header("Prompt")
 all_presets = view_utils.get_all_preset_entries(fill_null=True)
 
 st.page_link("pages/presets.py", label="Edit presets")
@@ -24,7 +25,7 @@ widgets.preset_table_preview(all_presets)
 
 # After a preset was selected, sets text fields to its data
 def fill_preset_fields():
-    preset_row = all_presets.loc[all_presets["id"] == st.session_state["preset"]]
+    preset_row = all_presets.loc[all_presets["id"] == st.session_state["preset_id"]]
     if not preset_row.empty:
         preset_row = preset_row.iloc[0]
         st.session_state["system_prompt"] = preset_row["system_prompt"]
@@ -38,7 +39,7 @@ if not all_presets.empty:
         options=all_presets["id"],
         index=None,
         on_change=fill_preset_fields,
-        key="preset",
+        key="preset_id",
     )
 
     st.space("small")
@@ -48,7 +49,7 @@ if not all_presets.empty:
 
 ### Resets the preset ID field
 def reset_preset_selection():
-    st.session_state["preset"] = None
+    st.session_state["preset_id"] = None
 
 system_prompt = st.text_area(
     "System prompt",

@@ -114,5 +114,5 @@ def save_label_to_db(prompt_id, label):
         if prompt_data:
             prompt_data = prompt_data[0]
 
-            if prompt_data["label"] not in LABEL_OPTIONS:
-                database.set_prompt_label(prompt_id, label) # can be later modified by user
+            if prompt_data["manual_label"] not in LABEL_OPTIONS:
+                database.set_interaction_label(prompt_id, label) # can be later modified by user

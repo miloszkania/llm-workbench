@@ -71,7 +71,7 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count):
                 record_id = database.insert_prompt_record({
                     "time": str(start_timestamp),
                     "model": model_used,
-                    "preset": preset,
+                    "preset_id": preset,
                     "prompt": prompt,
                     "system_prompt": system_prompt if system_prompt else None,
                     "categories": json.dumps(categories, ensure_ascii=False) if categories else None,

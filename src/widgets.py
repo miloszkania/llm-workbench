@@ -24,8 +24,6 @@ def model_picker(prompt_data=None):
 
     def set_random_free_model(): st.session_state["model"] = "openrouter/free"
 
-    st.header("Model")
-
     model_filter = st.segmented_control(
         "Model type",
         options=["All", "Free"],
@@ -41,9 +39,9 @@ def model_picker(prompt_data=None):
         required=True,
     )
 
-    model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
-
     with st.spinner("Loading available models…"):
+        model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
+
         # Starting a new prompt, with no previous data as placeholder
         if prompt_data is None or prompt_data.empty:
             st.selectbox(
@@ -90,8 +88,8 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
 
     st.header("Prompt")
 
-    if prompt_data["preset"]:
-        st.caption(f"(used preset #{int(prompt_data["preset"])})")
+    if prompt_data["preset_id"]:
+        st.caption(f"(used preset #{int(prompt_data["preset_id"])})")
 
     st.text_area(
         "System prompt",
@@ -123,7 +121,7 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
                 batch_prompt_ids = [prompt_data["id"]]
 
             for prompt_id in batch_prompt_ids:
-                database.set_prompt_categories(prompt_id, json.dumps(categories, ensure_ascii=False))
+                database.set_interaction_categories(prompt_id, json.dumps(categories, ensure_ascii=False))
             st.success("Categories updated")
 
 
@@ -207,58 +205,60 @@ def single_prompt_response_display(prompt_data):
     ##### LLM-as-a-Judge Label
 
     # There is no LLM judge label
-    if prompt_data["judge_label"] not in LABEL_OPTIONS:
-        st.warning(f"The LLM-as-a-Judge label is not available.")
-
-        # Button to try to get LLM judge label
-        if st.button(
-            "Get LLM-as-a-Judge feedback",
-            type="secondary",
-            key=f"btn_get_judge_label_{prompt_data["id"]}",
-        ):
-            with st.spinner("Waiting for judge response…", show_time=True):
-                judge_model, judge_label_response = judge.get_llm_judge_label(
-                    prompt_data["id"],
-                    prompt_data["system_prompt"],
-                    prompt_data["prompt"],
-                    prompt_data["response"],
-                )
-
-                # It worked and we have the LLM judge label now
-                if judge_model:
-                    st.selectbox(
-                        f"LLM-as-a-Judge Label for ID={prompt_data["id"]} by {judge_model}",
-                        options=LABEL_OPTIONS,
-                        placeholder=judge_label_response,
-                        index=None,
-                        disabled=True,
-                        key=f"judge_label_{prompt_data["id"]}",
-                    )
-
-                    if prompt_data["label"] not in LABEL_OPTIONS:
-                        prompt_data["label"] = judge_label_response
-
-                # The attempt didn't work - still no LLM judge label
-                else:
-                    st.error(f"The LLM-as-a-Judge label is not available due to an OpenRouter error: {judge_label_response}")
-
-    # There already is a LLM judge label
-    else:
-        st.selectbox(
-            f"LLM-as-a-Judge Label for ID={prompt_data["id"]}",
-            options=LABEL_OPTIONS,
-            placeholder=prompt_data["judge_label"],
-            index=None,
-            disabled=True,
-            key=f"judge_label_{prompt_data["id"]}",
-        )
+    # if prompt_data["judge_label"] not in LABEL_OPTIONS:
+    #     st.warning(f"The LLM-as-a-Judge label is not available.")
+    #
+    #     # Button to try to get LLM judge label
+    #     if st.button(
+    #         "Get LLM-as-a-Judge feedback",
+    #         type="secondary",
+    #         key=f"btn_get_judge_label_{prompt_data["id"]}",
+    #     ):
+    #         with st.spinner("Waiting for judge response…", show_time=True):
+    #             judge_model, judge_label_response = judge.get_llm_judge_label(
+    #                 prompt_data["id"],
+    #                 prompt_data["system_prompt"],
+    #                 prompt_data["prompt"],
+    #                 prompt_data["response"],
+    #             )
+    #
+    #             # It worked and we have the LLM judge label now
+    #             if judge_model:
+    #                 st.selectbox(
+    #                     f"LLM-as-a-Judge Label for ID={prompt_data["id"]} by {judge_model}",
+    #                     options=LABEL_OPTIONS,
+    #                     placeholder=judge_label_response,
+    #                     index=None,
+    #                     disabled=True,
+    #                     key=f"judge_label_{prompt_data["id"]}",
+    #                 )
+    #
+    #                 if prompt_data["manual_label"] not in LABEL_OPTIONS:
+    #                     prompt_data["manual_label"] = judge_label_response
+    #
+    #             # The attempt didn't work - still no LLM judge label
+    #             else:
+    #                 st.error(f"The LLM-as-a-Judge label is not available due to an OpenRouter error: {judge_label_response}")
+    #
+    # # There already is a LLM judge label
+    # else:
+    #     st.selectbox(
+    #         f"LLM-as-a-Judge Label for ID={prompt_data["id"]}",
+    #         options=LABEL_OPTIONS,
+    #         placeholder=prompt_data["judge_label"],
+    #         index=None,
+    #         disabled=True,
+    #         key=f"judge_label_{prompt_data["id"]}",
+    #     )
 
 
     ##### Label
     st.selectbox(
         f"Label for ID={prompt_data["id"]}",
+
+
         options=LABEL_OPTIONS,
-        placeholder=prompt_data["label"],
+        placeholder=prompt_data["manual_label"],
         index=None,
         on_change=toggle_label_update_button,
         key=f"label_{prompt_data["id"]}",
@@ -270,7 +270,7 @@ def single_prompt_response_display(prompt_data):
         if st.button(f"Update label for ID={prompt_data["id"]}", type="primary"):
             label_value = st.session_state[f"label_{prompt_data["id"]}"]
             if label_value:
-                database.set_prompt_label(int(prompt_data["id"]), label_value)
+                database.set_interaction_label(int(prompt_data["id"]), label_value)
                 st.success("Label updated")
 
     st.divider()

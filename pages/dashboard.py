@@ -73,13 +73,13 @@ def export_chart(fig, filename, height, font_size=14):
 
 def p_ai_judge_success_rate(history_df, canvas):
     history_df = history_df.loc[
-        (history_df["judge_label"].isin(LABEL_OPTIONS)) & (history_df["label"].isin(LABEL_OPTIONS))
+        (history_df["judge_label"].isin(LABEL_OPTIONS)) & (history_df["manual_label"].isin(LABEL_OPTIONS))
     ]
 
     if history_df.empty:
         rate = 0
     else:
-        rate = len(history_df.loc[history_df["judge_label"] == history_df["label"]])
+        rate = len(history_df.loc[history_df["judge_label"] == history_df["manual_label"]])
         rate /= len(history_df)
         rate = round(rate * 100, 2)
 
@@ -102,7 +102,7 @@ def p_ai_judge_success_rate(history_df, canvas):
 #     canvas.markdown(f"##### **Percentage of matching LLM-as-a-Judge labels**: **`{rate} %`**")
 
 
-def p_chart_label_distribution_per_category(history_df, canvas, label_column="label"):
+def p_chart_label_distribution_per_category(history_df, canvas, label_column="manual_label"):
     label_per_category_counts = (
         history_df.explode("categories")
         .groupby(["categories", label_column])
@@ -142,7 +142,7 @@ def p_chart_label_distribution_per_category(history_df, canvas, label_column="la
     canvas.plotly_chart(fig, key=f"p_chart_label_distribution_per_category_{label_column}")
 
 
-def p_chart_date_category_success_over_time(history_df, canvas, label_column="label"):
+def p_chart_date_category_success_over_time(history_df, canvas, label_column="manual_label"):
     # extract only the date
     history_df["time"] = pd.to_datetime(history_df["time"]).dt.date
 
@@ -187,7 +187,7 @@ def p_chart_date_category_success_over_time(history_df, canvas, label_column="la
     canvas.plotly_chart(stats)
 
 
-def p_chart_label_distribution_per_model_in_category(history_df, canvas, category, label_column="label"):
+def p_chart_label_distribution_per_model_in_category(history_df, canvas, category, label_column="manual_label"):
     # remove timestamps from model ids (in old records)
     history_df["model"] = history_df["model"].apply(view_utils.clear_model_id)
 
@@ -255,11 +255,11 @@ def p_chart_label_distribution_per_model_in_category(history_df, canvas, categor
 
 ### Presets
 
-def p_chart_label_distribution_per_preset(history_df, canvas, label_column="label"):
+def p_chart_label_distribution_per_preset(history_df, canvas, label_column="manual_label"):
     # filter out all entries without a preset
-    history_df = history_df.loc[(history_df["preset"].notna()) & (history_df["preset"] != "")]
+    history_df = history_df.loc[(history_df["preset_id"].notna()) & (history_df["preset_id"] != "")]
 
-    history_df["preset_label"] = history_df["preset"].apply(lambda p_id: f"#{int(p_id)}")
+    history_df["preset_label"] = history_df["preset_id"].apply(lambda p_id: f"#{int(p_id)}")
 
     label_per_preset_counts = (
         history_df
@@ -301,15 +301,15 @@ def p_chart_label_distribution_per_preset(history_df, canvas, label_column="labe
     canvas.plotly_chart(stats)
 
 
-def p_chart_date_preset_success_over_time(history_df, canvas, label_column="label"):
+def p_chart_date_preset_success_over_time(history_df, canvas, label_column="manual_label"):
     # filter out all entries without a preset
-    history_df = history_df.loc[(history_df["preset"].notna()) & (history_df["preset"] != "")]
+    history_df = history_df.loc[(history_df["preset_id"].notna()) & (history_df["preset_id"] != "")]
 
     # convert `time` values to datetime type
     history_df["time"] = pd.to_datetime(history_df["time"]).dt.date
 
     # change preset label formatting
-    history_df["preset_label"] = history_df["preset"].apply(lambda p_id: f"#{int(p_id)}")
+    history_df["preset_label"] = history_df["preset_id"].apply(lambda p_id: f"#{int(p_id)}")
 
     daily_df = (
         history_df.groupby(["preset_label", "time"])
@@ -368,7 +368,7 @@ def parse_model_ids(i: str):
     return i[i.find("/") + 1:]
 
 
-def p_chart_label_distribution_per_model(history_df, canvas, label_column="label"):
+def p_chart_label_distribution_per_model(history_df, canvas, label_column="manual_label"):
     # remove timestamps from model ids (in old records)
     history_df["model"] = history_df["model"].apply(view_utils.clear_model_id).apply(parse_model_ids)
 
@@ -412,7 +412,7 @@ def p_chart_label_distribution_per_model(history_df, canvas, label_column="label
     canvas.plotly_chart(fig, key=f"p_chart_label_distribution_per_model_{label_column}")
 
 
-def p_chart_label_distribution_per_category_for_model(history_df, canvas, model, label_column="label"):
+def p_chart_label_distribution_per_category_for_model(history_df, canvas, model, label_column="manual_label"):
     # take only records with selected model
     history_df = history_df[history_df["model"] == model]
 
@@ -504,7 +504,7 @@ def p_heatmap_per_category(history_df, canvas):
 
 ### Length
 
-def p_chart_label_distribution_per_length(history_df, canvas, label_column="label"):
+def p_chart_label_distribution_per_length(history_df, canvas, label_column="manual_label"):
     history_df["total_length"] = (
             history_df["prompt"].str.len() +
             history_df["system_prompt"].str.len()
@@ -556,7 +556,7 @@ def p_chart_label_distribution_per_length(history_df, canvas, label_column="labe
     canvas.plotly_chart(stats)
 
 
-def p_chart_date_length_success_over_time(history_df, canvas, label_column="label"):
+def p_chart_date_length_success_over_time(history_df, canvas, label_column="manual_label"):
     # extract only the date
     history_df["time"] = pd.to_datetime(history_df["time"]).dt.date
 
@@ -608,7 +608,7 @@ def p_chart_date_length_success_over_time(history_df, canvas, label_column="labe
 
 ###### Count
 
-def c_chart_labels_per_category(history_df, canvas, label_column="label"):
+def c_chart_labels_per_category(history_df, canvas, label_column="manual_label"):
     history_df = (
         history_df.explode("categories")
         .groupby(["categories", label_column])
@@ -639,7 +639,7 @@ def c_chart_labels_per_category(history_df, canvas, label_column="label"):
     canvas.plotly_chart(stats)
 
 
-def c_chart_labels_per_length(history_df, canvas, label_column="label"):
+def c_chart_labels_per_length(history_df, canvas, label_column="manual_label"):
     history_df["total_length"] = (
             history_df["prompt"].str.len() +
             history_df["system_prompt"].str.len()

@@ -20,13 +20,13 @@ def save_changes(original_data: pd.DataFrame):
         preset_id = int(original_data.iloc[row_idx]["id"])
 
         # label:
-        if ch.get("label"):
-            database.set_prompt_label(preset_id, ch.get("label"))
+        if ch.get("manual_label"):
+            database.set_interaction_label(preset_id, ch.get("manual_label"))
 
         # categories:
         if ch.get("categories"):
             new_value = json.dumps(ch.get("categories"), ensure_ascii=False)
-            database.set_prompt_categories(preset_id, new_value)
+            database.set_interaction_categories(preset_id, new_value)
 
 
 
@@ -44,8 +44,8 @@ if not history_table.empty:
 
         column_order=[
             "id",
-            "preset",
-            "label",
+            "preset_id",
+            "manual_label",
             "judge_label",
             "categories",
             "prompt",
@@ -62,13 +62,13 @@ if not history_table.empty:
             "system_prompt",
             "response",
             "time",
-            "preset",
+            "preset_id",
             "model",
         ],
 
         column_config={
             "id": st.column_config.TextColumn("ID"),
-            "label": st.column_config.SelectboxColumn(
+            "manual_label": st.column_config.SelectboxColumn(
                 "Label",
                 options=LABEL_OPTIONS,
                 required=True,
@@ -99,7 +99,7 @@ if not history_table.empty:
                 "Response",
                 width="large",
             ),
-            "preset": st.column_config.TextColumn(
+            "preset_id": st.column_config.TextColumn(
                 "Preset",
             ),
             "model": st.column_config.TextColumn(

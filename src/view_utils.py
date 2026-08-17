@@ -61,7 +61,7 @@ def get_all_history_entries(fill_null=False):
 
     # fill nan values from database (<NULL>) if needed
     if fill_null:
-        df["preset"] = df["preset"].fillna("")
+        df["preset_id"] = df["preset_id"].fillna("")
         df["system_prompt"] = df["system_prompt"].fillna("")
 
     return df
@@ -166,7 +166,7 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
                 record_id = database.insert_prompt_record({
                     "time": str(start_timestamp),
                     "model": model_used,
-                    "preset": preset,
+                    "preset_id": preset,
                     "prompt": prompt,
                     "system_prompt": system_prompt if system_prompt else None,
                     "categories": json.dumps(categories, ensure_ascii=False) if categories else None,

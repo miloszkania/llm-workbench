@@ -107,7 +107,7 @@ def insert_prompt_record(data):
     """, (
         data["time"],
         data["model"],
-        data["preset"],
+        data["preset_id"],
         data["prompt"],
         data["system_prompt"],
         data["categories"],
@@ -178,7 +178,7 @@ def get_all_interactions():
     return [dict(i) for i in result.fetchall()]
 
 
-def modify_interaction(prompt_id, column, new_value):
+def modify_interaction(interaction_id, column, new_value):
     if column in ["manual_label", "categories"]: # only allowed columns
         run_sqlite_command(f"""
             update interactions
@@ -186,13 +186,35 @@ def modify_interaction(prompt_id, column, new_value):
                 where id = ?
         """, (
             new_value,
-            int(prompt_id),
+            int(interaction_id),
         ))
 
 
-def set_prompt_label(prompt_id, label):
-    modify_interaction(prompt_id, "manual_label", label)
+def set_interaction_label(interaction_id, label):
+    modify_interaction(interaction_id, "manual_label", label)
 
 
-def set_prompt_categories(prompt_id, categories):
-    modify_interaction(prompt_id, "categories", categories)
+def set_interaction_categories(interaction_id, categories):
+    modify_interaction(interaction_id, "categories", categories)
+
+
+def get_default_judge_settings():
+    result = connect().execute("""
+        select * from app_settings
+            where property in ('default_judge_config', 'default_judge_models');
+    """)
+    return [dict(i) for i in result.fetchall()]
+
+
+def get_saved_configuration_names():
+    result = connect().execute("""
+        select name from judge_configs;
+    """)
+    return [i["name"] for i in result.fetchall()]
+
+
+def get_all_judge_configurations():
+    result = connect().execute("""
+       select * from judge_configs;
+   """)
+    return [dict(i) for i in result.fetchall()]
