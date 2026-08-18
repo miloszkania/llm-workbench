@@ -1,6 +1,5 @@
 import json
 from datetime import datetime, timedelta
-from operator import indexOf
 from zoneinfo import ZoneInfo
 
 import openrouter.errors.openroutererror
@@ -58,7 +57,7 @@ def model_picker(prompt_data=None):
                 "Select a model",
                 placeholder=prompt_data["model"],
                 options=model_ids,
-                index=indexOf(model_ids, prompt_data["model"]),
+                index=model_ids.index(prompt_data["model"]),
                 key="model",
             )
 

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 from src.config import get_env_config
@@ -208,7 +209,35 @@ def get_default_judge_settings():
         select * from app_settings
             where property in ('default_judge_config', 'default_judge_models');
     """)
-    return [dict(i) for i in result.fetchall()]
+
+    result_as_object = {i["property"]: i["value"] for i in result.fetchall()}
+    default_config = result_as_object.get("default_judge_config")
+    default_models = json.loads(result_as_object.get("default_judge_models") or "[]")
+
+    return default_config, default_models
+
+
+def modify_default_judge_settings(new_default_config, new_default_models):
+    new_default_models = json.dumps(new_default_models)
+
+    connection = connect()
+
+    try:
+        connection.execute("""
+            insert into app_settings (property, value) values ('default_judge_config', ?)
+                on conflict(property) do update set value = ?;
+        """, (new_default_config, new_default_config))
+        connection.execute("""
+            insert into app_settings (property, value) values ('default_judge_models', ?)
+                on conflict(property) do update set value = ?
+        """, (new_default_models, new_default_models))
+
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def get_saved_configuration_names():
