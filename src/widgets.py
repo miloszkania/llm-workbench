@@ -38,46 +38,45 @@ def model_picker(prompt_data=None):
         required=True,
     )
 
-    with st.spinner("Loading available models…"):
-        model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
+    model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
 
-        # Starting a new prompt, with no previous data as placeholder
-        if prompt_data is None or prompt_data.empty:
-            st.selectbox(
-                "Select a model",
-                placeholder="Model",
-                options=model_ids,
-                index=None,
-                key="model",
-            )
+    # Starting a new prompt, with no previous data as placeholder
+    if prompt_data is None or prompt_data.empty:
+        st.selectbox(
+            "Select a model",
+            placeholder="Model",
+            options=model_ids,
+            index=None,
+            key="model",
+        )
 
-        # There is placeholder data, and it's present in the up-to-date model list
-        elif prompt_data["model"] in model_ids:
-            st.selectbox(
-                "Select a model",
-                placeholder=prompt_data["model"],
-                options=model_ids,
-                index=model_ids.index(prompt_data["model"]),
-                key="model",
-            )
+    # There is placeholder data, and it's present in the up-to-date model list
+    elif prompt_data["model"] in model_ids:
+        st.selectbox(
+            "Select a model",
+            placeholder=prompt_data["model"],
+            options=model_ids,
+            index=model_ids.index(prompt_data["model"]),
+            key="model",
+        )
 
-        # There is placeholder data, but it's not present in the up-to-date model list
-        else:
-            st.selectbox(
-                "Select a model",
-                placeholder=prompt_data["model"],
-                options=model_ids,
-                index=None,
-                key="model",
-            )
+    # There is placeholder data, but it's not present in the up-to-date model list
+    else:
+        st.selectbox(
+            "Select a model",
+            placeholder=prompt_data["model"],
+            options=model_ids,
+            index=None,
+            key="model",
+        )
 
-        # Button for "openrouter/free" - random model will be selected
-        if model_filter == "Free" and "openrouter/free" in model_ids:
-            st.button(
-                "Random free model",
-                type="secondary",
-                on_click=set_random_free_model,
-            )
+    # Button for "openrouter/free" - random model will be selected
+    if model_filter == "Free" and "openrouter/free" in model_ids:
+        st.button(
+            "Random free model",
+            type="secondary",
+            on_click=set_random_free_model,
+        )
 
     st.divider()
 

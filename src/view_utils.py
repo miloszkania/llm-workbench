@@ -205,7 +205,7 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
 
 ###### MODELS
 
-@st.cache_data(ttl="1h")
+@st.cache_data(ttl="1h", show_spinner="Loading available models…")
 def get_model_ids(sort="most-popular", only_free_models=False):
     model_ids = [i.id for i in openrouter_api.get_model_list(sort)]
 
