@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src import view_utils, widgets
+from src import view_utils, widgets, database
 
 view_utils.page_config("New prompt")
 
@@ -70,14 +70,30 @@ categories = st.multiselect(
     on_change=reset_preset_selection,
 )
 
-
 st.space("small")
-
-
-##### BUTTONS
 
 ### Add preset button
 widgets.save_preset_button()
+
+st.divider()
+
+
+### Judging
+# Fetch the judging configuration
+default_judge_config, default_judge_models = database.get_default_judge_settings()
+
+st.header("LLM-as-a-Judge Evaluation")
+
+if not default_judge_config or not default_judge_models:
+    st.warning("There is no default judge configuration set! "
+               "This interaction will not be judged. [Click here](/judge_settings) to set up response judging.")
+
+else:
+    st.write("The following judge configuration and models will be used to independently evaluate every generated "
+             "target response.")
+    selected_models, selected_configuration = widgets.judge_model_and_configuration_selector()
+
+st.divider()
 
 
 ### Send button

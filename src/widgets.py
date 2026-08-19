@@ -132,7 +132,7 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
     st.divider()
 
 
-def send_prompt_button_with_repetitions(button_label="Send"):
+def send_prompt_button_with_repetitions(button_label="Run"):
     model = st.session_state["model"]
     system_prompt = st.session_state["system_prompt"]
     prompt = st.session_state["prompt"]
@@ -141,16 +141,18 @@ def send_prompt_button_with_repetitions(button_label="Send"):
     with st.spinner("Sending the request and waiting for response…", show_time=True):
         col1, col2 = st.columns([1, 5])
         repetition_count = col2.number_input(
-            "Repetitions",
+            "Number of target interactions to run",
             min_value=1,
             max_value=50,
             value=1,
+            help="Each interaction independently sends the prompt to the target model and will be separately evaluated "
+                 "by each selected judge.",
             key="repetition_count",
         )
 
         col1.space("small")
 
-        if col1.button(f"{button_label}{f" ({model})" if model else ""}", type="primary"):
+        if col1.button(button_label, type="primary"):
             if not model:
                 st.error("You need to enter the model!")
             elif not prompt:
@@ -334,7 +336,7 @@ def batch_ids_picker(history_table=None, canvas=st):
 
     details_prompt_id = canvas.multiselect(
         "Prompt IDs",
-        placeholder="Prompt IDs",
+        placeholder="Select one or more IDs",
         options=history_table["id"],
         accept_new_options=True,
     )
@@ -389,3 +391,70 @@ def api_key_details(canvas=st.sidebar):
     canvas.write(f"**Daily usage:** ${metadata.usage_daily:.2f}")
     canvas.write(f"**Weekly usage:** ${metadata.usage_weekly:.2f}")
     canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.2f}")
+
+
+def judge_model_and_configuration_selector():
+    default_config, default_models = database.get_default_judge_settings()
+
+    # Models
+    st.subheader("Models")
+    st.write("Select up to three models that will evaluate the interactions following your selected configuration.")
+
+    # Not using widgets.model_picker() here since we need a multiselect instead of a selectbox
+    sorting_options = {
+        "most-popular": "Most popular",
+        "newest": "Newest",
+        "latency-low-to-high": "Lowest latency",
+        "pricing-low-to-high": "Lowest price",
+        "throughput-high-to-low": "Highest throughput",
+        "intelligence-high-to-low": "Highest intelligence",
+        "context-high-to-low": "Largest context window",
+    }
+
+    model_filter = st.segmented_control(
+        "Model type",
+        options=["All", "Free"],
+        default="All",
+        required=True,
+        key="model_filter",
+    )
+
+    model_sorting = st.segmented_control(
+        "Sort by",
+        options=list(sorting_options),
+        format_func=lambda x: sorting_options[x],
+        default="most-popular",
+        required=True,
+        key="model_sorting",
+    )
+
+    model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
+
+    # load the current models and check if they are still available
+    previous_selected_models = [m for m in default_models if m in model_ids]
+
+    selected_models = st.multiselect(
+        "Select up to 3 judge models",
+        options=model_ids,
+        default=previous_selected_models,
+        max_selections=3,
+        filter_mode="contains",
+        key="selected_judge_models", # to prevent resetting after changing the filters
+    )
+
+    # Configuration
+    st.space()
+    st.subheader("Configuration")
+
+    saved_configuration_names = database.get_saved_configuration_names()
+    previous_selected_configuration = (
+        saved_configuration_names.index(default_config) if default_config in saved_configuration_names else None
+    )
+
+    selected_configuration = st.selectbox(
+        "Select a configuration",
+        options=saved_configuration_names,
+        index=previous_selected_configuration,
+    )
+
+    return selected_models, selected_configuration
