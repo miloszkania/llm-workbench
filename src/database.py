@@ -69,13 +69,14 @@ def connect():
     cursor.execute("""
         create table if not exists judge_results (
             id              integer not null primary key,
-            time            datetime not null,
             interaction_id  integer not null,
             judge_config_id integer not null,
-            model           text not null,
+            judge_model     text not null,
             label           text
                             check (label in ('success', 'refusal', 'unclear')),
             explanation     text,
+            time            datetime not null,
+            duration        time,
             price           real
                             check (price is null or price >= 0),
             
@@ -264,3 +265,19 @@ def find_judge_configuration_by_name(config_name):
     return connect().execute("""
         select * from judge_configs where name = ?
     """, (config_name,)).fetchall()
+
+
+def insert_judge_result(data):
+    run_sqlite_command("""
+        insert into judge_results (interaction_id, judge_config_id, judge_model, label, explanation, time, duration, price)
+            values (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        data["interaction_id"],
+        data["judge_config_id"],
+        data["model"],
+        data["label"],
+        data["explanation"],
+        data["time"],
+        data["duration"],
+        data["price"],
+    ))
