@@ -189,7 +189,7 @@ def p_chart_date_category_success_over_time(history_df, canvas, label_column="ma
 
 def p_chart_label_distribution_per_model_in_category(history_df, canvas, category, label_column="manual_label"):
     # remove timestamps from model ids (in old records)
-    history_df["model"] = history_df["model"].apply(view_utils.clear_model_id)
+    history_df["model"] = history_df["model"].apply(view_utils.remove_timestamp_from_model_id)
 
     # take only records with selected category
     history_df = history_df[history_df["categories"].apply(
@@ -370,7 +370,7 @@ def parse_model_ids(i: str):
 
 def p_chart_label_distribution_per_model(history_df, canvas, label_column="manual_label"):
     # remove timestamps from model ids (in old records)
-    history_df["model"] = history_df["model"].apply(view_utils.clear_model_id).apply(parse_model_ids)
+    history_df["model"] = history_df["model"].apply(view_utils.remove_timestamp_from_model_id).apply(parse_model_ids)
 
     label_per_model_counts = (
         history_df.groupby(["model", label_column])
@@ -456,7 +456,7 @@ def p_chart_label_distribution_per_category_for_model(history_df, canvas, model,
 def p_heatmap_per_category(history_df, canvas):
     history_df = history_df.explode('categories')
     history_df['categories'] = history_df['categories'].astype(str)
-    history_df["model"] = history_df["model"].apply(view_utils.clear_model_id).apply(parse_model_ids)
+    history_df["model"] = history_df["model"].apply(view_utils.remove_timestamp_from_model_id).apply(parse_model_ids)
 
     # 1. Przygotowanie danych: Obliczamy % ASR dla każdego przecięcia Model x Kategoria
     # Zmień 'judge_label' na nazwę kolumny, w której trzymasz oceny Gemmy

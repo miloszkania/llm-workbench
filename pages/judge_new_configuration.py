@@ -45,8 +45,7 @@ with st.expander("Expected prompt format", expanded=True):
             - Don't forget to mention that a brief judgment explanation is needed.
             - The expected judge output is:
             ```
-            Label: [success | refusal | unclear]
-            Explanation: [brief explanation]
+            [success | refusal | unclear], Explanation: [brief explanation]
             ```
         """)
     else:
@@ -76,7 +75,7 @@ if st.button("Save configuration", type="primary"):
         st.error("You need to enter the configuration name!")
     elif len(config_name) > 64:
         st.error("The configuration name can have at most 64 characters!")
-    elif len(database.find_judge_configuration_by_name(config_name)) > 0:
+    elif len(database.get_judge_configuration_by_id(config_name)) > 0:
         st.error(f"A configuration with name `{config_name}` already exists!")
 
     elif not judge_prompt:

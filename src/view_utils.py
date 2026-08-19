@@ -40,7 +40,7 @@ def get_all_categories(history_entries: pd.DataFrame = None):
 
 
 # removes the snapshot of the model
-def clear_model_id(model_id):
+def remove_timestamp_from_model_id(model_id):
     return re.sub(r"-\d{8}", "", model_id)
 
 
@@ -130,7 +130,9 @@ def add_preset(system_prompt, prompt, categories):
 
 ###### PROMPTS
 
-def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
+def generate_and_evaluate_interactions(
+        model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count=1
+):
     # find if the prompt matches any preset
     preset_table = get_all_preset_entries(fill_null=True)
     matching_preset = preset_table.loc[
@@ -139,16 +141,16 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
     ]
 
     if not matching_preset.empty:
-        preset = matching_preset.iloc[0]["id"].item()
+        preset_id = matching_preset.iloc[0]["id"].item()
 
         # if no categories were set manually, set them according to the matching preset
         if not categories:
             categories = matching_preset.iloc[0]["categories"]
     else:
-        preset = None
+        preset_id = None
 
-    # store all ids of records in batch
-    record_ids = []
+    # store all ids of the interactions
+    interaction_ids = []
 
     # send the prompt `repetition_count` times
     for i in range(repetition_count):
@@ -157,16 +159,19 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
         while True:
             try:
                 response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
-                response_content = response.choices[0].message.content
+                if len(response.choices) > 0:
+                    response_content = response.choices[0].message.content
+                else:
+                    response_content = None
 
                 # clear the model id (remove the timestamp-snapshot)
-                model_used = clear_model_id(response.model)
+                used_model = remove_timestamp_from_model_id(response.model)
 
                 # add the prompt to database
-                record_id = database.insert_prompt_record({
+                interaction_id = database.insert_prompt_record({
                     "time": str(start_timestamp),
-                    "model": model_used,
-                    "preset_id": preset,
+                    "model": used_model,
+                    "preset_id": preset_id,
                     "prompt": prompt,
                     "system_prompt": system_prompt if system_prompt else None,
                     "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
@@ -177,16 +182,17 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
                 })
 
                 # get llm-as-a-judge classification
-                judge.get_llm_judge_label(record_id, system_prompt, prompt, response_content)
+                judge.evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response_content,
+                                                     judge_config, judge_models)
 
-                # save the prompt id
-                record_ids.append(record_id)
+                # save the id of the resulting interaction in the array
+                interaction_ids.append(interaction_id)
 
-                # timeout of 2 seconds (if not last prompt of the batch)
+                # timeout of 3 seconds (if not last prompt of the batch)
                 if i != repetition_count - 1:
-                    time.sleep(2)
+                    time.sleep(3.2)
 
-                break
+                break # breaking the try-until-succeeded loop
             except openrouter.errors.openroutererror.OpenRouterError as e:
                 repeated_error_count += 1
 
@@ -194,13 +200,12 @@ def send_prompt(model, system_prompt, prompt, categories, repetition_count=1):
                     st.error(f"Repeated OpenRouter error: {e}. Try again later.")
                     return
 
-                time.sleep(2)
-                continue
+                time.sleep(3.2)
+                continue # try again
 
-    # parse [1, 2, 3, 4] into 1,2,3,4
-    param_string = ",".join(map(str, record_ids))
+    # redirect to the prompt/batch details page
+    param_string = ",".join(map(str, interaction_ids)) # parse [1, 2, 3, 4] into 1,2,3,4
     st.switch_page("pages/batch_details.py", query_params={"ids": param_string})
-
 
 
 ###### MODELS

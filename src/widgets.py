@@ -127,12 +127,12 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
     save_preset_button()
 
     # Re-run button
-    send_prompt_button_with_repetitions("Re-run")
+    send_prompt_button_with_repetitions(None, None, "Re-run") # TODO: adjust
 
     st.divider()
 
 
-def send_prompt_button_with_repetitions(button_label="Run"):
+def send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Run"):
     model = st.session_state["model"]
     system_prompt = st.session_state["system_prompt"]
     prompt = st.session_state["prompt"]
@@ -159,12 +159,15 @@ def send_prompt_button_with_repetitions(button_label="Run"):
                 st.error("You need to enter the prompt!")
             else:
                 try:
-                    view_utils.send_prompt(model, system_prompt, prompt, categories, repetition_count)
+                    view_utils.generate_and_evaluate_interactions(
+                        model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count
+                    )
                 except openrouter.errors.toomanyrequestsresponse_error.TooManyRequestsResponseError:
                     st.error("Too many requests - rate limited by OpenRouter. Try again later.")
                 except openrouter.errors.openroutererror.OpenRouterError as e:
                     if "flagged" in e:
-                        st.error(f"The request to {model} was flagged by OpenInterface. Try again with a different model.")
+                        st.error(f"The request to {model} was flagged by OpenInterface. "
+                                 f"Try again with a different model.")
                     else:
                         st.error(f"OpenRouter error: {e}. Try again later.")
 
@@ -255,8 +258,6 @@ def single_prompt_response_display(prompt_data):
     ##### Label
     st.selectbox(
         f"Label for ID={prompt_data["id"]}",
-
-
         options=LABEL_OPTIONS,
         placeholder=prompt_data["manual_label"],
         index=None,
@@ -446,14 +447,14 @@ def judge_model_and_configuration_selector():
     st.space()
     st.subheader("Configuration")
 
-    saved_configuration_names = database.get_saved_configuration_names()
+    saved_configuration_ids = database.get_saved_configuration_ids()
     previous_selected_configuration = (
-        saved_configuration_names.index(default_config) if default_config in saved_configuration_names else None
+        saved_configuration_ids.index(default_config) if default_config in saved_configuration_ids else None
     )
 
     selected_configuration = st.selectbox(
         "Select a configuration",
-        options=saved_configuration_names,
+        options=saved_configuration_ids,
         index=previous_selected_configuration,
     )
 

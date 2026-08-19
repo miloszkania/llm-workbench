@@ -80,21 +80,21 @@ st.divider()
 
 ### Judging
 # Fetch the judging configuration
-default_judge_config, default_judge_models = database.get_default_judge_settings()
+judge_config, judge_models = database.get_default_judge_settings()
 
 st.header("LLM-as-a-Judge Evaluation")
 
-if not default_judge_config or not default_judge_models:
+if not judge_config or not judge_models:
     st.warning("There is no default judge configuration set! "
                "This interaction will not be judged. [Click here](/judge_settings) to set up response judging.")
 
 else:
     st.write("The following judge configuration and models will be used to independently evaluate every generated "
              "target response.")
-    selected_models, selected_configuration = widgets.judge_model_and_configuration_selector()
+    judge_models, judge_config = widgets.judge_model_and_configuration_selector()
 
 st.divider()
 
 
 ### Send button
-widgets.send_prompt_button_with_repetitions()
+widgets.send_prompt_button_with_repetitions(judge_config, judge_models)

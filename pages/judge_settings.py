@@ -49,12 +49,11 @@ if not all_configs.empty:
 
     st.dataframe(
         all_configs,
-        hide_index=True,
         row_height=100,
         height="content",
-        column_order=("name", "judge_prompt", "require_explanation"),
+        column_order=("id", "judge_prompt", "require_explanation"),
         column_config={
-            "name": st.column_config.TextColumn("Name"),
+            "id": st.column_config.TextColumn("ID"),
             "judge_prompt": st.column_config.TextColumn("Introductory prompt"),
             "require_explanation": st.column_config.CheckboxColumn("Explanation required?"),
         },

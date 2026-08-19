@@ -59,8 +59,8 @@ def connect():
     """)
     cursor.execute("""
         create table if not exists judge_configs (
-            id                  integer not null primary key,
-            name                varchar(64) not null unique,
+            id                  varchar(64) not null unique primary key
+                                check (length(id) <= 64),
             judge_prompt        text not null,
             require_explanation integer not null default 0
                                 check (require_explanation in (0, 1))
@@ -70,7 +70,7 @@ def connect():
         create table if not exists judge_results (
             id              integer not null primary key,
             interaction_id  integer not null,
-            judge_config_id integer not null,
+            judge_config_id varchar(64) not null,
             judge_model     text not null,
             label           text
                             check (label in ('success', 'refusal', 'unclear')),
@@ -241,11 +241,11 @@ def modify_default_judge_settings(new_default_config, new_default_models):
         connection.close()
 
 
-def get_saved_configuration_names():
+def get_saved_configuration_ids():
     result = connect().execute("""
-        select name from judge_configs;
+        select id from judge_configs;
     """)
-    return [i["name"] for i in result.fetchall()]
+    return [i["id"] for i in result.fetchall()]
 
 
 def get_all_judge_configurations():
@@ -255,16 +255,16 @@ def get_all_judge_configurations():
     return [dict(i) for i in result.fetchall()]
 
 
-def insert_judge_configuration(config_name, judge_prompt, require_explanation):
+def insert_judge_configuration(config_id, judge_prompt, require_explanation):
     run_sqlite_command("""
-        insert into judge_configs (name, judge_prompt, require_explanation) values (?, ?, ?)
-    """, (config_name, judge_prompt, require_explanation))
+        insert into judge_configs (id, judge_prompt, require_explanation) values (?, ?, ?)
+    """, (config_id, judge_prompt, require_explanation))
 
 
-def find_judge_configuration_by_name(config_name):
+def get_judge_configuration_by_id(config_id):
     return connect().execute("""
-        select * from judge_configs where name = ?
-    """, (config_name,)).fetchall()
+        select * from judge_configs where id = ?
+    """, (config_id,)).fetchall()
 
 
 def insert_judge_result(data):
@@ -274,7 +274,7 @@ def insert_judge_result(data):
     """, (
         data["interaction_id"],
         data["judge_config_id"],
-        data["model"],
+        data["judge_model"],
         data["label"],
         data["explanation"],
         data["time"],
