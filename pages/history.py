@@ -1,5 +1,3 @@
-import json
-
 import pandas as pd
 import streamlit as st
 
@@ -16,17 +14,16 @@ def save_changes(original_data: pd.DataFrame):
         database.delete_prompt_record(int(original_data.iloc[row_idx]["id"]))
 
     # adjust record data
-    for row_idx, ch in changes["edited_rows"].items():
+    for row_idx, edit_changes in changes["edited_rows"].items():
         preset_id = int(original_data.iloc[row_idx]["id"])
 
-        # label:
-        if ch.get("manual_label"):
-            database.set_interaction_label(preset_id, ch.get("manual_label"))
+        # label (if has been changed):
+        if "manual_label" in edit_changes:
+            database.set_interaction_label(preset_id, edit_changes.get("manual_label"))
 
-        # categories:
-        if ch.get("categories"):
-            new_value = json.dumps(ch.get("categories"), ensure_ascii=False)
-            database.set_interaction_categories(preset_id, new_value)
+        # categories (if has been changed):
+        if "categories" in edit_changes:
+            database.set_interaction_categories(preset_id, edit_changes.get("categories"))
 
 
 

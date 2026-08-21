@@ -202,7 +202,7 @@ def set_interaction_label(interaction_id, label):
 
 
 def set_interaction_categories(interaction_id, categories):
-    modify_interaction(interaction_id, "categories", categories)
+    modify_interaction(interaction_id, "categories", json.dumps(categories, ensure_ascii=False))
 
 
 def get_default_judge_settings():

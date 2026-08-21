@@ -1,5 +1,3 @@
-import json
-
 import streamlit as st
 
 from src import database, view_utils, widgets
@@ -90,14 +88,20 @@ else:
     )
 
 # categories
-categories = st.multiselect(
+col_select_categories, col_save_categories = st.columns([2, 1])
+categories = col_select_categories.multiselect(
     "Categories",
     options=view_utils.get_all_categories(),
     default=view_utils.unparse_categories_from_json(interactions[0]["interaction"]["categories"] or []),
     accept_new_options=True,
     key="categories",
-    disabled=True,
 )
+
+col_save_categories.space()
+if col_save_categories.button("Save categories", type="primary"):
+    for i in interactions:
+        database.set_interaction_categories(i["interaction"]["id"], categories)
+    st.success("Categories updated!")
 
 widgets.save_preset_button(
     interactions[0]["interaction"]["prompt"],

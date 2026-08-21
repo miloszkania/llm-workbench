@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -122,7 +121,7 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
                 batch_prompt_ids = [prompt_data["id"]]
 
             for prompt_id in batch_prompt_ids:
-                database.set_interaction_categories(prompt_id, json.dumps(categories, ensure_ascii=False))
+                database.set_interaction_categories(prompt_id, categories)
             st.success("Categories updated")
 
 
