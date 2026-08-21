@@ -22,6 +22,7 @@ history = st.Page("pages/history.py", title="History")
 presets = st.Page("pages/presets.py", title="Presets")
 prompt_details = st.Page("pages/prompt_details.py", title="Prompt Details", visibility="hidden")
 batch_details = st.Page("pages/batch_details.py", title="Batch Details", visibility="hidden")
+experiment_results = st.Page("pages/experiment_results.py", title="Experiment Results", visibility="hidden")
 dashboard = st.Page("pages/dashboard.py", title="Dashboard")
 dashboard_clean = st.Page("pages/dashboard_clean.py", title="Dashboard (Clean)")
 judge_settings = st.Page("pages/judge_settings.py", title="Judge Settings")
@@ -39,6 +40,7 @@ navigation = st.navigation({
         dashboard_clean,
         prompt_details,
         batch_details,
+        experiment_results,
     ],
 })
 

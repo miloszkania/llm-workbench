@@ -12,7 +12,7 @@ This is a pipeline used to produce and evaluate *jailbreak* experiments on LLMs.
 
 ## Prerequisites
 - Python 3.12 or newer + pip
-- An [OpenRouter](https://openrouter.ai/) account and an API key
+- An [OpenRouter](https://openrouter.ai/) account with an API key
 - An internet connection while the app is running
 
 ## Quick Start

@@ -10,7 +10,7 @@ from src import view_utils, database, judge, openrouter_api
 LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
 
 
-def model_picker(prompt_data=None):
+def model_picker(default_model=None, canvas=st, key_prefix=""):
     sorting_options = {
         "most-popular": "Most popular",
         "newest": "Newest",
@@ -23,62 +23,65 @@ def model_picker(prompt_data=None):
 
     def set_random_free_model(): st.session_state["model"] = "openrouter/free"
 
-    model_filter = st.segmented_control(
+    model_filter = canvas.segmented_control(
         "Model type",
         options=["All", "Free"],
         default="All",
         required=True,
+        key=f"{key_prefix}model-filter",
     )
 
-    model_sorting = st.segmented_control(
+    model_sorting = canvas.segmented_control(
         "Sort by",
         options=list(sorting_options),
         format_func=lambda x: sorting_options[x],
         default="most-popular",
         required=True,
+        key=f"{key_prefix}model-sorting",
     )
 
     model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
 
     # Starting a new prompt, with no previous data as placeholder
-    if prompt_data is None or prompt_data.empty:
-        st.selectbox(
+    if not default_model:
+        canvas.selectbox(
             "Select a model",
             placeholder="Model",
             options=model_ids,
             index=None,
-            key="model",
+            key=f"{key_prefix}model",
         )
 
     # There is placeholder data, and it's present in the up-to-date model list
-    elif prompt_data["model"] in model_ids:
-        st.selectbox(
+    elif default_model in model_ids:
+        canvas.selectbox(
             "Select a model",
-            placeholder=prompt_data["model"],
+            placeholder=default_model,
             options=model_ids,
-            index=model_ids.index(prompt_data["model"]),
-            key="model",
+            index=model_ids.index(default_model),
+            key=f"{key_prefix}model",
         )
 
     # There is placeholder data, but it's not present in the up-to-date model list
     else:
-        st.selectbox(
+        canvas.selectbox(
             "Select a model",
-            placeholder=prompt_data["model"],
+            placeholder=default_model,
             options=model_ids,
             index=None,
-            key="model",
+            key=f"{key_prefix}model",
         )
 
     # Button for "openrouter/free" - random model will be selected
     if model_filter == "Free" and "openrouter/free" in model_ids:
-        st.button(
+        canvas.button(
             "Random free model",
             type="secondary",
             on_click=set_random_free_model,
+            key=f"{key_prefix}random-model-button",
         )
 
-    st.divider()
+    canvas.divider()
 
 
 def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None):
@@ -132,7 +135,7 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
     st.divider()
 
 
-def send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Run"):
+def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, button_label="Run"):
     model = st.session_state["model"]
     system_prompt = st.session_state["system_prompt"]
     prompt = st.session_state["prompt"]
@@ -183,6 +186,67 @@ def save_preset_button():
         else:
             preset_id = view_utils.add_preset(system_prompt, prompt, categories)
             st.success(f"Saved as preset #{preset_id}")
+
+
+def interaction_card(interaction_object):
+    interaction_id = interaction_object["interaction"]["id"]
+
+    with st.expander(f"Interaction #{interaction_id}", expanded=True):
+        with st.container(border=True):
+            # count judge labels
+            num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
+            num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
+            num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
+            judging_price = sum(i["price"] for i in interaction_object["judge_results"])
+
+            # Overview
+            st.header(f"Interaction #{interaction_id}")
+            st.markdown(f"from `{interaction_object['interaction']['model']}` · "
+                     f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+                     f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
+                     f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
+                     f"**{interaction_object['interaction']['token_usage']}** tokens · "
+                     f"interaction: **\\${interaction_object['interaction']['price']:.2f}** · "
+                     f"judging: **\\${judging_price:.2f}**"
+            )
+
+            st.divider()
+
+            col_response, col_judge = st.columns(2)
+
+            # Response
+            col_response.subheader("Response")
+            parse_markdown = col_response.toggle("Parse Markdown", value=True, key=f"parse_md_{interaction_id}")
+
+            if parse_markdown:
+                with col_response.container(border=True, height="stretch"):
+                    st.markdown(interaction_object["interaction"]["response"])
+            else:
+                col_response.text_area(
+                    f"Response for ID={interaction_id}",
+                    value=interaction_object["interaction"]["response"],
+                    height="stretch",
+                    key=f"response_{interaction_id}",
+                )
+
+            # Judge results
+            col_judge.subheader("Judge results")
+            if len(interaction_object["judge_results"]) > 0:
+                for judge_result in interaction_object["judge_results"]:
+                    label = judge_result["label"]
+                    explanation = judge_result["explanation"] or ""
+
+                    if label == "success": display_fct = col_judge.success
+                    elif label == "refusal": display_fct = col_judge.error
+                    elif label == "unclear": display_fct = col_judge.warning
+                    else: continue
+
+                    display_fct(
+                        title=f"{label} · {judge_result['judge_model']} · {judge_result["judge_config_id"]}",
+                        body=explanation,
+                    )
+            else:
+                col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
 
 
 def single_prompt_response_display(prompt_data):
@@ -333,7 +397,7 @@ def batch_ids_picker(history_table=None, canvas=st):
     if history_table.empty:
         return
 
-    canvas.subheader("Show prompt/batch details")
+    canvas.subheader("Show experiment results")
 
     details_prompt_id = canvas.multiselect(
         "Prompt IDs",
@@ -345,7 +409,7 @@ def batch_ids_picker(history_table=None, canvas=st):
     if details_prompt_id is not None:
         if canvas.button("Go"):
             param_string = ",".join(map(str, details_prompt_id))
-            st.switch_page("pages/batch_details.py", query_params={"ids": param_string})
+            st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
 
     canvas.divider()
 

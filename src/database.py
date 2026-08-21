@@ -125,7 +125,7 @@ def insert_prompt_record(data):
     ))
 
 
-def get_prompt_record(prompt_id):
+def get_interaction_by_id(prompt_id):
     result = connect().cursor().execute("""
         select * from interactions
             where id = ?
@@ -281,3 +281,11 @@ def insert_judge_result(data):
         data["duration"],
         data["price"],
     ))
+
+
+def get_judge_results_by_interaction(interaction_id):
+    result = connect().execute("""
+        select * from judge_results
+            where interaction_id = ?
+    """, (interaction_id,))
+    return [dict(i) for i in result.fetchall()]

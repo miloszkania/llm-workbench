@@ -32,6 +32,11 @@ def save_changes(original_data: pd.DataFrame):
 
 st.title("History")
 
+# if we have been redirected here, display the passed error message
+error_message = st.session_state.pop("error_message", None)
+if error_message:
+    st.error(error_message)
+
 history_table = view_utils.get_all_history_entries()
 
 if not history_table.empty:

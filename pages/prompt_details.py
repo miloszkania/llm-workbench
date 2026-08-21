@@ -40,7 +40,7 @@ st.write(f"Run on `{current_prompt_data["time"]}`")
 
 ##### MODEL
 st.header("Model")
-widgets.model_picker(current_prompt_data)
+widgets.model_picker(default_model=current_prompt_data["model"])
 
 
 ##### PROMPT

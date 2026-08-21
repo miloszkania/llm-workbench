@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from datetime import datetime
 
 import openrouter.errors.toomanyrequestsresponse_error
 import pandas as pd
@@ -44,6 +45,28 @@ def remove_timestamp_from_model_id(model_id):
     return re.sub(r"-\d{8}", "", model_id)
 
 
+def format_timestamp(value):
+    timestamp = datetime.fromisoformat(value)
+    return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def format_duration(value):
+    point_position = value.find(".")
+
+    if point_position >= 0: # if there is no dot in value, point_position = -1
+        value = value[:value.find(".")]
+
+    hours, minutes, seconds = value.split(":")
+
+    # choose the suitable display option
+    if minutes == "00":
+        return f"{seconds} seconds"
+    elif hours == "0":
+        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != "00" else ''}"
+    else:
+        return value
+
+
 ###### HISTORY
 
 def get_all_history_entries(fill_null=False):
@@ -68,7 +91,7 @@ def get_all_history_entries(fill_null=False):
 
 
 def get_single_history_entry(entry_id):
-    prompt_data = database.get_prompt_record(int(entry_id))
+    prompt_data = database.get_interaction_by_id(int(entry_id))
 
     if not prompt_data:
         return None

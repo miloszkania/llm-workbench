@@ -68,7 +68,7 @@ st.write(f"Run between `{first_batch_prompt["time"]}` and `{last_batch_prompt["t
 
 ##### MODEL
 st.header("Model")
-widgets.model_picker(first_batch_prompt)
+widgets.model_picker(default_model=first_batch_prompt["model"])
 
 
 ##### PROMPT
