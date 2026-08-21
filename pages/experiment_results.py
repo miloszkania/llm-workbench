@@ -33,14 +33,18 @@ for interaction_id in interaction_ids:
         "judge_results": judge_results,
     })
 
-# check if all selected interactions have the same prompt (then, together they can be called an experiment)
-for i in range(1, len(interactions)):
-    if interactions[i - 1]["interaction"]["prompt"] != interactions[i]["interaction"]["prompt"]\
-            or interactions[i - 1]["interaction"]["system_prompt"] != interactions[i]["interaction"]["system_prompt"]\
-            or interactions[i - 1]["interaction"]["categories"] != interactions[i]["interaction"]["categories"]:
-        st.session_state["error_message"] = ("The selected interactions do not belong to the same experiment! "
-                                             "They need to have sent identical prompts.")
-        st.switch_page("pages/history.py")
+
+experiment_input = interactions[0]["interaction"]
+
+# check if all selected interactions have the same prompt and categories (then, together they can be called an experiment)
+if any(
+        (i["interaction"]["prompt"], i["interaction"]["system_prompt"], i["interaction"]["categories"])
+            != (experiment_input["prompt"], experiment_input["system_prompt"], experiment_input["categories"])
+        for i in interactions
+):
+    st.session_state["error_message"] = ("The selected interactions do not belong to the same experiment! "
+                                         "They need to have sent identical prompts.")
+    st.switch_page("pages/history.py")
 
 
 ### Start frontend
@@ -62,27 +66,27 @@ st.header("Prompt")
 parse_markdown = st.toggle("Parse Markdown", value=True, key="parse_md_prompt")
 
 if parse_markdown:
-    if interactions[0]["interaction"]["system_prompt"]:
+    if experiment_input["system_prompt"]:
         with st.container(border=True, height="stretch"):
             st.caption("System prompt")
-            st.markdown(interactions[0]["interaction"]["system_prompt"])
+            st.markdown(experiment_input["system_prompt"])
 
     with st.container(border=True, height="stretch"):
         st.caption("User prompt")
-        st.markdown(interactions[0]["interaction"]["prompt"])
+        st.markdown(experiment_input["prompt"])
 
 else:
-    if interactions[0]["interaction"]["system_prompt"]:
+    if experiment_input["system_prompt"]:
         st.text_area(
             "System prompt",
-            value=interactions[0]["interaction"]["system_prompt"],
+            value=experiment_input["system_prompt"],
             height="content",
             key="system_prompt",
         )
 
     st.text_area(
         "User prompt",
-        value=interactions[0]["interaction"]["prompt"],
+        value=experiment_input["prompt"],
         height="content",
         key="prompt",
     )
@@ -92,7 +96,7 @@ col_select_categories, col_save_categories = st.columns([2, 1])
 categories = col_select_categories.multiselect(
     "Categories",
     options=view_utils.get_all_categories(),
-    default=view_utils.unparse_categories_from_json(interactions[0]["interaction"]["categories"] or []),
+    default=view_utils.unparse_categories_from_json(experiment_input["categories"] or []),
     accept_new_options=True,
     key="categories",
 )
@@ -104,13 +108,13 @@ if col_save_categories.button("Save categories", type="primary"):
     st.success("Categories updated!")
 
 widgets.save_preset_button(
-    interactions[0]["interaction"]["prompt"],
-    interactions[0]["interaction"]["system_prompt"],
+    experiment_input["prompt"],
+    experiment_input["system_prompt"],
     categories
 )
 
 st.divider()
 
-# show interaction cards
+# interaction cards
 for interaction_object in interactions:
     widgets.interaction_card(interaction_object)

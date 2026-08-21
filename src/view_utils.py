@@ -228,7 +228,7 @@ def generate_and_evaluate_interactions(
 
     # redirect to the prompt/batch details page
     param_string = ",".join(map(str, interaction_ids)) # parse [1, 2, 3, 4] into 1,2,3,4
-    st.switch_page("pages/batch_details.py", query_params={"ids": param_string})
+    st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
 
 
 ###### MODELS
