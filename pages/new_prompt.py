@@ -73,7 +73,7 @@ categories = st.multiselect(
 st.space("small")
 
 ### Add preset button
-widgets.save_preset_button()
+widgets.save_preset_button(prompt, system_prompt, categories)
 
 st.divider()
 

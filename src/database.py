@@ -27,7 +27,7 @@ def connect():
     cursor.execute("""
         create table if not exists presets (
             id              integer not null primary key,
-            name            varchar(64) not null unique,
+            -- name            varchar(64) not null unique,
             prompt          text not null,
             system_prompt   text,
             categories      text

@@ -127,7 +127,7 @@ def prompt_input_display(prompt_data, history_table=None, batch_prompt_ids=None)
 
 
     # Save as preset button
-    save_preset_button()
+    # save_preset_button()
 
     # Re-run button
     send_prompt_button_with_repetitions(None, None, "Re-run") # TODO: adjust
@@ -175,15 +175,12 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
                         st.error(f"OpenRouter error: {e}. Try again later.")
 
 
-def save_preset_button():
-    prompt = st.session_state["prompt"]
-    system_prompt = st.session_state.get("system_prompt")
-    categories = st.session_state.get("categories")
-
+def save_preset_button(prompt, system_prompt, categories):
     if st.button("Add preset", type="secondary"):
         if not prompt:
             st.error("You need to enter the prompt!")
         else:
+            system_prompt = system_prompt or ""
             preset_id = view_utils.add_preset(system_prompt, prompt, categories)
             st.success(f"Saved as preset #{preset_id}")
 

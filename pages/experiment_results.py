@@ -35,7 +35,6 @@ for interaction_id in interaction_ids:
         "judge_results": judge_results,
     })
 
-
 # check if all selected interactions have the same prompt (then, together they can be called an experiment)
 for i in range(1, len(interactions)):
     if interactions[i - 1]["interaction"]["prompt"] != interactions[i]["interaction"]["prompt"]\
@@ -98,6 +97,12 @@ categories = st.multiselect(
     accept_new_options=True,
     key="categories",
     disabled=True,
+)
+
+widgets.save_preset_button(
+    interactions[0]["interaction"]["prompt"],
+    interactions[0]["interaction"]["system_prompt"],
+    categories
 )
 
 st.divider()
