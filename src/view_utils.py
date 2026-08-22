@@ -56,13 +56,13 @@ def format_duration(value):
     if point_position >= 0: # if there is no dot in value, point_position = -1
         value = value[:value.find(".")]
 
-    hours, minutes, seconds = value.split(":")
+    hours, minutes, seconds = map(int, value.split(":"))
 
     # choose the suitable display option
-    if minutes == "00":
+    if minutes == 0:
         return f"{seconds} seconds"
-    elif hours == "0":
-        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != "00" else ''}"
+    elif hours == 0:
+        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
     else:
         return value
 

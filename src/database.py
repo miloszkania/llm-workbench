@@ -107,7 +107,7 @@ def insert_prompt_record(data):
     return run_sqlite_command("""
         insert into interactions
             (time, model, prompt, system_prompt, categories, response, duration, token_usage, price)
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
         data["time"],
         data["model"],
