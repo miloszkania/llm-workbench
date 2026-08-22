@@ -46,6 +46,26 @@ if any(
                                          "They need to have sent identical prompts.")
     st.switch_page("pages/history.py")
 
+# compute aggregate experiment overview
+num_success = sum(
+    sum([1 if i["label"] == "success" else 0 for i in single_interaction["judge_results"]])
+    for single_interaction in interactions
+)
+num_refusal = sum(
+    sum([1 if i["label"] == "refusal" else 0 for i in single_interaction["judge_results"]])
+    for single_interaction in interactions
+)
+num_unclear = sum(
+    sum([1 if i["label"] == "unclear" else 0 for i in single_interaction["judge_results"]])
+    for single_interaction in interactions
+)
+judging_price = sum(
+    sum([i["price"] for i in single_interaction["judge_results"]])
+    for single_interaction in interactions
+)
+interaction_price = sum([i["interaction"]["price"] for i in interactions])
+
+
 
 ### Start frontend
 
@@ -58,6 +78,14 @@ if len(interactions) == 1:
     st.subheader(f"ID: `{interactions[0]['interaction']['id']}`")
 else:
     st.subheader(f"IDs: {', '.join(f'`{i["interaction"]["id"]}`' for i in interactions)}")
+
+# aggregate details of the whole experiment
+st.markdown(f"##### Tested models: {', '.join(set([f"`{i['interaction']['model']}`" for i in interactions]))}")
+st.markdown(
+    f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+    f"interaction: **\\${interaction_price:.4f}** · "
+    f"judging: **\\${judging_price:.4f}**"
+)
 
 st.divider()
 

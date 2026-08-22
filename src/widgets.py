@@ -149,8 +149,8 @@ def interaction_card(interaction_object):
                      f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
                      f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
                      f"**{interaction_object['interaction']['token_usage']}** tokens · "
-                     f"interaction: **\\${interaction_object['interaction']['price']:.2f}** · "
-                     f"judging: **\\${judging_price:.2f}**"
+                     f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
+                     f"judging: **\\${judging_price:.4f}**"
             )
 
             st.divider()
@@ -283,21 +283,21 @@ def api_key_details(canvas=st.sidebar):
 
     # credits
     remaining_credits = credits.total_credits - credits.total_usage
-    canvas.write(f"**Remaining credits:** ${remaining_credits:.2f}")
+    canvas.write(f"**Remaining credits:** ${remaining_credits:.4f}")
 
     canvas.space("xxsmall")
 
     # key limit
     if metadata.limit:
         canvas.progress(metadata.limit_remaining / metadata.limit)
-        canvas.write(f"**Credit limit:** ${metadata.limit_remaining:.2f} / ${metadata.limit:.2f} remaining")
+        canvas.write(f"**Credit limit:** ${metadata.limit_remaining:.4f} / ${metadata.limit:.4f} remaining")
 
         canvas.space("xxsmall")
 
     # usage
-    canvas.write(f"**Daily usage:** ${metadata.usage_daily:.2f}")
-    canvas.write(f"**Weekly usage:** ${metadata.usage_weekly:.2f}")
-    canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.2f}")
+    canvas.write(f"**Daily usage:** ${metadata.usage_daily:.4f}")
+    canvas.write(f"**Weekly usage:** ${metadata.usage_weekly:.4f}")
+    canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.4f}")
 
 
 def judge_model_and_configuration_selector():
