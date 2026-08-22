@@ -125,29 +125,18 @@ def get_all_preset_entries(fill_null=False):
 
 def add_preset(system_prompt, prompt, categories):
     # check if such preset already exists, and if so, return its existing id
-    preset_table = get_all_preset_entries(fill_null=True)
+    categories = json.dumps(categories, ensure_ascii=False)
+    system_prompt = system_prompt or None
 
-    if not preset_table.empty:
-        matching_preset = preset_table.loc[
-            (preset_table["system_prompt"] == system_prompt) &
-            (preset_table["prompt"] == prompt)
-        ]
+    matching_preset = database.get_preset_id_by_content(prompt, system_prompt, categories)
 
-        if not matching_preset.empty:
-            preset_id = matching_preset.iloc[0]["id"].item() # .item() to parse from int64 to normal int
-            return preset_id
-
-        else:
-            return database.insert_preset({
-                "prompt": prompt,
-                "system_prompt": system_prompt if system_prompt else None,
-                "categories": json.dumps(categories, ensure_ascii=False)
-            })
+    if matching_preset:
+        return matching_preset
     else:
         return database.insert_preset({
             "prompt": prompt,
-            "system_prompt": system_prompt if system_prompt else None,
-            "categories": json.dumps(categories, ensure_ascii=False)
+            "system_prompt": system_prompt,
+            "categories": categories,
         })
 
 

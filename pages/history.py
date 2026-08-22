@@ -46,7 +46,6 @@ if not history_table.empty:
 
         column_order=[
             "id",
-            "preset_id",
             "manual_label",
             "judge_label",
             "categories",
@@ -64,7 +63,6 @@ if not history_table.empty:
             "system_prompt",
             "response",
             "time",
-            "preset_id",
             "model",
         ],
 
@@ -100,9 +98,6 @@ if not history_table.empty:
             "response": st.column_config.TextColumn(
                 "Response",
                 width="large",
-            ),
-            "preset_id": st.column_config.TextColumn(
-                "Preset",
             ),
             "model": st.column_config.TextColumn(
                 "Model",

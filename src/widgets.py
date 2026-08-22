@@ -126,7 +126,6 @@ def save_preset_button(prompt, system_prompt, categories):
         if not prompt:
             st.error("You need to enter the prompt!")
         else:
-            system_prompt = system_prompt or ""
             preset_id = view_utils.add_preset(system_prompt, prompt, categories)
             st.success(f"Saved as preset #{preset_id}")
 

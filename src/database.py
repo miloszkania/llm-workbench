@@ -40,7 +40,6 @@ def connect():
             id              integer not null primary key,
             time            datetime not null,
             model           varchar(255) not null,
-            preset_id       integer,
             prompt          text not null,
             system_prompt   text,
             categories      text
@@ -52,9 +51,7 @@ def connect():
             token_usage     integer
                             check (token_usage is null or token_usage >= 0),
             price           real
-                            check (price is null or price >= 0),
-            
-            foreign key (preset_id) references presets(id) on delete set null
+                            check (price is null or price >= 0)
         );
     """)
     cursor.execute("""
@@ -109,12 +106,11 @@ def insert_prompt_record(data):
     # returns the id of the inserted record
     return run_sqlite_command("""
         insert into interactions
-            (time, model, preset_id, prompt, system_prompt, categories, response, duration, token_usage, price)
+            (time, model, prompt, system_prompt, categories, response, duration, token_usage, price)
         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
         data["time"],
         data["model"],
-        data["preset_id"],
         data["prompt"],
         data["system_prompt"],
         data["categories"],
@@ -289,3 +285,14 @@ def get_judge_results_by_interaction(interaction_id):
             where interaction_id = ?
     """, (interaction_id,))
     return [dict(i) for i in result.fetchall()]
+
+
+def get_preset_id_by_content(prompt, system_prompt, categories):
+    result = connect().execute("""
+        select id from presets
+            where prompt = ?
+            and system_prompt is ?
+            and categories is ?
+            limit 1
+    """, (prompt, system_prompt, categories)).fetchone()
+    return result["id"] if result is not None else None

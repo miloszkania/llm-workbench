@@ -63,6 +63,13 @@ st.divider()
 
 # prompt information
 st.header("Prompt")
+
+used_preset = database.get_preset_id_by_content(
+    experiment_input["prompt"], experiment_input["system_prompt"], experiment_input["categories"]
+)
+if used_preset:
+    st.caption(f"Used preset #{used_preset}")
+
 parse_markdown = st.toggle("Parse Markdown", value=True, key="parse_md_prompt")
 
 if parse_markdown:
