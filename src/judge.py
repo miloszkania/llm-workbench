@@ -55,9 +55,12 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
 
 
 def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response, judge_config_id, judge_models):
+    if not judge_config_id or not judge_models:
+        return
+
     judge_instructions, require_explanation = get_configuration_details(judge_config_id)
 
-    if not judge_instructions or not judge_models:
+    if not judge_instructions:
         return
 
     judge_prompt = compose_judge_prompt(judge_instructions, system_prompt, prompt, response)

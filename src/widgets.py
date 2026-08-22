@@ -358,7 +358,7 @@ def judge_model_and_configuration_selector():
     model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
 
     # load the current models and check if they are still available
-    previous_selected_models = [m for m in default_models if m in model_ids]
+    previous_selected_models = [m for m in default_models if m in model_ids] if default_models else []
 
     selected_models = st.multiselect(
         "Select up to 3 judge models",

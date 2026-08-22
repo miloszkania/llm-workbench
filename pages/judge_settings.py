@@ -19,20 +19,24 @@ all_configs = pd.DataFrame(database.get_all_judge_configurations())
 if not all_configs.empty:
     ### Default settings
     st.header("Default settings")
-    st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")
-    st.space()
 
-    selected_models, selected_configuration = widgets.judge_model_and_configuration_selector()
-    st.space()
+    judging_enabled = st.toggle(
+        "Evaluate responses with LLM judges",
+        value=True,
+    )
+
+    if judging_enabled:
+        st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")
+        st.space()
+
+        selected_models, selected_configuration = widgets.judge_model_and_configuration_selector()
+        st.space()
+    else:
+        selected_models, selected_configuration = [], None
 
     if st.button("Save defaults", type="primary"):
-        if not selected_models:
-            st.error("You must choose at least one judge model!")
-        elif not selected_configuration:
-            st.error("You must choose a configuration!")
-        else:
-            database.modify_default_judge_settings(selected_configuration, selected_models)
-            st.success("Saved!")
+        database.modify_default_judge_settings(selected_configuration, selected_models)
+        st.success("Saved!")
 
     st.divider()
 
