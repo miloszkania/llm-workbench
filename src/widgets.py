@@ -141,16 +141,36 @@ def interaction_card(interaction_object):
             num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
             judging_price = sum(i["price"] for i in interaction_object["judge_results"])
 
+            col_overview, col_manual_label = st.columns([3, 1])
+
             # Overview
-            st.header(f"Interaction #{interaction_id}")
-            st.markdown(f"##### from `{interaction_object['interaction']['model']}`")
-            st.markdown(
+            col_overview.header(f"Interaction #{interaction_id}")
+            col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
+            col_overview.markdown(
                      f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
                      f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
                      f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
                      f"**{interaction_object['interaction']['token_usage']}** tokens · "
                      f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
                      f"judging: **\\${judging_price:.4f}**"
+            )
+
+            # Manual label field
+            def update_manual_label():
+                new_label = st.session_state[f"manual_label_{interaction_id}"]
+                database.set_interaction_label(interaction_id, new_label)
+                col_manual_label.success("Label saved!")
+
+            possible_labels = ["success", "refusal", "unclear", None]
+            existing_manual_label = interaction_object["interaction"]["manual_label"]
+            col_manual_label.selectbox(
+                label="Set a manual label",
+                options=possible_labels,
+                format_func=lambda x: x.capitalize() if x else "No label",
+                placeholder="Select a label…",
+                index=(possible_labels.index(existing_manual_label) if existing_manual_label else None),
+                key=f"manual_label_{interaction_id}",
+                on_change=update_manual_label,
             )
 
             st.divider()

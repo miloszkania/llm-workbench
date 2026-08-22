@@ -18,7 +18,7 @@ def load_interactions(interaction_ids):
 
         # interaction with id interaction_id could not be found -> redirect
         if len(interaction_object) == 0:
-            st.session_state["error_message"] = f"An interaction with with ID={interaction_id} could not be found."
+            st.session_state["error_message"] = f"No interaction with with ID={interaction_id} could be found."
             st.switch_page("pages/history.py")
 
         judge_results = database.get_judge_results_by_interaction(interaction_id)
