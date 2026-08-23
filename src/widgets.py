@@ -320,8 +320,9 @@ def api_key_details(canvas=st.sidebar):
     canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.4f}")
 
 
-def judge_model_and_configuration_selector():
-    default_config, default_models = database.get_default_judge_settings()
+def judge_model_and_configuration_selector(default_config=None, default_models=None):
+    if not default_config and not default_models:
+        default_config, default_models = database.get_default_judge_settings()
 
     # Models
     st.subheader("Models")

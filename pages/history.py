@@ -5,8 +5,7 @@ from src import database, view_utils, widgets
 
 view_utils.page_config("History")
 
-LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
-
+label_options = ["success", "refusal", "unclear"]
 
 def save_changes(original_data: pd.DataFrame):
     # delete rows
@@ -15,15 +14,15 @@ def save_changes(original_data: pd.DataFrame):
 
     # adjust record data
     for row_idx, edit_changes in changes["edited_rows"].items():
-        preset_id = int(original_data.iloc[row_idx]["id"])
+        interaction_id = int(original_data.iloc[row_idx]["id"])
 
         # label (if has been changed):
         if "manual_label" in edit_changes:
-            database.set_interaction_label(preset_id, edit_changes.get("manual_label"))
+            database.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
 
         # categories (if has been changed):
         if "categories" in edit_changes:
-            database.set_interaction_categories(preset_id, edit_changes.get("categories"))
+            database.set_interaction_categories(interaction_id, edit_changes.get("categories"))
 
 
 
@@ -47,7 +46,6 @@ if not history_table.empty:
         column_order=[
             "id",
             "manual_label",
-            "judge_label",
             "categories",
             "prompt",
             "system_prompt",
@@ -58,7 +56,6 @@ if not history_table.empty:
 
         disabled=[
             "id",
-            "judge_label",
             "prompt",
             "system_prompt",
             "response",
@@ -70,13 +67,8 @@ if not history_table.empty:
             "id": st.column_config.TextColumn("ID"),
             "manual_label": st.column_config.SelectboxColumn(
                 "Label",
-                options=LABEL_OPTIONS,
-                required=True,
-            ),
-            "judge_label": st.column_config.SelectboxColumn(
-                "Judge Label",
-                options=LABEL_OPTIONS,
-                required=True,
+                options=label_options,
+                format_func=lambda x: x.capitalize(),
             ),
             "categories": st.column_config.MultiselectColumn(
                 "categories",

@@ -84,7 +84,6 @@ def get_all_history_entries(fill_null=False):
 
     # fill nan values from database (<NULL>) if needed
     if fill_null:
-        df["preset_id"] = df["preset_id"].fillna("")
         df["system_prompt"] = df["system_prompt"].fillna("")
 
     return df
@@ -145,22 +144,6 @@ def add_preset(system_prompt, prompt, categories):
 def generate_and_evaluate_interactions(
         model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count=1
 ):
-    # find if the prompt matches any preset
-    preset_table = get_all_preset_entries(fill_null=True)
-    matching_preset = preset_table.loc[
-        (preset_table.get("system_prompt") == system_prompt) &
-        (preset_table["prompt"] == prompt)
-    ]
-
-    if not matching_preset.empty:
-        preset_id = matching_preset.iloc[0]["id"].item()
-
-        # if no categories were set manually, set them according to the matching preset
-        if not categories:
-            categories = matching_preset.iloc[0]["categories"]
-    else:
-        preset_id = None
-
     # store all ids of the interactions
     interaction_ids = []
 
@@ -183,7 +166,6 @@ def generate_and_evaluate_interactions(
                 interaction_id = database.insert_prompt_record({
                     "time": str(start_timestamp),
                     "model": used_model,
-                    "preset_id": preset_id,
                     "prompt": prompt,
                     "system_prompt": system_prompt if system_prompt else None,
                     "categories": json.dumps(categories, ensure_ascii=False) if categories else None,

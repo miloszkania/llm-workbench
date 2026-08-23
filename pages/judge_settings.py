@@ -20,23 +20,29 @@ if not all_configs.empty:
     ### Default settings
     st.header("Default settings")
 
+    # get current default settings
+    judge_config, judge_models = database.get_default_judge_settings()
+
     judging_enabled = st.toggle(
         "Evaluate responses with LLM judges",
-        value=True,
+        value=(judge_config and judge_models),
     )
 
     if judging_enabled:
         st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")
         st.space()
 
-        selected_models, selected_configuration = widgets.judge_model_and_configuration_selector()
+        selected_models, selected_config = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
         st.space()
     else:
-        selected_models, selected_configuration = [], None
+        selected_models, selected_config = [], None
 
     if st.button("Save defaults", type="primary"):
-        database.modify_default_judge_settings(selected_configuration, selected_models)
-        st.success("Saved!")
+        if judging_enabled and (not selected_config or not selected_models):
+            st.error("Select a judge configuration and at least one judge model!")
+        else:
+            database.modify_default_judge_settings(selected_config, selected_models)
+            st.success("Saved!")
 
     st.divider()
 

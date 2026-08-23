@@ -92,7 +92,7 @@ judging_enabled = st.toggle(
 if judging_enabled:
     st.write("The following judge configuration and models will be used to independently evaluate every generated "
              "target response.")
-    judge_models, judge_config = widgets.judge_model_and_configuration_selector()
+    judge_models, judge_config = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
 
 else:
     judge_models, judge_config = [], None
@@ -101,4 +101,7 @@ st.divider()
 
 
 ### Send button
-widgets.send_prompt_button_with_repetitions(judge_config, judge_models)
+if (not judging_enabled) or (judging_enabled and judge_models and judge_config):
+    widgets.send_prompt_button_with_repetitions(judge_config, judge_models)
+else:
+    st.info("Select a valid judge configuration and models or disable LLM judging to continue.")
