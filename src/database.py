@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 from src.config import get_env_config
@@ -10,35 +11,74 @@ def connect():
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     connection = sqlite3.connect(db_path)
+    connection.execute("pragma foreign_keys = on")
 
     # switch to getting Row-objects when fetching data from db
     connection.row_factory = sqlite3.Row
 
+    # create tables if they don't already exist
     cursor = connection.cursor()
     cursor.execute("""
+        create table if not exists app_settings (
+            property    text not null primary key,
+            value       text
+        )
+    """)
+    cursor.execute("""
         create table if not exists presets (
-            id              integer not null primary key autoincrement,
+            id              integer not null primary key,
+            -- name            varchar(64) not null unique,
             prompt          text not null,
             system_prompt   text,
             categories      text
+                            check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
+            created_at      timestamp default current_timestamp
         );
     """)
     cursor.execute("""
-        create table if not exists history (
-            id              integer not null primary key autoincrement,
+        create table if not exists interactions (
+            id              integer not null primary key,
             time            datetime not null,
             model           varchar(255) not null,
-            preset          integer,
             prompt          text not null,
             system_prompt   text,
-            categories      text,
+            categories      text
+                            check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
             response        text,
-            label           char default '⏳',
-            judge_label     char default '⏳',
+            manual_label    text
+                            check (manual_label in ('success', 'refusal', 'unclear')),
             duration        time,
-            token_usage     integer,
+            token_usage     integer
+                            check (token_usage is null or token_usage >= 0),
+            price           real
+                            check (price is null or price >= 0)
+        );
+    """)
+    cursor.execute("""
+        create table if not exists judge_configs (
+            id                  varchar(64) not null unique primary key
+                                check (length(id) <= 64),
+            judge_prompt        text not null,
+            require_explanation integer not null default 0
+                                check (require_explanation in (0, 1))
+        );
+    """)
+    cursor.execute("""
+        create table if not exists judge_results (
+            id              integer not null primary key,
+            interaction_id  integer not null,
+            judge_config_id varchar(64) not null,
+            judge_model     text not null,
+            label           text
+                            check (label in ('success', 'refusal', 'unclear')),
+            explanation     text,
+            time            datetime not null,
+            duration        time,
+            price           real
+                            check (price is null or price >= 0),
             
-            foreign key (preset) references presets(id)
+            foreign key (interaction_id) references interactions(id) on delete cascade,
+            foreign key (judge_config_id) references judge_configs(id)
         );
     """)
     connection.commit()
@@ -48,36 +88,42 @@ def connect():
 
 def run_sqlite_command(command, params):
     connection = connect()
-    cursor = connection.cursor()
 
-    cursor.execute(command, params)
+    try:
+        cursor = connection.execute(command, params)
+        connection.commit()
+        return cursor.lastrowid
 
-    connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
 
-    return cursor.lastrowid
+    finally:
+        connection.close()
 
 
 def insert_prompt_record(data):
     # returns the id of the inserted record
     return run_sqlite_command("""
-        insert into history (time, model, preset, prompt, system_prompt, categories, response, duration, token_usage)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        insert into interactions
+            (time, model, prompt, system_prompt, categories, response, duration, token_usage, price)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
         data["time"],
         data["model"],
-        data["preset"],
         data["prompt"],
         data["system_prompt"],
         data["categories"],
         data["response"],
         data["duration"],
-        data["token_usage"]
+        data["token_usage"],
+        data["price"],
     ))
 
 
-def get_prompt_record(prompt_id):
+def get_interaction_by_id(prompt_id):
     result = connect().cursor().execute("""
-        select * from history
+        select * from interactions
             where id = ?
     """, [int(prompt_id)])
     return [dict(i) for i in result.fetchall()]
@@ -85,7 +131,7 @@ def get_prompt_record(prompt_id):
 
 def delete_prompt_record(prompt_id):
     run_sqlite_command("""
-        delete from history
+        delete from interactions
         where id = ?
     """, [prompt_id])
 
@@ -117,7 +163,7 @@ def modify_preset(preset_id, column, new_value):
                 where id = ?
         """, (
             new_value,
-            int(preset_id)
+            int(preset_id),
         ))
 
 
@@ -128,41 +174,125 @@ def get_all_presets():
     return [dict(i) for i in result.fetchall()]
 
 
-def get_all_prompt_records():
-    result = connect().cursor().execute("""
-        select * from history;
+def get_all_interactions():
+    result = connect().execute("""
+        select * from interactions;
     """)
     return [dict(i) for i in result.fetchall()]
 
 
-def set_prompt_label(prompt_id, label):
+def modify_interaction(interaction_id, column, new_value):
+    if column in ["manual_label", "categories"]: # only allowed columns
+        run_sqlite_command(f"""
+            update interactions
+                set {column} = ? -- column is already filtered, so it's injection-safe
+                where id = ?
+        """, (
+            new_value,
+            int(interaction_id),
+        ))
+
+
+def set_interaction_label(interaction_id, label):
+    modify_interaction(interaction_id, "manual_label", label)
+
+
+def set_interaction_categories(interaction_id, categories):
+    modify_interaction(interaction_id, "categories", json.dumps(categories, ensure_ascii=False))
+
+
+def get_default_judge_settings():
+    result = connect().execute("""
+        select * from app_settings
+            where property in ('default_judge_config', 'default_judge_models');
+    """)
+
+    result_as_object = {i["property"]: i["value"] for i in result.fetchall()}
+    default_config = result_as_object.get("default_judge_config")
+    default_models = json.loads(result_as_object.get("default_judge_models") or "[]")
+
+    return default_config, default_models
+
+
+def modify_default_judge_settings(new_default_config, new_default_models):
+    new_default_models = json.dumps(new_default_models)
+
+    connection = connect()
+
+    try:
+        connection.execute("""
+            insert into app_settings (property, value) values ('default_judge_config', ?)
+                on conflict(property) do update set value = ?;
+        """, (new_default_config, new_default_config))
+        connection.execute("""
+            insert into app_settings (property, value) values ('default_judge_models', ?)
+                on conflict(property) do update set value = ?
+        """, (new_default_models, new_default_models))
+
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+def get_saved_configuration_ids():
+    result = connect().execute("""
+        select id from judge_configs;
+    """)
+    return [i["id"] for i in result.fetchall()]
+
+
+def get_all_judge_configurations():
+    result = connect().execute("""
+       select * from judge_configs;
+   """)
+    return [dict(i) for i in result.fetchall()]
+
+
+def insert_judge_configuration(config_id, judge_prompt, require_explanation):
     run_sqlite_command("""
-        update history
-            set label = ?
-            where id = ?
+        insert into judge_configs (id, judge_prompt, require_explanation) values (?, ?, ?)
+    """, (config_id, judge_prompt, require_explanation))
+
+
+def get_judge_configuration_by_id(config_id):
+    return connect().execute("""
+        select * from judge_configs where id = ?
+    """, (config_id,)).fetchall()
+
+
+def insert_judge_result(data):
+    run_sqlite_command("""
+        insert into judge_results (interaction_id, judge_config_id, judge_model, label, explanation, time, duration, price)
+            values (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        label,
-        int(prompt_id)
+        data["interaction_id"],
+        data["judge_config_id"],
+        data["judge_model"],
+        data["label"],
+        data["explanation"],
+        data["time"],
+        data["duration"],
+        data["price"],
     ))
 
 
-def set_prompt_judge_label(prompt_id, judge_label):
-    run_sqlite_command("""
-        update history
-        set judge_label = ?
-        where id = ?
-    """, (
-        judge_label,
-        int(prompt_id)
-    ))
+def get_judge_results_by_interaction(interaction_id):
+    result = connect().execute("""
+        select * from judge_results
+            where interaction_id = ?
+    """, (interaction_id,))
+    return [dict(i) for i in result.fetchall()]
 
 
-def set_prompt_categories(prompt_id, categories):
-    run_sqlite_command("""
-        update history
-            set categories = ?
-            where id = ?
-    """, (
-        categories,
-        int(prompt_id)
-    ))
+def get_preset_id_by_content(prompt, system_prompt, categories):
+    result = connect().execute("""
+        select id from presets
+            where prompt = ?
+            and system_prompt is ?
+            and categories is ?
+            limit 1
+    """, (prompt, system_prompt, categories)).fetchone()
+    return result["id"] if result is not None else None

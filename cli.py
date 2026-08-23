@@ -56,7 +56,7 @@ def read_label(record_id):
         label = input()
 
         if len(label) == 1 and label in "oxu":
-            database.set_prompt_label(record_id, label)
+            database.set_interaction_label(record_id, label)
             return
         elif label == "q":
             return
@@ -111,13 +111,14 @@ def save_record(time, prompt, system_prompt, categories, preset, duration, respo
     record_id = database.insert_prompt_record({
         "time": str(time),
         "model": response.model,
-        "preset": preset if preset else None,
+        "preset_id": preset if preset else None,
         "prompt": prompt,
         "system_prompt": system_prompt,
         "categories": categories if categories else None,
         "response": response.choices[0].message.content,
         "duration": str(duration),
-        "token_usage": response.usage.total_tokens
+        "token_usage": response.usage.total_tokens,
+        "price": response.usage.cost,
     })
     return record_id
 
@@ -129,7 +130,7 @@ def show_string_preview(s, length):
 
 
 while True:
-    prompt_history = database.get_all_prompt_records()
+    prompt_history = database.get_all_interactions()
 
     if len(prompt_history) > 0:
         last_record = prompt_history[-1]
@@ -138,7 +139,7 @@ while True:
         prompt = last_record["prompt"]
         system_prompt = last_record["system_prompt"]
         categories = last_record["categories"]
-        preset_id = last_record["preset"]
+        preset_id = last_record["preset_id"]
 
         print("YOUR LAST CONFIGURATION:", f"(used preset #{preset_id})" if preset_id else '')
         print(f"MODEL: {model}")

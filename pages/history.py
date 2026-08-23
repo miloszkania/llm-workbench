@@ -1,5 +1,3 @@
-import json
-
 import pandas as pd
 import streamlit as st
 
@@ -7,8 +5,7 @@ from src import database, view_utils, widgets
 
 view_utils.page_config("History")
 
-LABEL_OPTIONS = ["🟢", "🔴", "🟡"]
-
+label_options = ["success", "refusal", "unclear"]
 
 def save_changes(original_data: pd.DataFrame):
     # delete rows
@@ -16,21 +13,25 @@ def save_changes(original_data: pd.DataFrame):
         database.delete_prompt_record(int(original_data.iloc[row_idx]["id"]))
 
     # adjust record data
-    for row_idx, ch in changes["edited_rows"].items():
-        preset_id = int(original_data.iloc[row_idx]["id"])
+    for row_idx, edit_changes in changes["edited_rows"].items():
+        interaction_id = int(original_data.iloc[row_idx]["id"])
 
-        # label:
-        if ch.get("label"):
-            database.set_prompt_label(preset_id, ch.get("label"))
+        # label (if has been changed):
+        if "manual_label" in edit_changes:
+            database.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
 
-        # categories:
-        if ch.get("categories"):
-            new_value = json.dumps(ch.get("categories"), ensure_ascii=False)
-            database.set_prompt_categories(preset_id, new_value)
+        # categories (if has been changed):
+        if "categories" in edit_changes:
+            database.set_interaction_categories(interaction_id, edit_changes.get("categories"))
 
 
 
 st.title("History")
+
+# if we have been redirected here, display the passed error message
+error_message = st.session_state.pop("error_message", None)
+if error_message:
+    st.error(error_message)
 
 history_table = view_utils.get_all_history_entries()
 
@@ -44,9 +45,7 @@ if not history_table.empty:
 
         column_order=[
             "id",
-            "preset",
-            "label",
-            "judge_label",
+            "manual_label",
             "categories",
             "prompt",
             "system_prompt",
@@ -57,26 +56,19 @@ if not history_table.empty:
 
         disabled=[
             "id",
-            "judge_label",
             "prompt",
             "system_prompt",
             "response",
             "time",
-            "preset",
             "model",
         ],
 
         column_config={
             "id": st.column_config.TextColumn("ID"),
-            "label": st.column_config.SelectboxColumn(
+            "manual_label": st.column_config.SelectboxColumn(
                 "Label",
-                options=LABEL_OPTIONS,
-                required=True,
-            ),
-            "judge_label": st.column_config.SelectboxColumn(
-                "Judge Label",
-                options=LABEL_OPTIONS,
-                required=True,
+                options=label_options,
+                format_func=lambda x: x.capitalize(),
             ),
             "categories": st.column_config.MultiselectColumn(
                 "categories",
@@ -98,9 +90,6 @@ if not history_table.empty:
             "response": st.column_config.TextColumn(
                 "Response",
                 width="large",
-            ),
-            "preset": st.column_config.TextColumn(
-                "Preset",
             ),
             "model": st.column_config.TextColumn(
                 "Model",

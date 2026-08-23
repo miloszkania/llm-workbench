@@ -104,7 +104,7 @@ def build_asr_matrix(history_df, category_order):
     data = data[data["categories"].isin(category_order)].copy()
     data["model"] = (
         data["model"]
-        .apply(view_utils.clear_model_id)
+        .apply(view_utils.remove_timestamp_from_model_id)
         .apply(parse_model_ids)
     )
 
@@ -261,7 +261,7 @@ def build_model_label_distribution(
     data = history_df.copy()
     data["model"] = (
         data["model"]
-        .apply(view_utils.clear_model_id)
+        .apply(view_utils.remove_timestamp_from_model_id)
         .apply(parse_model_ids)
     )
 

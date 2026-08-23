@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src import view_utils, widgets
+from src import view_utils, widgets, database
 
 view_utils.page_config("New prompt")
 
@@ -8,12 +8,13 @@ view_utils.page_config("New prompt")
 st.title("New Prompt")
 
 ##### MODEL
+st.header("Model")
 widgets.model_picker()
 
 
 ##### PRESET
 
-st.subheader("Prompt")
+st.header("Prompt")
 all_presets = view_utils.get_all_preset_entries(fill_null=True)
 
 st.page_link("pages/presets.py", label="Edit presets")
@@ -24,7 +25,7 @@ widgets.preset_table_preview(all_presets)
 
 # After a preset was selected, sets text fields to its data
 def fill_preset_fields():
-    preset_row = all_presets.loc[all_presets["id"] == st.session_state["preset"]]
+    preset_row = all_presets.loc[all_presets["id"] == st.session_state["preset_id"]]
     if not preset_row.empty:
         preset_row = preset_row.iloc[0]
         st.session_state["system_prompt"] = preset_row["system_prompt"]
@@ -38,7 +39,7 @@ if not all_presets.empty:
         options=all_presets["id"],
         index=None,
         on_change=fill_preset_fields,
-        key="preset",
+        key="preset_id",
     )
 
     st.space("small")
@@ -48,7 +49,7 @@ if not all_presets.empty:
 
 ### Resets the preset ID field
 def reset_preset_selection():
-    st.session_state["preset"] = None
+    st.session_state["preset_id"] = None
 
 system_prompt = st.text_area(
     "System prompt",
@@ -69,15 +70,38 @@ categories = st.multiselect(
     on_change=reset_preset_selection,
 )
 
-
 st.space("small")
 
-
-##### BUTTONS
-
 ### Add preset button
-widgets.save_preset_button()
+widgets.save_preset_button(prompt, system_prompt, categories)
+
+st.divider()
+
+
+### Judging
+st.header("LLM-as-a-Judge Evaluation")
+
+# Fetch the judging configuration
+judge_config, judge_models = database.get_default_judge_settings()
+
+judging_enabled = st.toggle(
+    "Evaluate responses with LLM judges",
+    value=(judge_config and judge_models),
+)
+
+if judging_enabled:
+    st.write("The following judge configuration and models will be used to independently evaluate every generated "
+             "target response.")
+    judge_models, judge_config = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
+
+else:
+    judge_models, judge_config = [], None
+
+st.divider()
 
 
 ### Send button
-widgets.send_prompt_button_with_repetitions()
+if (not judging_enabled) or (judging_enabled and judge_models and judge_config):
+    widgets.send_prompt_button_with_repetitions(judge_config, judge_models)
+else:
+    st.info("Select a valid judge configuration and models or disable LLM judging to continue.")
