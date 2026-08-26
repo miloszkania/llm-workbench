@@ -22,7 +22,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     model_filter = canvas.segmented_control(
         "Model type",
-        options=["All", "Free"],
+        options=["All", "Free", "Paid"],
         default="All",
         required=True,
         key=f"{key_prefix}model-filter",
@@ -37,7 +37,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
         key=f"{key_prefix}model-sorting",
     )
 
-    model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
+    model_ids = view_utils.get_model_ids(model_filter=model_filter, sort=model_sorting)
 
     # Starting a new prompt, with no previous data as placeholder
     if not default_model:
@@ -370,7 +370,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
 
     model_filter = st.segmented_control(
         "Model type",
-        options=["All", "Free"],
+        options=["All", "Free", "Paid"],
         default="All",
         required=True,
         key="model_filter",
@@ -385,7 +385,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
         key="model_sorting",
     )
 
-    model_ids = view_utils.get_model_ids(only_free_models=model_filter == "Free", sort=model_sorting)
+    model_ids = view_utils.get_model_ids(model_filter=model_filter, sort=model_sorting)
 
     # load the current models and check if they are still available
     previous_selected_models = [m for m in default_models if m in model_ids] if default_models else []

@@ -741,13 +741,13 @@ if not history_table.empty:
     with tab_percentage.expander("Models", expanded=True) as expander:
         expander.subheader("Model statistics")
 
-        only_free_models = st.segmented_control(
+        model_filter = st.segmented_control(
             "Model type",
-            options=["All", "Free"],
+            options=["All", "Free", "Paid"],
             default="All",
         )
 
-        model_ids = view_utils.get_model_ids(only_free_models == "Free")
+        model_ids = view_utils.get_model_ids(model_filter=model_filter)
 
         chart_model = expander.selectbox(
             "Chart model",
