@@ -361,13 +361,17 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     # load the current models and check if they are still available
     previous_selected_models = [m for m in default_models if m in model_ids] if default_models else []
 
+    currently_selected_models = st.session_state.get("selected_judge_models", previous_selected_models)
+
+    model_options = [*currently_selected_models, *model_ids]
+
     selected_models = st.multiselect(
         "Select up to 3 judge models",
-        options=model_ids,
+        options=model_options,
         default=previous_selected_models,
         max_selections=3,
         filter_mode="contains",
-        key="selected_judge_models", # to prevent resetting after changing the filters
+        key="selected_judge_models",
     )
 
     # Configuration
