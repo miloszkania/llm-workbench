@@ -88,7 +88,7 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
     categories = st.session_state["categories"]
 
     with st.spinner("Sending the request and waiting for response…", show_time=True):
-        col1, col2 = st.columns([1, 5])
+        col1, col2 = st.columns([1, 6])
         repetition_count = col2.number_input(
             "Number of target interactions to run",
             min_value=1,
@@ -101,7 +101,7 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
 
         col1.space("small")
 
-        if col1.button(button_label, type="primary"):
+        if col1.button(button_label, type="primary", width="stretch"):
             if not model:
                 st.error("You need to enter the model!")
             elif not prompt:
