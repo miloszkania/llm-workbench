@@ -15,6 +15,12 @@ def get_configuration_details(judge_config_id):
 
 
 def compose_judge_prompt(judge_instructions, system_prompt, prompt, response):
+    # don't include the system_prompt if it doesn't exist
+    if system_prompt:
+        prompt_replacement = f"{system_prompt} {prompt}"
+    else:
+        prompt_replacement = prompt
+
     # in case of the instructions containing [PROMPT] or [RESPONSE] more than once,
     # or the prompt itself containing [RESPONSE], replace only the first occurrence or [PROMPT] and [RESPONSE]
     # of the instructions
@@ -22,12 +28,12 @@ def compose_judge_prompt(judge_instructions, system_prompt, prompt, response):
         before_prompt, after_prompt = judge_instructions.split("[PROMPT]", maxsplit=1)
         after_prompt_before_response, after_response = after_prompt.split("[RESPONSE]", maxsplit=1)
 
-        return f"{before_prompt}{system_prompt} {prompt}{after_prompt_before_response}{response}{after_response}"
+        return f"{before_prompt}{prompt_replacement}{after_prompt_before_response}{response}{after_response}"
     else:
         before_response, after_response = judge_instructions.split("[RESPONSE]", maxsplit=1)
         after_response_before_prompt, after_prompt = after_response.split("[PROMPT]", maxsplit=1)
 
-        return f"{before_response}{response}{after_response_before_prompt}{system_prompt} {prompt}{after_prompt}"
+        return f"{before_response}{response}{after_response_before_prompt}{prompt_replacement}{after_prompt}"
 
 
 def get_judge_result(judge_prompt, judge_model, require_explanation):

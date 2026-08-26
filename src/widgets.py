@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import openrouter.errors.openroutererror
 import streamlit as st
 
-from src import view_utils, database, openrouter_api
+from src import view_utils, database, openrouter_api, judge
 
 
 def model_picker(default_model=None, canvas=st, key_prefix=""):
@@ -88,7 +88,7 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
     categories = st.session_state["categories"]
 
     with st.spinner("Sending the request and waiting for response…", show_time=True):
-        col1, col2 = st.columns([1, 5])
+        col1, col2 = st.columns([1, 6])
         repetition_count = col2.number_input(
             "Number of target interactions to run",
             min_value=1,
@@ -101,7 +101,7 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
 
         col1.space("small")
 
-        if col1.button(button_label, type="primary"):
+        if col1.button(button_label, type="primary", width="stretch"):
             if not model:
                 st.error("You need to enter the model!")
             elif not prompt:
@@ -128,6 +128,27 @@ def save_preset_button(prompt, system_prompt, categories):
         else:
             preset_id = view_utils.add_preset(system_prompt, prompt, categories)
             st.success(f"Saved as preset #{preset_id}")
+
+
+@st.dialog("Run judging", width="medium")
+def display_run_judging_dialog(interaction_object):
+    judge_models, judge_config = judge_model_and_configuration_selector()
+    st.divider()
+
+    if st.button("Run judging", type="primary"):
+        if not judge_models or not judge_config:
+            st.error("Select at least one judge model and a judge configuration!")
+        else:
+            with st.spinner("Waiting for judge response…", show_time=True):
+                judge.evaluate_and_store_interaction(
+                    interaction_object["interaction"]["id"],
+                    interaction_object["interaction"]["system_prompt"],
+                    interaction_object["interaction"]["prompt"],
+                    interaction_object["interaction"]["response"],
+                    judge_config,
+                    judge_models
+                )
+                st.rerun()
 
 
 def interaction_card(interaction_object):
@@ -193,7 +214,15 @@ def interaction_card(interaction_object):
                 )
 
             # Judge results
-            col_judge.subheader("Judge results")
+            col_title, col_button = col_judge.columns(2)
+            col_title.subheader("Judge results")
+
+            # allow running the judge only if there was any response from the target
+            if interaction_object["interaction"]["response"]:
+                with col_button.container(horizontal=True, horizontal_alignment="right"):
+                    if st.button("Run judging…", type="primary", key=f"{interaction_id}_run_judge"):
+                        display_run_judging_dialog(interaction_object)
+
             if len(interaction_object["judge_results"]) > 0:
                 for judge_result in interaction_object["judge_results"]:
                     label = judge_result["label"]

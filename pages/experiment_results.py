@@ -46,7 +46,36 @@ def ensure_same_experiment(experiment_input, interactions):
         st.switch_page("pages/history.py")
 
 
-def display_experiment_overview(interactions):
+@st.dialog("Rerun interaction", width="medium")
+def display_rerun_interaction_dialog(interactions, experiment_input):
+    st.header("Review or edit prompts")
+    st.text_area(
+        "System prompt",
+        value=experiment_input["system_prompt"],
+        height="content",
+        key="system_prompt",
+    )
+    st.text_area(
+        "User prompt",
+        value=experiment_input["prompt"],
+        height="content",
+        key="prompt",
+    )
+    display_categories(experiment_input, interactions, key_prefix="", save_button=False)
+    st.divider()
+
+    st.header("Select a target model")
+
+    # if only one model was used in the original interaction, suggest using it again
+    originally_used_models = list(set([i["interaction"]["model"] for i in interactions]))
+    default_model = originally_used_models[0] if len(originally_used_models) == 1 else None
+
+    widgets.model_picker(default_model=default_model)
+
+    widgets.send_prompt_button_with_repetitions(button_label="Rerun interaction")
+
+
+def display_experiment_overview(interactions, canvas):
     def count_labels(label):
         return sum(
             sum([1 if i["label"] == label else 0 for i in current_interaction["judge_results"]])
@@ -63,8 +92,8 @@ def display_experiment_overview(interactions):
     )
     interaction_price = sum([i["interaction"]["price"] for i in interactions])
 
-    st.markdown(f"##### Tested models: {', '.join(sorted({f"`{i['interaction']['model']}`" for i in interactions}))}")
-    st.markdown(
+    canvas.markdown(f"##### Tested models: {', '.join(sorted({f"`{i['interaction']['model']}`" for i in interactions}))}")
+    canvas.markdown(
         f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
         f"interaction: **\\${interaction_price:.4f}** · "
         f"judging: **\\${judging_price:.4f}**"
@@ -98,38 +127,43 @@ def display_prompt(experiment_input):
                 "System prompt",
                 value=experiment_input["system_prompt"],
                 height="content",
-                key="system_prompt",
+                key=f"overview_{experiment_input['id']}_system_prompt",
             )
 
         st.text_area(
             "User prompt",
             value=experiment_input["prompt"],
             height="content",
-            key="prompt",
+            key=f"overview_{experiment_input['id']}_prompt",
         )
 
 
-def display_categories(experiment_input, interactions):
-    col_select_categories, col_save_categories = st.columns([2, 1])
+def display_categories(experiment_input, interactions, key_prefix, save_button):
+    if save_button:
+        col_select_categories, col_save_categories = st.columns([2, 1])
+    else:
+        col_select_categories = st # col_save_categories will not be used
+
     categories = col_select_categories.multiselect(
         "Categories",
         options=view_utils.get_all_categories(),
         default=view_utils.unparse_categories_from_json(experiment_input["categories"] or []),
         accept_new_options=True,
-        key="categories",
+        key=f"{key_prefix}categories",
     )
 
-    col_save_categories.space()
-    if col_save_categories.button("Save categories", type="primary"):
-        for i in interactions:
-            database.set_interaction_categories(i["interaction"]["id"], categories)
-        st.success("Categories updated!")
+    if save_button:
+        col_save_categories.space()
+        if col_save_categories.button("Save categories", type="primary"):
+            for i in interactions:
+                database.set_interaction_categories(i["interaction"]["id"], categories)
+            st.success("Categories updated!")
 
-    widgets.save_preset_button(
-        experiment_input["prompt"],
-        experiment_input["system_prompt"],
-        categories
-    )
+        widgets.save_preset_button(
+            experiment_input["prompt"],
+            experiment_input["system_prompt"],
+            categories
+        )
 
 
 
@@ -147,21 +181,28 @@ view_utils.page_config("Experiment results")
 st.title("Experiment Results")
 st.page_link("pages/history.py", label="← Show all interactions")
 
+col_overview, col_rerun = st.columns([2, 1])
+
 # show ids
 if len(interactions) == 1:
-    st.subheader(f"ID: `{interactions[0]['interaction']['id']}`")
+    col_overview.subheader(f"ID: `{interactions[0]['interaction']['id']}`")
 else:
-    st.subheader(f"IDs: {', '.join(f'`{i["interaction"]["id"]}`' for i in interactions)}")
+    col_overview.subheader(f"IDs: {', '.join(f'`{i["interaction"]["id"]}`' for i in interactions)}")
 
-# display total label counts, total prices and models that were tested
-display_experiment_overview(interactions)
+# display total label counts, total prices and models that were tested, and the "rerun interaction" button
+display_experiment_overview(interactions, col_overview)
+
+with col_rerun.container(horizontal=True, horizontal_alignment="right"):
+    if st.button("Rerun interaction…", type="primary"):
+        display_rerun_interaction_dialog(interactions, experiment_input)
+
 st.divider()
 
 # prompt information
 display_prompt(experiment_input)
 
 # categories
-display_categories(experiment_input, interactions)
+display_categories(experiment_input, interactions, key_prefix=f"overview_{experiment_input['id']}_", save_button=True)
 st.divider()
 
 
