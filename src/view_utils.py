@@ -215,3 +215,8 @@ def get_model_ids(sort="most-popular", model_filter="All"):
         model_ids = [i for i in model_ids if not i.endswith("free")]
 
     return model_ids
+
+
+@st.cache_data(ttl="1h", show_spinner="Loading model pricing…")
+def get_model_price(model_id):
+    return openrouter_api.get_model_price(model_id)
