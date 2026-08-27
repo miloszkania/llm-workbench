@@ -7,7 +7,7 @@ import streamlit as st
 from src import view_utils, database, openrouter_api, judge
 
 
-def model_picker(default_model=None, canvas=st, key_prefix=""):
+def model_filter_and_sort_controls(canvas=st, key_prefix=""):
     sorting_options = {
         "most-popular": "Most popular",
         "newest": "Newest",
@@ -17,8 +17,6 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
         "intelligence-high-to-low": "Highest intelligence",
         "context-high-to-low": "Largest context window",
     }
-
-    def set_random_free_model(): st.session_state["model"] = "openrouter/free"
 
     model_filter = canvas.segmented_control(
         "Model type",
@@ -38,6 +36,11 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
     )
 
     model_ids = view_utils.get_model_ids(model_filter=model_filter, sort=model_sorting)
+    return model_ids, model_filter
+
+
+def model_picker(default_model=None, canvas=st, key_prefix=""):
+    model_ids, model_filter = model_filter_and_sort_controls(canvas, key_prefix)
 
     # Starting a new prompt, with no previous data as placeholder
     if not default_model:
@@ -68,6 +71,8 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
             index=None,
             key=f"{key_prefix}model",
         )
+
+    def set_random_free_model(): st.session_state[f"{key_prefix}model"] = "openrouter/free"
 
     # Button for "openrouter/free" - random model will be selected
     if model_filter == "Free" and "openrouter/free" in model_ids:
@@ -358,34 +363,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     st.write("Select up to three models that will evaluate the interactions following your selected configuration.")
 
     # Not using widgets.model_picker() here since we need a multiselect instead of a selectbox
-    sorting_options = {
-        "most-popular": "Most popular",
-        "newest": "Newest",
-        "latency-low-to-high": "Lowest latency",
-        "pricing-low-to-high": "Lowest price",
-        "throughput-high-to-low": "Highest throughput",
-        "intelligence-high-to-low": "Highest intelligence",
-        "context-high-to-low": "Largest context window",
-    }
-
-    model_filter = st.segmented_control(
-        "Model type",
-        options=["All", "Free", "Paid"],
-        default="All",
-        required=True,
-        key="model_filter",
-    )
-
-    model_sorting = st.segmented_control(
-        "Sort by",
-        options=list(sorting_options),
-        format_func=lambda x: sorting_options[x],
-        default="most-popular",
-        required=True,
-        key="model_sorting",
-    )
-
-    model_ids = view_utils.get_model_ids(model_filter=model_filter, sort=model_sorting)
+    model_ids, _ = model_filter_and_sort_controls(key_prefix="judge_")
 
     # load the current models and check if they are still available
     previous_selected_models = [m for m in default_models if m in model_ids] if default_models else []
