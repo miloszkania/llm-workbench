@@ -44,7 +44,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # Starting a new prompt, with no previous data as placeholder
     if not default_model:
-        canvas.selectbox(
+        selected_model = canvas.selectbox(
             "Select a model",
             placeholder="Model",
             options=model_ids,
@@ -54,7 +54,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # There is placeholder data, and it's present in the up-to-date model list
     elif default_model in model_ids:
-        canvas.selectbox(
+        selected_model = canvas.selectbox(
             "Select a model",
             placeholder=default_model,
             options=model_ids,
@@ -64,7 +64,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # There is placeholder data, but it's not present in the up-to-date model list
     else:
-        canvas.selectbox(
+        selected_model = canvas.selectbox(
             "Select a model",
             placeholder=default_model,
             options=model_ids,
@@ -82,6 +82,13 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
             on_click=set_random_free_model,
             key=f"{key_prefix}random-model-button",
         )
+
+    # Model pricing
+    if selected_model:
+        price = view_utils.get_model_price(selected_model)
+        canvas.caption(f"***Price***: starting at "
+                 f"**\\${price['input']:g} per 1M input tokens** · "
+                 f"**\\${price['output']:g} per 1M output tokens**")
 
     canvas.divider()
 
@@ -380,6 +387,21 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
         filter_mode="contains",
         key="selected_judge_models",
     )
+
+    # Model pricing
+    if selected_models:
+        st.caption("**Starting prices:**")
+
+        price_table_rows = []
+        for model in selected_models:
+            price = view_utils.get_model_price(model)
+            price_table_rows.append({
+                "Model": model,
+                "Input / 1M tokens": f"${price['input']:g}",
+                "Output / 1M tokens": f"${price['output']:g}",
+            })
+
+        st.dataframe(price_table_rows, hide_index=True)
 
     # Configuration
     st.space()
