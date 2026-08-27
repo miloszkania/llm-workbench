@@ -2,4 +2,4 @@ plotly
 pandas
 streamlit
 python-dotenv~=1.2.2
-openrouter~=0.9.1
+openrouter==1.1.95

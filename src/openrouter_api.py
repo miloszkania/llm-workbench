@@ -7,7 +7,7 @@ client = OpenRouter(api_key=get_env_config().openrouter_api_key)
 
 
 def get_model_list(sort="most-popular"):
-    model_list = client.models.list(sort=sort).data
+    model_list = client.models.list(sort=sort).result.data
     return model_list
 
 

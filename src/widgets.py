@@ -114,7 +114,7 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
                 except openrouter.errors.toomanyrequestsresponse_error.TooManyRequestsResponseError:
                     st.error("Too many requests - rate limited by OpenRouter. Try again later.")
                 except openrouter.errors.openroutererror.OpenRouterError as e:
-                    if "flagged" in e:
+                    if "flagged" in str(e).lower():
                         st.error(f"The request to {model} was flagged by OpenInterface. "
                                  f"Try again with a different model.")
                     else:
