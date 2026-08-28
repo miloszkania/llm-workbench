@@ -18,6 +18,11 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         "context-high-to-low": "Largest context window",
     }
 
+    favorites_only = canvas.toggle(
+        "Show only favorite models",
+        key=f"{key_prefix}favorites-only"
+    )
+
     model_filter = canvas.segmented_control(
         "Model type",
         options=["All", "Free", "Paid"],
@@ -35,7 +40,15 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         key=f"{key_prefix}model-sorting",
     )
 
-    selected_models = view_utils.get_models(model_filter=model_filter, sort=model_sorting)
+    selected_models = view_utils.get_models(
+        model_filter=model_filter,
+        sort=model_sorting,
+    )
+
+    if favorites_only:
+        favorite_models = database.get_favorite_models()
+        selected_models = [i for i in selected_models if i.id in favorite_models]
+
     return selected_models, model_filter
 
 
