@@ -215,7 +215,7 @@ def get_default_judge_settings():
 
 
 def modify_default_judge_settings(new_default_config, new_default_models):
-    new_default_models = json.dumps(new_default_models)
+    new_default_models = json.dumps(new_default_models, ensure_ascii=False)
 
     connection = connect()
 
@@ -296,3 +296,23 @@ def get_preset_id_by_content(prompt, system_prompt, categories):
             limit 1
     """, (prompt, system_prompt, categories)).fetchone()
     return result["id"] if result is not None else None
+
+
+def get_favorite_models():
+    result = connect().execute("""
+        select * from app_settings
+        where property = 'favorite_models';
+    """).fetchone()
+
+    return json.loads(result["value"] or "[]") if result else []
+
+
+def update_favorite_models(model_ids):
+    json_list = json.dumps(model_ids, ensure_ascii=False)
+
+    # save the updated model list
+    run_sqlite_command("""
+        insert into app_settings (property, value)
+        values ('favorite_models', ?)
+        on conflict(property) do update set value = ?;
+    """, (json_list, json_list))
