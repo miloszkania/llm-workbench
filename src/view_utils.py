@@ -204,17 +204,21 @@ def generate_and_evaluate_interactions(
 
 ###### MODELS
 
+def is_free_model(model_id):
+    return model_id == "openrouter/free" or model_id.endswith(":free")
+
+
 @st.cache_data(ttl="1h", show_spinner="Loading available models…")
-def get_model_ids(sort="most-popular", model_filter="All"):
-    model_ids = [i.id for i in openrouter_api.get_model_list(sort)]
+def get_models(sort="most-popular", model_filter="All"):
+    models = openrouter_api.get_model_list(sort)
 
-    # Get the deserved model ids
+    # Get the deserved models
     if model_filter == "Free":
-        model_ids = [i for i in model_ids if i.endswith("free")]
+        models = [i for i in models if is_free_model(i.id)]
     elif model_filter == "Paid":
-        model_ids = [i for i in model_ids if not i.endswith("free")]
+        models = [i for i in models if not is_free_model(i.id)]
 
-    return model_ids
+    return models
 
 
 @st.cache_data(ttl="1h", show_spinner="Loading model pricing…")

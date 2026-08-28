@@ -747,7 +747,8 @@ if not history_table.empty:
             default="All",
         )
 
-        model_ids = view_utils.get_model_ids(model_filter=model_filter)
+        model_ids = view_utils.get_models(model_filter=model_filter)
+        model_ids = [model.id for model in model_ids]
 
         chart_model = expander.selectbox(
             "Chart model",

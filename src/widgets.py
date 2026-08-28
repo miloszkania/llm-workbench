@@ -18,6 +18,11 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         "context-high-to-low": "Largest context window",
     }
 
+    favorites_only = canvas.toggle(
+        "Show only favorite models",
+        key=f"{key_prefix}favorites-only"
+    )
+
     model_filter = canvas.segmented_control(
         "Model type",
         options=["All", "Free", "Paid"],
@@ -35,12 +40,21 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         key=f"{key_prefix}model-sorting",
     )
 
-    model_ids = view_utils.get_model_ids(model_filter=model_filter, sort=model_sorting)
-    return model_ids, model_filter
+    selected_models = view_utils.get_models(
+        model_filter=model_filter,
+        sort=model_sorting,
+    )
+
+    if favorites_only:
+        favorite_models = database.get_favorite_models()
+        selected_models = [i for i in selected_models if i.id in favorite_models]
+
+    return selected_models, model_filter
 
 
 def model_picker(default_model=None, canvas=st, key_prefix=""):
-    model_ids, model_filter = model_filter_and_sort_controls(canvas, key_prefix)
+    models, model_filter = model_filter_and_sort_controls(canvas, key_prefix)
+    model_ids = [model.id for model in models]
 
     # Starting a new prompt, with no previous data as placeholder
     if not default_model:
@@ -370,7 +384,8 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     st.write("Select up to three models that will evaluate the interactions following your selected configuration.")
 
     # Not using widgets.model_picker() here since we need a multiselect instead of a selectbox
-    model_ids, _ = model_filter_and_sort_controls(key_prefix="judge_")
+    models, _ = model_filter_and_sort_controls(key_prefix="judge_")
+    model_ids = [model.id for model in models]
 
     # load the current models and check if they are still available
     previous_selected_models = [m for m in default_models if m in model_ids] if default_models else []
