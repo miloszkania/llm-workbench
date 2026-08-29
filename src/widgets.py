@@ -276,7 +276,7 @@ def preset_table_preview(preset_table=None):
         if not preset_table.empty:
             st.dataframe(
                 preset_table,
-                height="content",
+                height="content" if len(preset_table) <= 20 else 750,
                 hide_index=True,
 
                 column_order=[

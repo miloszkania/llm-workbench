@@ -39,7 +39,7 @@ if not preset_table.empty:
     st.data_editor(
         preset_table,
         key="preset_editor",
-        height="content",
+        height="content" if len(preset_table) <= 20 else 750,
         hide_index=True,
         num_rows="dynamic",
 

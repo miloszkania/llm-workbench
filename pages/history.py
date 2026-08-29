@@ -39,7 +39,7 @@ if not history_table.empty:
     edited_history_table = st.data_editor(
         history_table,
         key="history_editor",
-        height="content",
+        height="content" if len(history_table) <= 20 else 750,
         hide_index=True,
         num_rows="delete",
 

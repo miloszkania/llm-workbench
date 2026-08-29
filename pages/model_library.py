@@ -38,7 +38,7 @@ st.header("All models")
 models, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_")
 st.space()
 
-table_data = pd.DataFrame(
+model_table = pd.DataFrame(
     [
         {
             "favorite": model.id in favorite_models,
@@ -57,11 +57,11 @@ table_data = pd.DataFrame(
 )
 
 # use model id as a stable row index for the dataframe
-table_data = table_data.set_index("id", drop=False)
+model_table = model_table.set_index("id", drop=False)
 
 edited_table = st.data_editor(
-    table_data,
-    height="content",
+    model_table,
+    height="content" if len(model_table) <= 20 else 750,
     hide_index=True,
     disabled=["id", "description", "context_length", "knowledge_cutoff", "price_input", "price_output"],
     column_config={
