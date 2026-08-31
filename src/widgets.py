@@ -396,7 +396,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     model_options = model_ids + [m for m in currently_selected_models if not m in model_ids]
 
     selected_models = st.multiselect(
-        "Select up to 3 judge models",
+        "Select up to three judge models",
         options=model_options,
         default=previous_selected_models,
         max_selections=3,
@@ -406,6 +406,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
 
     # Model pricing
     if selected_models:
+        st.space()
         st.caption("**Starting prices:**")
 
         price_table_rows = []
