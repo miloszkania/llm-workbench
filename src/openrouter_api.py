@@ -44,10 +44,7 @@ def get_credits():
     return client.credits.get_credits().data
 
 
-def get_model_price(model_id):
+def get_model_object(model_id):
     author, slug = model_id.split("/", maxsplit=1)
     model_object = client.models.get(author=author, slug=slug)
-    return {
-        "input": float(model_object.data.pricing.prompt) * 1_000_000,
-        "output": float(model_object.data.pricing.completion) * 1_000_000,
-    }
+    return model_object

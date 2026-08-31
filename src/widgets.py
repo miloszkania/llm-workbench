@@ -58,7 +58,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # Starting a new prompt, with no previous data as placeholder
     if not default_model:
-        selected_model = canvas.selectbox(
+        selected_model_id = canvas.selectbox(
             "Select a model",
             placeholder="Model",
             options=model_ids,
@@ -68,7 +68,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # There is placeholder data, and it's present in the up-to-date model list
     elif default_model in model_ids:
-        selected_model = canvas.selectbox(
+        selected_model_id = canvas.selectbox(
             "Select a model",
             placeholder=default_model,
             options=model_ids,
@@ -78,7 +78,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # There is placeholder data, but it's not present in the up-to-date model list
     else:
-        selected_model = canvas.selectbox(
+        selected_model_id = canvas.selectbox(
             "Select a model",
             placeholder=default_model,
             options=model_ids,
@@ -98,11 +98,17 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
         )
 
     # Model pricing
-    if selected_model:
-        price = view_utils.get_model_price(selected_model)
-        canvas.caption(f"***Price***: starting at "
-                 f"**\\${price['input']:g} per 1M input tokens** · "
-                 f"**\\${price['output']:g} per 1M output tokens**")
+    if selected_model_id:
+        model_object = view_utils.get_model_object(selected_model_id)
+
+        if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
+            canvas.caption(f"***Price***: starting at "
+                 f"**{view_utils.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
+                           f"per 1M input tokens** · "
+                 f"**{view_utils.format_model_price(model_object.data.pricing.completion, markdown=True)} "
+                           f"per 1M output tokens**")
+        else:
+            canvas.caption("***Price***: varies by model")
 
     canvas.divider()
 
@@ -395,7 +401,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     currently_selected_models = st.session_state.get("selected_judge_models", previous_selected_models)
     model_options = model_ids + [m for m in currently_selected_models if not m in model_ids]
 
-    selected_models = st.multiselect(
+    selected_models_ids = st.multiselect(
         "Select up to three judge models",
         options=model_options,
         default=previous_selected_models,
@@ -405,17 +411,18 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     )
 
     # Model pricing
-    if selected_models:
+    if selected_models_ids:
         st.space()
         st.caption("**Starting prices:**")
 
         price_table_rows = []
-        for model in selected_models:
-            price = view_utils.get_model_price(model)
+        for model_id in selected_models_ids:
+            model_object = view_utils.get_model_object(model_id)
+
             price_table_rows.append({
-                "Model": model,
-                "Input / 1M tokens": f"${price['input']:g}",
-                "Output / 1M tokens": f"${price['output']:g}",
+                "Model": model_id,
+                "Input / 1M tokens": view_utils.format_model_price(model_object.data.pricing.prompt),
+                "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
             })
 
         st.dataframe(price_table_rows, hide_index=True)
@@ -435,4 +442,4 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
         index=previous_selected_configuration,
     )
 
-    return selected_models, selected_configuration
+    return selected_models_ids, selected_configuration

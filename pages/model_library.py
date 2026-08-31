@@ -35,24 +35,25 @@ st.divider()
 st.header("All models")
 
 # Filtering and sorting
-models, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_")
+model_objects, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_")
 st.space()
 
+# Create model library dataframe
 model_table = pd.DataFrame(
     [
         {
-            "favorite": model.id in favorite_models,
-            "id": model.id,
-            "description": model.description,
-            "context_length": model.context_length,
-            "knowledge_cutoff": model.knowledge_cutoff,
-            "price_input": float(model.pricing.prompt) * 1_000_000,
-            "price_output": float(model.pricing.completion) * 1_000_000,
+            "favorite": model_object.id in favorite_models,
+            "id": model_object.id,
+            "description": model_object.description,
+            "context_length": model_object.context_length,
+            "knowledge_cutoff": model_object.knowledge_cutoff,
+            "input_price": view_utils.format_model_price(model_object.pricing.prompt),
+            "output_price": view_utils.format_model_price(model_object.pricing.completion),
         }
-        for model in models
+        for model_object in model_objects
     ],
     columns=[
-        "favorite", "id", "description", "context_length", "knowledge_cutoff", "price_input", "price_output",
+        "favorite", "id", "description", "context_length", "knowledge_cutoff", "input_price", "output_price",
     ]
 )
 
@@ -63,7 +64,7 @@ edited_table = st.data_editor(
     model_table,
     height="content" if len(model_table) <= 20 else 750,
     hide_index=True,
-    disabled=["id", "description", "context_length", "knowledge_cutoff", "price_input", "price_output"],
+    disabled=["id", "description", "context_length", "knowledge_cutoff", "input_price", "output_price"],
     column_config={
         "favorite": st.column_config.CheckboxColumn(
             "Favorite", help="Add this model to favorites"
@@ -76,11 +77,11 @@ edited_table = st.data_editor(
         "knowledge_cutoff": st.column_config.DatetimeColumn(
             "Knowledge cutoff", format="YYYY-MM-DD",
         ),
-        "price_input": st.column_config.NumberColumn(
-            "Input", help="Price per 1M input tokens", format="dollar",
+        "input_price": st.column_config.TextColumn(
+            "Input", help="Price per 1M input tokens", alignment="right",
         ),
-        "price_output": st.column_config.NumberColumn(
-            "Output", help="Price per 1M output tokens", format="dollar",
+        "output_price": st.column_config.TextColumn(
+            "Output", help="Price per 1M output tokens", alignment="right",
         ),
     }
 )

@@ -67,6 +67,15 @@ def format_duration(value):
         return value
 
 
+def format_model_price(raw_price, markdown=False):
+    price = float(raw_price)
+
+    if markdown:
+        return f"\\${(price * 1_000_000):,.2f}" if price >= 0 else "Varies by model"
+    else:
+        return f"{(price * 1_000_000):,.2f} $" if price >= 0 else "Varies by model"
+
+
 ###### HISTORY
 
 def get_all_history_entries(fill_null=False):
@@ -221,6 +230,6 @@ def get_models(sort="most-popular", model_filter="All"):
     return models
 
 
-@st.cache_data(ttl="1h", show_spinner="Loading model pricing…")
-def get_model_price(model_id):
-    return openrouter_api.get_model_price(model_id)
+@st.cache_data(ttl="1h", show_spinner="Loading model information…")
+def get_model_object(model_id):
+    return openrouter_api.get_model_object(model_id)
