@@ -1,5 +1,5 @@
 from datetime import datetime
-from time import sleep
+import time
 
 import openrouter.errors
 from openrouter import OpenRouter
@@ -20,15 +20,13 @@ def _safe_run(function, max_retries=2, **kwargs):
         error_specs = OPENROUTER_ERRORS.get(type(e), OPENROUTER_ERRORS[openrouter.errors.OpenRouterError])
 
         if error_specs["retry"]:
-            remaining_retries = max_retries
-
             # try to send the request `max_retries` more times
-            while remaining_retries > 0:
+            for i in range(max_retries):
+                time.sleep(3.2)
+
                 try:
-                    sleep(3.2)
                     return function(**kwargs)
                 except tuple(OPENROUTER_ERRORS.keys()) as inner_e:
-                    remaining_retries -= 1
                     inner_error_specs = OPENROUTER_ERRORS.get(
                         type(inner_e), OPENROUTER_ERRORS[openrouter.errors.OpenRouterError]
                     )

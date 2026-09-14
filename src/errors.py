@@ -1,4 +1,5 @@
 import openrouter.errors
+import streamlit as st
 
 OPENROUTER_ERRORS = {
     # RETRY ERRORS:
@@ -102,9 +103,63 @@ OPENROUTER_ERRORS = {
     },
 }
 
+ERROR_PRESENTATION = {
+    "auth": {
+        "icon": "🔑",
+        "title": "OpenRouter authentication failed",
+    },
+    "credits": {
+        "icon": "💳",
+        "title": "Insufficient OpenRouter credits",
+    },
+    "rate_limit": {
+        "icon": "⏳",
+        "title": "OpenRouter rate limit reached",
+    },
+    "network": {
+        "icon": "🌐",
+        "title": "Connection to OpenRouter failed",
+    },
+    "temporary": {
+        "icon": "🛠️",
+        "title": "OpenRouter is temporarily unavailable",
+    },
+    "request": {
+        "icon": "⚠️",
+        "title": "OpenRouter rejected the request",
+    },
+    "not_found": {
+        "icon": "🔎",
+        "title": "OpenRouter resource not found",
+    },
+    "unexpected": {
+        "icon": "❗",
+        "title": "Unexpected OpenRouter error",
+    },
+}
+
+
 class OpenRouterRequestError(Exception):
     def __init__(self, message, kind, original_error):
         super().__init__(message)
         self.message = message
         self.kind = kind
         self.original_error = original_error
+
+
+def display_openrouter_error(error: OpenRouterRequestError, canvas=st, context=None):
+    presentation = ERROR_PRESENTATION.get(
+        error.kind,
+        ERROR_PRESENTATION["unexpected"],
+    )
+
+    details = canvas.expander(
+        f"**:red[{presentation['title']}]**",
+        icon=presentation["icon"],
+        type="compact",
+    )
+
+    if context:
+        details.markdown(f":grey[{context}]")
+
+    details.markdown(f":grey[**Original error message:** {error.message}]")

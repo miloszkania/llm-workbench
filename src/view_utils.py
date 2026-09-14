@@ -3,11 +3,11 @@ import re
 import time
 from datetime import datetime
 
-import openrouter.errors.toomanyrequestsresponse_error
 import pandas as pd
 import streamlit as st
 
 from src import database, openrouter_api, judge
+
 
 ###### UTILS
 
@@ -158,53 +158,39 @@ def generate_and_evaluate_interactions(
 
     # send the prompt `repetition_count` times
     for i in range(repetition_count):
-        repeated_error_count = 0
-        # try sending until there are no errors
-        while True:
-            try:
-                response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
-                if len(response.choices) > 0:
-                    response_content = response.choices[0].message.content
-                else:
-                    response_content = None
+        response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
 
-                # clear the model id (remove the timestamp-snapshot)
-                used_model = remove_timestamp_from_model_id(response.model)
+        if len(response.choices) > 0:
+            response_content = response.choices[0].message.content
+        else:
+            response_content = None
 
-                # add the prompt to database
-                interaction_id = database.insert_prompt_record({
-                    "time": str(start_timestamp),
-                    "model": used_model,
-                    "prompt": prompt,
-                    "system_prompt": system_prompt if system_prompt else None,
-                    "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
-                    "response": response_content,
-                    "duration": str(duration),
-                    "token_usage": response.usage.total_tokens,
-                    "price": response.usage.cost,
-                })
+        # clear the model id (remove the timestamp-snapshot)
+        used_model = remove_timestamp_from_model_id(response.model)
 
-                # get llm-as-a-judge classification
-                judge.evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response_content,
-                                                     judge_config, judge_models)
+        # add the prompt to database
+        interaction_id = database.insert_prompt_record({
+            "time": str(start_timestamp),
+            "model": used_model,
+            "prompt": prompt,
+            "system_prompt": system_prompt if system_prompt else None,
+            "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
+            "response": response_content,
+            "duration": str(duration),
+            "token_usage": response.usage.total_tokens,
+            "price": response.usage.cost,
+        })
 
-                # save the id of the resulting interaction in the array
-                interaction_ids.append(interaction_id)
+        # get llm-as-a-judge classification
+        judge.evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response_content,
+                                             judge_config, judge_models)
 
-                # timeout of 3 seconds (if not last prompt of the batch)
-                if i != repetition_count - 1:
-                    time.sleep(3.2)
+        # save the id of the resulting interaction in the array
+        interaction_ids.append(interaction_id)
 
-                break # breaking the try-until-succeeded loop
-            except openrouter.errors.openroutererror.OpenRouterError as e:
-                repeated_error_count += 1
-
-                if repeated_error_count >= 3:
-                    st.error(f"Repeated OpenRouter error: {e}. Try again later.")
-                    return
-
-                time.sleep(3.2)
-                continue # try again
+        # timeout of 3 seconds (if not last prompt of the batch)
+        if i != repetition_count - 1:
+            time.sleep(3.2)
 
     # redirect to the prompt/batch details page
     param_string = ",".join(map(str, interaction_ids)) # parse [1, 2, 3, 4] into 1,2,3,4

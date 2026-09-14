@@ -71,30 +71,24 @@ def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, respon
 
     judge_prompt = compose_judge_prompt(judge_instructions, system_prompt, prompt, response)
 
-    for judge_model in judge_models:
-        for attempt in range(1, 4): # try three times
-            time.sleep(3.2)
+    for i in range(len(judge_models)):
+        judge_model = judge_models[i]
 
-            try:
-                judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
-            except Exception as e:
-                print(f"Error #{attempt} when getting judge result: {type(e)} - {e}")
-                continue # try again
+        if i > 0: time.sleep(3.2)
+        judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
 
-            # we received an incorrect label from the judge - try again
-            if not judge_result.get("label"):
-                continue
+        # we received an incorrect label from the judge - go to the next one
+        if not judge_result.get("label"):
+            continue
 
-            # save the judge result into the database
-            database.insert_judge_result({
-                "interaction_id": interaction_id,
-                "judge_config_id": judge_config_id,
-                "judge_model": judge_result["judge_model"],
-                "label": judge_result["label"],
-                "explanation": judge_result["explanation"][:500] if require_explanation else None,
-                "time": judge_result["time"],
-                "duration": str(judge_result["duration"]),
-                "price": judge_result["price"],
-            })
-
-            break # attempts loop
+        # save the judge result into the database
+        database.insert_judge_result({
+            "interaction_id": interaction_id,
+            "judge_config_id": judge_config_id,
+            "judge_model": judge_result["judge_model"],
+            "label": judge_result["label"],
+            "explanation": judge_result["explanation"][:500] if require_explanation else None,
+            "time": judge_result["time"],
+            "duration": str(judge_result["duration"]),
+            "price": judge_result["price"],
+        })

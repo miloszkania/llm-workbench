@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-import openrouter.errors.openroutererror
 import streamlit as st
 
 from src import view_utils, database, openrouter_api, judge
+from src.errors import OpenRouterRequestError, display_openrouter_error
 
 
 def model_filter_and_sort_controls(canvas=st, key_prefix=""):
@@ -40,10 +40,14 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         key=f"{key_prefix}model-sorting",
     )
 
-    selected_models = view_utils.get_models(
-        model_filter=model_filter,
-        sort=model_sorting,
-    )
+    try:
+        selected_models = view_utils.get_models(
+            model_filter=model_filter,
+            sort=model_sorting,
+        )
+    except OpenRouterRequestError as e:
+        display_openrouter_error(e, canvas)
+        return [], model_filter
 
     if favorites_only:
         favorite_models = database.get_favorite_models()
@@ -99,16 +103,20 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # Model pricing
     if selected_model_id:
-        model_object = view_utils.get_model_object(selected_model_id)
+        try:
+            model_object = view_utils.get_model_object(selected_model_id)
 
-        if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
-            canvas.caption(f"***Price***: starting at "
-                 f"**{view_utils.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
-                           f"per 1M input tokens** · "
-                 f"**{view_utils.format_model_price(model_object.data.pricing.completion, markdown=True)} "
-                           f"per 1M output tokens**")
-        else:
-            canvas.caption("***Price***: varies by model")
+            if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
+                canvas.caption(f"***Price***: starting at "
+                     f"**{view_utils.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
+                               f"per 1M input tokens** · "
+                     f"**{view_utils.format_model_price(model_object.data.pricing.completion, markdown=True)} "
+                               f"per 1M output tokens**")
+            else:
+                canvas.caption("***Price***: varies by model")
+
+        except OpenRouterRequestError as e:
+            display_openrouter_error(e, canvas)
 
     canvas.divider()
 
@@ -143,14 +151,8 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
                     view_utils.generate_and_evaluate_interactions(
                         model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count
                     )
-                except openrouter.errors.toomanyrequestsresponse_error.TooManyRequestsResponseError:
-                    st.error("Too many requests - rate limited by OpenRouter. Try again later.")
-                except openrouter.errors.openroutererror.OpenRouterError as e:
-                    if "flagged" in str(e).lower():
-                        st.error(f"The request to {model} was flagged by OpenInterface. "
-                                 f"Try again with a different model.")
-                    else:
-                        st.error(f"OpenRouter error: {e}. Try again later.")
+                except OpenRouterRequestError as e:
+                    display_openrouter_error(e)
 
 
 def save_preset_button(prompt, system_prompt, categories):
@@ -172,15 +174,18 @@ def display_run_judging_dialog(interaction_object):
             st.error("Select at least one judge model and a judge configuration!")
         else:
             with st.spinner("Waiting for judge response…", show_time=True):
-                judge.evaluate_and_store_interaction(
-                    interaction_object["interaction"]["id"],
-                    interaction_object["interaction"]["system_prompt"],
-                    interaction_object["interaction"]["prompt"],
-                    interaction_object["interaction"]["response"],
-                    judge_config,
-                    judge_models
-                )
-                st.rerun()
+                try:
+                    judge.evaluate_and_store_interaction(
+                        interaction_object["interaction"]["id"],
+                        interaction_object["interaction"]["system_prompt"],
+                        interaction_object["interaction"]["prompt"],
+                        interaction_object["interaction"]["response"],
+                        judge_config,
+                        judge_models
+                    )
+                    st.rerun()
+                except OpenRouterRequestError as e:
+                    display_openrouter_error(e)
 
 
 def interaction_card(interaction_object):
@@ -341,13 +346,20 @@ def api_key_details(canvas=st.sidebar):
     canvas.subheader("OpenRouter Details")
 
     # check if the api key can be authentified
-    try:
-        with canvas.spinner(text="Fetching account information…"):
+    with canvas.spinner(text="Fetching account information…"):
+        # get key metadata
+        try:
             metadata = openrouter_api.get_key_metadata()
+        except OpenRouterRequestError as e:
+            display_openrouter_error(e, canvas, context="Could not fetch API key information.")
+            return
+
+        # get credits
+        try:
             credits = openrouter_api.get_credits()
-    except openrouter.errors.UnauthorizedResponseError:
-        canvas.caption("**API Key:** 🔴 Authentication failed, check `OPENROUTER_API_KEY`")
-        return
+        except OpenRouterRequestError as e:
+            display_openrouter_error(e, canvas, context="Could not fetch credit information.")
+            return
 
     # key label
     canvas.write(f"**API Key:** 🟢 `{metadata.label}`")
@@ -417,15 +429,23 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
 
         price_table_rows = []
         for model_id in selected_models_ids:
-            model_object = view_utils.get_model_object(model_id)
-
-            price_table_rows.append({
-                "Model": model_id,
-                "Input / 1M tokens": view_utils.format_model_price(model_object.data.pricing.prompt),
-                "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
-            })
+            try:
+                model_object = view_utils.get_model_object(model_id)
+                price_table_rows.append({
+                    "Model": model_id,
+                    "Input / 1M tokens": view_utils.format_model_price(model_object.data.pricing.prompt),
+                    "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
+                })
+            except OpenRouterRequestError as e:
+                display_openrouter_error(e)
+                price_table_rows.append({
+                    "Model": model_id,
+                    "Input / 1M tokens": "Pricing unavailable",
+                    "Output / 1M tokens": "Pricing unavailable",
+                })
 
         st.dataframe(price_table_rows, hide_index=True)
+
 
     # Configuration
     st.space()
