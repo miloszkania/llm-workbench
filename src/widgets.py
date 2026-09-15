@@ -205,90 +205,89 @@ def interaction_card(interaction_object):
     interaction_id = interaction_object["interaction"]["id"]
 
     with st.expander(f"Interaction #{interaction_id}", expanded=True):
-        with st.container(border=True):
-            # count judge labels
-            num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
-            num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
-            num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
-            judging_price = sum(i["price"] for i in interaction_object["judge_results"])
+        # count judge labels
+        num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
+        num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
+        num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
+        judging_price = sum(i["price"] for i in interaction_object["judge_results"])
 
-            col_overview, col_manual_label = st.columns([3, 1])
+        col_overview, col_manual_label = st.columns([3, 1])
 
-            # Overview
-            col_overview.header(f"Interaction #{interaction_id}")
-            col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
-            col_overview.markdown(
-                     f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
-                     f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
-                     f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
-                     f"**{interaction_object['interaction']['token_usage']}** tokens · "
-                     f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
-                     f"judging: **\\${judging_price:.4f}**"
+        # Overview
+        col_overview.header(f"Interaction #{interaction_id}")
+        col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
+        col_overview.markdown(
+                 f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+                 f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
+                 f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
+                 f"**{interaction_object['interaction']['token_usage']}** tokens · "
+                 f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
+                 f"judging: **\\${judging_price:.4f}**"
+        )
+
+        # Manual label field
+        def update_manual_label():
+            new_label = st.session_state[f"manual_label_{interaction_id}"]
+            database.set_interaction_label(interaction_id, new_label)
+            col_manual_label.success("Label saved!")
+
+        possible_labels = ["success", "refusal", "unclear", None]
+        existing_manual_label = interaction_object["interaction"]["manual_label"]
+        col_manual_label.selectbox(
+            label="Set a manual label",
+            options=possible_labels,
+            format_func=lambda x: x.capitalize() if x else "No label",
+            placeholder="Select a label…",
+            index=(possible_labels.index(existing_manual_label) if existing_manual_label else None),
+            key=f"manual_label_{interaction_id}",
+            on_change=update_manual_label,
+        )
+
+        st.divider()
+
+        col_response, col_judge = st.columns(2)
+
+        # Response
+        col_response.subheader("Response")
+        parse_markdown = col_response.toggle("Parse Markdown", value=True, key=f"parse_md_{interaction_id}")
+
+        if parse_markdown:
+            with col_response.container(border=True, height="stretch"):
+                st.markdown(interaction_object["interaction"]["response"])
+        else:
+            col_response.text_area(
+                f"Response for ID={interaction_id}",
+                value=interaction_object["interaction"]["response"],
+                height="stretch",
+                key=f"response_{interaction_id}",
             )
 
-            # Manual label field
-            def update_manual_label():
-                new_label = st.session_state[f"manual_label_{interaction_id}"]
-                database.set_interaction_label(interaction_id, new_label)
-                col_manual_label.success("Label saved!")
+        # Judge results
+        col_title, col_button = col_judge.columns(2)
+        col_title.subheader("Judge results")
 
-            possible_labels = ["success", "refusal", "unclear", None]
-            existing_manual_label = interaction_object["interaction"]["manual_label"]
-            col_manual_label.selectbox(
-                label="Set a manual label",
-                options=possible_labels,
-                format_func=lambda x: x.capitalize() if x else "No label",
-                placeholder="Select a label…",
-                index=(possible_labels.index(existing_manual_label) if existing_manual_label else None),
-                key=f"manual_label_{interaction_id}",
-                on_change=update_manual_label,
-            )
+        # allow running the judge only if there was any response from the target
+        if interaction_object["interaction"]["response"]:
+            with col_button.container(horizontal=True, horizontal_alignment="right"):
+                if st.button("Run judging…", type="primary", key=f"{interaction_id}_run_judge"):
+                    display_run_judging_dialog(interaction_object)
 
-            st.divider()
+        if len(interaction_object["judge_results"]) > 0:
+            for judge_result in interaction_object["judge_results"]:
+                label = judge_result["label"]
+                explanation = judge_result["explanation"] or ""
 
-            col_response, col_judge = st.columns(2)
+                if label == "success": display_fct = col_judge.success
+                elif label == "refusal": display_fct = col_judge.error
+                elif label == "unclear": display_fct = col_judge.warning
+                else: continue
 
-            # Response
-            col_response.subheader("Response")
-            parse_markdown = col_response.toggle("Parse Markdown", value=True, key=f"parse_md_{interaction_id}")
-
-            if parse_markdown:
-                with col_response.container(border=True, height="stretch"):
-                    st.markdown(interaction_object["interaction"]["response"])
-            else:
-                col_response.text_area(
-                    f"Response for ID={interaction_id}",
-                    value=interaction_object["interaction"]["response"],
-                    height="stretch",
-                    key=f"response_{interaction_id}",
+                display_fct(
+                    title=f"{label} · {judge_result['judge_model']} · {judge_result["judge_config_id"]}",
+                    body=explanation,
                 )
-
-            # Judge results
-            col_title, col_button = col_judge.columns(2)
-            col_title.subheader("Judge results")
-
-            # allow running the judge only if there was any response from the target
-            if interaction_object["interaction"]["response"]:
-                with col_button.container(horizontal=True, horizontal_alignment="right"):
-                    if st.button("Run judging…", type="primary", key=f"{interaction_id}_run_judge"):
-                        display_run_judging_dialog(interaction_object)
-
-            if len(interaction_object["judge_results"]) > 0:
-                for judge_result in interaction_object["judge_results"]:
-                    label = judge_result["label"]
-                    explanation = judge_result["explanation"] or ""
-
-                    if label == "success": display_fct = col_judge.success
-                    elif label == "refusal": display_fct = col_judge.error
-                    elif label == "unclear": display_fct = col_judge.warning
-                    else: continue
-
-                    display_fct(
-                        title=f"{label} · {judge_result['judge_model']} · {judge_result["judge_config_id"]}",
-                        body=explanation,
-                    )
-            else:
-                col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
+        else:
+            col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
 
 
 def preset_table_preview(preset_table=None):
