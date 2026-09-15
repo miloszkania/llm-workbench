@@ -118,23 +118,23 @@ ERROR_PRESENTATION = {
     },
     "network": {
         "icon": "🌐",
-        "title": "Connection to OpenRouter failed",
+        "title": "Network request failed",
     },
     "temporary": {
         "icon": "🛠️",
-        "title": "OpenRouter is temporarily unavailable",
+        "title": "Request temporarily failed",
     },
     "request": {
         "icon": "⚠️",
-        "title": "OpenRouter rejected the request",
+        "title": "Request rejected",
     },
     "not_found": {
         "icon": "🔎",
-        "title": "OpenRouter resource not found",
+        "title": "Requested resource not found",
     },
     "unexpected": {
         "icon": "❗",
-        "title": "Unexpected OpenRouter error",
+        "title": "Unexpected request error",
     },
 }
 
@@ -170,4 +170,4 @@ def display_error(error: Exception, canvas=st, context=None):
     if context:
         details.markdown(f":grey[{context}]")
 
-    details.write(message)
+    details.caption(message)
