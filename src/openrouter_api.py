@@ -7,7 +7,13 @@ from openrouter import OpenRouter
 from src.config import get_env_config
 from src.errors import OpenRouterRequestError, OPENROUTER_ERRORS
 
-client = OpenRouter(api_key=get_env_config().openrouter_api_key)
+API_TIMEOUT_MS = 30_000 # wait at most 30 s for a metadata or model response (in each attempt)
+CHAT_TIMEOUT_MS = 120_000 # wait at most 120 s for a chat response (in each attempt)
+
+client = OpenRouter(
+    api_key=get_env_config().openrouter_api_key,
+    retry_config=None, # disable SDK retries, _safe_run handles them
+)
 
 # runs `function` with `**kwargs` as arguments. retries when specified errors occur.
 # if the error persists, throws a local error class, simplifying the error validation in other functions
@@ -46,7 +52,7 @@ def _safe_run(function, max_retries=2, **kwargs):
 
 
 def get_model_list(sort="most-popular"):
-    model_list = _safe_run(client.models.list, sort=sort)
+    model_list = _safe_run(client.models.list, sort=sort, timeout_ms=API_TIMEOUT_MS)
     return model_list.result.data
 
 
@@ -66,25 +72,25 @@ def send_prompt(model, prompt, system_prompt):
         "content": prompt,
     })
 
-    response = _safe_run(client.chat.send, model=model, messages=messages)
+    response = _safe_run(client.chat.send, model=model, messages=messages, timeout_ms=CHAT_TIMEOUT_MS)
     timestamp_end = datetime.now()
 
     return response, timestamp_start, timestamp_end - timestamp_start
 
 
 def get_key_metadata():
-    metadata = _safe_run(client.api_keys.get_current_key_metadata)
+    metadata = _safe_run(client.api_keys.get_current_key_metadata, timeout_ms=API_TIMEOUT_MS)
     return metadata.data
 
 
 def get_credits():
-    credits_data = _safe_run(client.credits.get_credits)
+    credits_data = _safe_run(client.credits.get_credits, timeout_ms=API_TIMEOUT_MS)
     return credits_data.data
 
 
 def get_model_object(model_id):
     author, slug = model_id.split("/", maxsplit=1)
-    model_object = _safe_run(client.models.get, author=author, slug=slug)
+    model_object = _safe_run(client.models.get, author=author, slug=slug, timeout_ms=API_TIMEOUT_MS)
     return model_object
 
 
