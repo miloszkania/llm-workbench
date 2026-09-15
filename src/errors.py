@@ -147,11 +147,19 @@ class OpenRouterRequestError(Exception):
         self.original_error = original_error
 
 
-def display_openrouter_error(error: OpenRouterRequestError, canvas=st, context=None):
-    presentation = ERROR_PRESENTATION.get(
-        error.kind,
-        ERROR_PRESENTATION["unexpected"],
-    )
+def display_error(error: Exception, canvas=st, context=None):
+    if isinstance(error, OpenRouterRequestError):
+        presentation = ERROR_PRESENTATION.get(
+            error.kind,
+            ERROR_PRESENTATION["unexpected"],
+        )
+        message = error.message
+    else:
+        presentation = {
+            "icon": "⚠️",
+            "title": "Operation could not be completed",
+        }
+        message = str(error)
 
     details = canvas.expander(
         f"**:red[{presentation['title']}]**",
@@ -162,4 +170,4 @@ def display_openrouter_error(error: OpenRouterRequestError, canvas=st, context=N
     if context:
         details.markdown(f":grey[{context}]")
 
-    details.markdown(f":grey[**Original error message:** {error.message}]")
+    details.write(message)

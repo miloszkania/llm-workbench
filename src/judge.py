@@ -1,6 +1,7 @@
 import time
 
 from src import database, openrouter_api, view_utils
+from src.errors import OpenRouterRequestError
 
 
 def get_configuration_details(judge_config_id):
@@ -40,10 +41,19 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
     judge_response, time, duration = openrouter_api.send_prompt(judge_model, judge_prompt, None)
     judge_message = judge_response.choices[0].message.content.strip()
 
+    # parse the judge response
     if require_explanation:
-        label, explanation = judge_message.split(", Explanation: ", maxsplit=1)
+        if ", Explanation: " in judge_message:
+            label, explanation = judge_message.split(", Explanation: ", maxsplit=1)
+        else:
+            label = None
+            explanation = judge_message  # save the whole response for debugging purposes
+
     else:
         label, explanation = judge_message, None
+
+    # normalize the label
+    label = label.strip().lower() if label else None
 
     # check if judge sent a correct label
     if label not in ["success", "refusal", "unclear"]:
@@ -62,23 +72,38 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
 
 def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response, judge_config_id, judge_models):
     if not judge_config_id or not judge_models:
-        return
+        return []
 
     judge_instructions, require_explanation = get_configuration_details(judge_config_id)
 
     if not judge_instructions:
-        return
+        return []
 
     judge_prompt = compose_judge_prompt(judge_instructions, system_prompt, prompt, response)
+    failed_judgments = []
 
     for i in range(len(judge_models)):
         judge_model = judge_models[i]
 
         if i > 0: time.sleep(3.2)
-        judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
+        try:
+            judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
+        except OpenRouterRequestError as e:
+            failed_judgments.append({
+                "interaction_id": interaction_id,
+                "judge_model": judge_model,
+                "error": e,
+            })
+            continue
 
-        # we received an incorrect label from the judge - go to the next one
+        # we received an incorrect label from the judge
         if not judge_result.get("label"):
+            failed_judgments.append({
+                "interaction_id": interaction_id,
+                "judge_model": judge_model,
+                "error": ValueError(f"The judge returned an incorrectly formatted response. "
+                                    f"Raw response: {judge_result.get('explanation')}"),
+            })
             continue
 
         # save the judge result into the database
@@ -92,3 +117,5 @@ def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, respon
             "duration": str(judge_result["duration"]),
             "price": judge_result["price"],
         })
+
+    return failed_judgments

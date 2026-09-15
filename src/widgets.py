@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from src import view_utils, database, openrouter_api, judge
-from src.errors import OpenRouterRequestError, display_openrouter_error
+from src.errors import OpenRouterRequestError, display_error
 
 
 def model_filter_and_sort_controls(canvas=st, key_prefix=""):
@@ -46,7 +46,7 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
             sort=model_sorting,
         )
     except OpenRouterRequestError as e:
-        display_openrouter_error(e, canvas)
+        display_error(e, canvas)
         return [], model_filter
 
     if favorites_only:
@@ -116,7 +116,7 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
                 canvas.caption("***Price***: varies by model")
 
         except OpenRouterRequestError as e:
-            display_openrouter_error(e, canvas)
+            display_error(e, canvas)
 
     canvas.divider()
 
@@ -148,11 +148,23 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
                 st.error("You need to enter the prompt!")
             else:
                 try:
-                    view_utils.generate_and_evaluate_interactions(
+                    interaction_ids, failed_interactions, failed_judgments = view_utils.generate_and_evaluate_interactions(
                         model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count
                     )
+
+                    # no interactions succeeded, display the error message right away, don't redirect
+                    if failed_interactions and not interaction_ids:
+                        display_failed_interactions_information(interaction_ids, failed_interactions)
+                    else:
+                        # redirect to the prompt/batch details page
+                        st.session_state["failed_judgments"] = failed_judgments
+                        st.session_state["failed_interactions"] = failed_interactions
+
+                        param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
+                        st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
+
                 except OpenRouterRequestError as e:
-                    display_openrouter_error(e)
+                    display_error(e)
 
 
 def save_preset_button(prompt, system_prompt, categories):
@@ -175,7 +187,7 @@ def display_run_judging_dialog(interaction_object):
         else:
             with st.spinner("Waiting for judge response…", show_time=True):
                 try:
-                    judge.evaluate_and_store_interaction(
+                    failed_judgments = judge.evaluate_and_store_interaction(
                         interaction_object["interaction"]["id"],
                         interaction_object["interaction"]["system_prompt"],
                         interaction_object["interaction"]["prompt"],
@@ -183,9 +195,10 @@ def display_run_judging_dialog(interaction_object):
                         judge_config,
                         judge_models
                     )
+                    st.session_state["failed_judgments"] = failed_judgments
                     st.rerun()
                 except OpenRouterRequestError as e:
-                    display_openrouter_error(e)
+                    display_error(e)
 
 
 def interaction_card(interaction_object):
@@ -351,14 +364,14 @@ def api_key_details(canvas=st.sidebar):
         try:
             metadata = openrouter_api.get_key_metadata()
         except OpenRouterRequestError as e:
-            display_openrouter_error(e, canvas, context="Could not fetch API key information.")
+            display_error(e, canvas, context="Could not fetch API key information.")
             return
 
         # get credits
         try:
             credits = openrouter_api.get_credits()
         except OpenRouterRequestError as e:
-            display_openrouter_error(e, canvas, context="Could not fetch credit information.")
+            display_error(e, canvas, context="Could not fetch credit information.")
             return
 
     # key label
@@ -437,7 +450,7 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
                     "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
                 })
             except OpenRouterRequestError as e:
-                display_openrouter_error(e)
+                display_error(e)
                 price_table_rows.append({
                     "Model": model_id,
                     "Input / 1M tokens": "Pricing unavailable",
@@ -463,3 +476,24 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     )
 
     return selected_models_ids, selected_configuration
+
+
+def display_failed_judgments_information(failed_judgments, canvas=st):
+    canvas.error(f"{len(failed_judgments)} judge evaluation{'s' if len(failed_judgments) != 1 else ''} could not be completed:")
+    for failed_judgment in failed_judgments:
+        display_error(
+            error=failed_judgment["error"],
+            canvas=canvas,
+            context=f"Interaction {failed_judgment['interaction_id']} "
+                    f"· judge {failed_judgment['judge_model']}",
+        )
+
+
+def display_failed_interactions_information(interactions, failed_interactions, canvas=st):
+    canvas.warning(f"Only {len(interactions)} interaction{'s' if len(interactions) != 1 else ''} "
+               f"succeeded. The following errors occurred:")
+    for failed_interaction in failed_interactions:
+        display_error(
+            error=failed_interaction,
+            canvas=canvas,
+        )

@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from src import database, openrouter_api, judge
+from src.errors import OpenRouterRequestError
 
 
 ###### UTILS
@@ -155,10 +156,20 @@ def generate_and_evaluate_interactions(
 ):
     # store all ids of the interactions
     interaction_ids = []
+    failed_judgments = []
+    failed_interactions = []
 
     # send the prompt `repetition_count` times
     for i in range(repetition_count):
-        response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
+        # timeout of 3 seconds (if not first prompt of the batch)
+        if i > 0: time.sleep(3.2)
+
+        # send the prompt and receive a response
+        try:
+            response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
+        except OpenRouterRequestError as e:
+            failed_interactions.append(e)
+            continue
 
         if len(response.choices) > 0:
             response_content = response.choices[0].message.content
@@ -182,19 +193,17 @@ def generate_and_evaluate_interactions(
         })
 
         # get llm-as-a-judge classification
-        judge.evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response_content,
-                                             judge_config, judge_models)
+        current_failed_judgments = judge.evaluate_and_store_interaction(
+            interaction_id, system_prompt, prompt, response_content, judge_config, judge_models
+        )
+
+        # save the failed judgments to display them in the next view
+        failed_judgments.extend(current_failed_judgments)
 
         # save the id of the resulting interaction in the array
         interaction_ids.append(interaction_id)
 
-        # timeout of 3 seconds (if not last prompt of the batch)
-        if i != repetition_count - 1:
-            time.sleep(3.2)
-
-    # redirect to the prompt/batch details page
-    param_string = ",".join(map(str, interaction_ids)) # parse [1, 2, 3, 4] into 1,2,3,4
-    st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
+    return interaction_ids, failed_interactions, failed_judgments
 
 
 ###### MODELS
