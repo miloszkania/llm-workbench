@@ -39,7 +39,7 @@ def compose_judge_prompt(judge_instructions, system_prompt, prompt, response):
 
 def get_judge_result(judge_prompt, judge_model, require_explanation):
     judge_response, time, duration = openrouter_api.send_prompt(judge_model, judge_prompt, None)
-    judge_message = judge_response.choices[0].message.content.strip()
+    judge_message = openrouter_api.extract_response_text(judge_response)
 
     # parse the judge response
     if require_explanation:
@@ -88,7 +88,7 @@ def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, respon
         if i > 0: time.sleep(3.2)
         try:
             judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
-        except OpenRouterRequestError as e:
+        except (OpenRouterRequestError, ValueError) as e:
             failed_judgments.append({
                 "interaction_id": interaction_id,
                 "judge_model": judge_model,

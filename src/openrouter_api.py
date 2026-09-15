@@ -86,3 +86,21 @@ def get_model_object(model_id):
     author, slug = model_id.split("/", maxsplit=1)
     model_object = _safe_run(client.models.get, author=author, slug=slug)
     return model_object
+
+
+def extract_response_text(response):
+    if not response.choices:
+        raise ValueError("The model returned no response choices.")
+
+    message = response.choices[0].message
+    content = message.content
+
+    if isinstance(content, str) and content.strip():
+        return content.strip()
+
+    refusal = message.refusal
+
+    if isinstance(refusal, str) and refusal.strip():
+        return refusal.strip()
+
+    raise ValueError("The model returned no textual response.")

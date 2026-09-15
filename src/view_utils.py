@@ -167,14 +167,10 @@ def generate_and_evaluate_interactions(
         # send the prompt and receive a response
         try:
             response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
-        except OpenRouterRequestError as e:
+            response_content = openrouter_api.extract_response_text(response)
+        except (OpenRouterRequestError, ValueError) as e:
             failed_interactions.append(e)
             continue
-
-        if len(response.choices) > 0:
-            response_content = response.choices[0].message.content
-        else:
-            response_content = None
 
         # clear the model id (remove the timestamp-snapshot)
         used_model = remove_timestamp_from_model_id(response.model)
