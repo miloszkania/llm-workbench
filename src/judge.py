@@ -1,3 +1,4 @@
+import re
 import time
 
 from src import database, openrouter_api, view_utils
@@ -43,8 +44,15 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
 
     # parse the judge response
     if require_explanation:
-        if ", Explanation: " in judge_message:
-            label, explanation = judge_message.split(", Explanation: ", maxsplit=1)
+        # check if the response has the right format.
+        # we accept both lowercase and uppercase, more than one space or no comma before "Explanation"
+        match = re.fullmatch(
+            pattern=r"\s*(success|refusal|unclear)\s*,?\s*Explanation\s*:\s*(.+?)\s*",
+            string=judge_message,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if match:
+            label, explanation = match.groups()
         else:
             label = None
             explanation = judge_message  # save the whole response for debugging purposes
