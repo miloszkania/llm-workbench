@@ -1,3 +1,4 @@
+import httpx
 import openrouter.errors
 import streamlit as st
 
@@ -47,6 +48,12 @@ OPENROUTER_ERRORS = {
     },
     openrouter.errors.NoResponseError: {
         "message": "No response was received from the provider. "
+                   "Check your connection and try again.",
+        "retry": True,
+        "kind": "network",
+    },
+    httpx.TransportError: {
+        "message": "The network request could not be completed. "
                    "Check your connection and try again.",
         "retry": True,
         "kind": "network",

@@ -23,7 +23,10 @@ def _safe_run(function, max_retries=2, **kwargs):
         return function(**kwargs)
 
     except tuple(OPENROUTER_ERRORS.keys()) as e:
-        error_specs = OPENROUTER_ERRORS.get(type(e), OPENROUTER_ERRORS[openrouter.errors.OpenRouterError])
+        error_specs = (
+            OPENROUTER_ERRORS.get(type(e)) or
+            next(specs for error_type, specs in OPENROUTER_ERRORS.items() if isinstance(e, error_type))
+        )
 
         if error_specs["retry"]:
             # try to send the request `max_retries` more times
@@ -33,8 +36,9 @@ def _safe_run(function, max_retries=2, **kwargs):
                 try:
                     return function(**kwargs)
                 except tuple(OPENROUTER_ERRORS.keys()) as inner_e:
-                    inner_error_specs = OPENROUTER_ERRORS.get(
-                        type(inner_e), OPENROUTER_ERRORS[openrouter.errors.OpenRouterError]
+                    inner_error_specs = (
+                        OPENROUTER_ERRORS.get(type(inner_e)) or
+                        next(specs for error_type, specs in OPENROUTER_ERRORS.items() if isinstance(inner_e, error_type))
                     )
 
                     # if we got a non-retryable error, stop right away
