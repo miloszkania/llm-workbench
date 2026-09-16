@@ -12,6 +12,9 @@ CHAT_TIMEOUT_MS = 120_000 # network timeout for each chat attempt
 RATE_LIMIT_DELAY_S = 4 # default delay when rate-limited and no http retry-after value specified
 RETRY_DELAY_S = 3.2 # default delay when not rate-limited
 
+TARGET_MAX_COMPLETION_TOKENS = 4_096
+JUDGE_MAX_COMPLETION_TOKENS = 1_024
+
 client = OpenRouter(
     api_key=get_env_config().openrouter_api_key,
     retry_config=None, # disable SDK retries, _safe_run handles them
@@ -62,10 +65,8 @@ def get_model_list(sort="most-popular"):
     return model_list.result.data
 
 
-def send_prompt(model, prompt, system_prompt):
-    # Measure running time
-    timestamp_start = datetime.now()
-
+def send_prompt(model, prompt, system_prompt, conversation_type):
+    # prepare the messages object
     messages = []
     if system_prompt:
         messages.append({
@@ -78,7 +79,25 @@ def send_prompt(model, prompt, system_prompt):
         "content": prompt,
     })
 
-    response = _safe_run(client.chat.send, model=model, messages=messages, timeout_ms=CHAT_TIMEOUT_MS)
+    # set the right completion tokens limit
+    if conversation_type == "target":
+        max_completion_tokens = TARGET_MAX_COMPLETION_TOKENS
+    elif conversation_type == "judge":
+        max_completion_tokens = JUDGE_MAX_COMPLETION_TOKENS
+    else:
+        max_completion_tokens = None
+
+    # measure running time
+    timestamp_start = datetime.now()
+
+    response = _safe_run(
+        client.chat.send,
+        model=model,
+        messages=messages,
+        timeout_ms=CHAT_TIMEOUT_MS,
+        max_completion_tokens=max_completion_tokens,
+    )
+
     timestamp_end = datetime.now()
 
     return response, timestamp_start, timestamp_end - timestamp_start

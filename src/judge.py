@@ -39,7 +39,12 @@ def compose_judge_prompt(judge_instructions, system_prompt, prompt, response):
 
 
 def get_judge_result(judge_prompt, judge_model, require_explanation):
-    judge_response, time, duration = openrouter_api.send_prompt(judge_model, judge_prompt, None)
+    judge_response, time, duration = openrouter_api.send_prompt(
+        model=judge_model,
+        prompt=judge_prompt,
+        system_prompt=None,
+        conversation_type="judge",
+    )
     judge_message = openrouter_api.extract_response_text(judge_response)
 
     # parse the judge response

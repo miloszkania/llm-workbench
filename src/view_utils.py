@@ -166,7 +166,9 @@ def generate_and_evaluate_interactions(
 
         # send the prompt and receive a response
         try:
-            response, start_timestamp, duration = openrouter_api.send_prompt(model, prompt, system_prompt)
+            response, start_timestamp, duration = openrouter_api.send_prompt(
+                model, prompt, system_prompt, conversation_type="target"
+            )
             response_content = openrouter_api.extract_response_text(response)
         except (OpenRouterRequestError, ValueError) as e:
             failed_interactions.append(e)
