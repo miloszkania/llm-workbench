@@ -74,7 +74,7 @@ OPENROUTER_ERRORS = {
     },
     openrouter.errors.NotFoundResponseError: {
         "message": "The information you are looking for was not found. "
-                   "Check the input filters and try again.",
+                   "Use a different model and try again.",
         "retry": False,
         "kind": "not_found",
     },

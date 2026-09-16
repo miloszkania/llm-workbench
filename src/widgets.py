@@ -483,8 +483,8 @@ def display_failed_judgments_information(failed_judgments, canvas=st):
         display_error(
             error=failed_judgment["error"],
             canvas=canvas,
-            context=f"Interaction {failed_judgment['interaction_id']} "
-                    f"· judge {failed_judgment['judge_model']}",
+            context=f"Interaction `{failed_judgment['interaction_id']}` "
+                    f"· judge `{failed_judgment['judge_model']}`",
         )
 
 
