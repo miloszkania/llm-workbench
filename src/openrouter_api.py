@@ -1,14 +1,16 @@
 from datetime import datetime
 import time
 
-import openrouter.errors
 from openrouter import OpenRouter
 
 from src.config import get_env_config
 from src.errors import OpenRouterRequestError, OPENROUTER_ERRORS
 
-API_TIMEOUT_MS = 30_000 # wait at most 30 s for a metadata or model response (in each attempt)
-CHAT_TIMEOUT_MS = 120_000 # wait at most 120 s for a chat response (in each attempt)
+API_TIMEOUT_MS = 30_000 # network timeout for each metadata or model attempt
+CHAT_TIMEOUT_MS = 120_000 # network timeout for each chat attempt
+
+RATE_LIMIT_DELAY_S = 4 # default delay when rate-limited and no http retry-after value specified
+RETRY_DELAY_S = 3.2 # default delay when not rate-limited
 
 client = OpenRouter(
     api_key=get_env_config().openrouter_api_key,
@@ -18,41 +20,41 @@ client = OpenRouter(
 # runs `function` with `**kwargs` as arguments. retries when specified errors occur.
 # if the error persists, throws a local error class, simplifying the error validation in other functions
 def _safe_run(function, max_retries=2, **kwargs):
-    # see if we will be retrying or directly throwing
-    try:
-        return function(**kwargs)
+    for attempt in range(max_retries + 1):
+        try:
+            return function(**kwargs)
 
-    except tuple(OPENROUTER_ERRORS.keys()) as e:
-        error_specs = (
-            OPENROUTER_ERRORS.get(type(e)) or
-            next(specs for error_type, specs in OPENROUTER_ERRORS.items() if isinstance(e, error_type))
-        )
+        except tuple(OPENROUTER_ERRORS.keys()) as error:
+            error_specs = (
+                OPENROUTER_ERRORS.get(type(error))
+                or next(
+                    specs for error_type, specs in OPENROUTER_ERRORS.items()
+                    if isinstance(error, error_type)
+                )
+            )
 
-        if error_specs["retry"]:
-            # try to send the request `max_retries` more times
-            for i in range(max_retries):
-                time.sleep(3.2)
+            # stop trying (raise) if we encountered a non-retry error or if this is the last attempt
+            if not error_specs["retry"] or attempt == max_retries:
+                raise OpenRouterRequestError(
+                    message=error_specs["message"],
+                    kind=error_specs["kind"],
+                    original_error=error,
+                ) from error
 
+            # specify sleep times if we encountered a rate limit error
+            if error_specs["kind"] == "rate_limit":
+                # try to fetch the retry-after http header
                 try:
-                    return function(**kwargs)
-                except tuple(OPENROUTER_ERRORS.keys()) as inner_e:
-                    inner_error_specs = (
-                        OPENROUTER_ERRORS.get(type(inner_e)) or
-                        next(specs for error_type, specs in OPENROUTER_ERRORS.items() if isinstance(inner_e, error_type))
-                    )
+                    retry_after = error.headers.get("retry-after")
+                    delay = float(retry_after)
 
-                    # if we got a non-retryable error, stop right away
-                    if not inner_error_specs["retry"]:
-                        raise OpenRouterRequestError(
-                            inner_error_specs["message"],
-                            inner_error_specs["kind"],
-                            original_error=inner_e
-                        ) from inner_e
+                # if non-existent or wrongly formatted, fix the delay
+                except (TypeError, ValueError):
+                    delay = RATE_LIMIT_DELAY_S
+            else:
+                delay = RETRY_DELAY_S
 
-                    continue
-
-        # all retries used but still no success
-        raise OpenRouterRequestError(error_specs["message"], error_specs["kind"], original_error=e) from e
+            time.sleep(delay)
 
 
 def get_model_list(sort="most-popular"):
