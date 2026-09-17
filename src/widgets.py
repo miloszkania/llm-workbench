@@ -490,7 +490,7 @@ def display_failed_judgments_information(failed_judgments, canvas=st):
 
 def display_failed_interactions_information(interactions, failed_interactions, canvas=st):
     canvas.warning(f"Only {len(interactions)} interaction{'s' if len(interactions) != 1 else ''} "
-               f"succeeded. The following errors occurred:")
+               f"succeeded. In other interactions, the following errors occurred:")
     for failed_interaction in failed_interactions:
         errors.display_error(
             error=failed_interaction,

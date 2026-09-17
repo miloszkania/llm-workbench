@@ -149,9 +149,14 @@ ERROR_PRESENTATION = {
 class OpenRouterRequestError(Exception):
     def __init__(self, message, kind, original_error):
         super().__init__(message)
-        self.message = message
         self.kind = kind
         self.original_error = original_error
+
+
+class ModelResponseError(ValueError):
+    def __init__(self, message, model):
+        super().__init__(message)
+        self.model = model
 
 
 def display_error(error: Exception, canvas=st, context=None):
@@ -160,7 +165,7 @@ def display_error(error: Exception, canvas=st, context=None):
             error.kind,
             ERROR_PRESENTATION["unexpected"],
         )
-        message = error.message
+        message = str(error)
     else:
         presentation = {
             "icon": "⚠️",

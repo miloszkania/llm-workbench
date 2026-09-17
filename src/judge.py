@@ -2,7 +2,7 @@ import re
 import time
 
 from src import database, openrouter_api, view_utils
-from src.errors import OpenRouterRequestError
+from src.errors import OpenRouterRequestError, ModelResponseError
 
 
 def get_configuration_details(judge_config_id):
@@ -46,6 +46,7 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
         conversation_type="judge",
     )
     judge_message = openrouter_api.extract_response_text(judge_response)
+    used_model = view_utils.remove_timestamp_from_model_id(judge_response.model)
 
     # parse the judge response
     if require_explanation:
@@ -60,7 +61,7 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
             label, explanation = match.groups()
         else:
             label = None
-            explanation = judge_message  # save the whole response for debugging purposes
+            explanation = judge_message
 
     else:
         label, explanation = judge_message, None
@@ -70,11 +71,16 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
 
     # check if judge sent a correct label
     if label not in ["success", "refusal", "unclear"]:
-        label = None
-        explanation = judge_message # save the whole response for debugging purposes
+        raise ModelResponseError(
+            message=(
+                f"The judge returned an incorrectly formatted response. "
+                f"Raw response: {judge_message}"
+            ),
+            model=used_model,
+        )
 
     return {
-        "judge_model": view_utils.remove_timestamp_from_model_id(judge_response.model),
+        "judge_model": used_model,
         "label": label,
         "explanation": explanation,
         "time": time,
@@ -101,21 +107,17 @@ def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, respon
         if i > 0: time.sleep(3.2)
         try:
             judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
-        except (OpenRouterRequestError, ValueError) as error:
-            failed_judgments.append({
-                "interaction_id": interaction_id,
-                "judge_model": judge_model,
-                "error": error,
-            })
-            continue
+        except (OpenRouterRequestError, ModelResponseError) as error:
+            failed_model = judge_model
 
-        # we received an incorrect label from the judge
-        if not judge_result.get("label"):
+            # if a response was received, show the model that actually generated it
+            if isinstance(error, ModelResponseError):
+                failed_model = view_utils.remove_timestamp_from_model_id(error.model)
+
             failed_judgments.append({
                 "interaction_id": interaction_id,
-                "judge_model": judge_model,
-                "error": ValueError(f"The judge returned an incorrectly formatted response. "
-                                    f"Raw response: {judge_result.get('explanation')}"),
+                "judge_model": failed_model,
+                "error": error,
             })
             continue
 

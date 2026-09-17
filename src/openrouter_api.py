@@ -4,7 +4,7 @@ import time
 from openrouter import OpenRouter
 
 from src.config import get_env_config
-from src.errors import OpenRouterRequestError, OPENROUTER_ERRORS
+from src.errors import OpenRouterRequestError, OPENROUTER_ERRORS, ModelResponseError
 
 API_TIMEOUT_MS = 30_000 # network timeout for each metadata or model attempt
 CHAT_TIMEOUT_MS = 120_000 # network timeout for each chat attempt
@@ -121,7 +121,7 @@ def get_model_object(model_id):
 
 def extract_response_text(response):
     if not response.choices:
-        raise ValueError("The model returned no response choices.")
+        raise ModelResponseError("The model returned no response choices.", response.model)
 
     choice = response.choices[0]
     message = choice.message
@@ -136,6 +136,12 @@ def extract_response_text(response):
         return refusal.strip()
 
     if choice.finish_reason == "length":
-        raise ValueError("The model reached its completion token limit before returning a final response.")
+        raise ModelResponseError(
+            "The model reached its completion token limit before returning a final response.",
+            response.model
+        )
 
-    raise ValueError("The model returned no textual response.")
+    raise ModelResponseError(
+        "The model returned no textual response.",
+        response.model
+    )

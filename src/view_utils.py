@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from src import database, openrouter_api, judge
-from src.errors import OpenRouterRequestError
+from src.errors import OpenRouterRequestError, ModelResponseError
 
 
 ###### UTILS
@@ -170,7 +170,7 @@ def generate_and_evaluate_interactions(
                 model, prompt, system_prompt, conversation_type="target"
             )
             response_content = openrouter_api.extract_response_text(response)
-        except (OpenRouterRequestError, ValueError) as error:
+        except (OpenRouterRequestError, ModelResponseError) as error:
             failed_interactions.append(error)
             continue
 
