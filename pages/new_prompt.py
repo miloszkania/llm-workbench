@@ -10,6 +10,7 @@ st.title("New Prompt")
 ##### MODEL
 st.header("Model")
 widgets.model_picker()
+st.divider()
 
 
 ##### PRESET

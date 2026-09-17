@@ -118,8 +118,6 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
         except OpenRouterRequestError as error:
             errors.display_error(error, canvas)
 
-    canvas.divider()
-
 
 def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, button_label="Run"):
     model = st.session_state["model"]

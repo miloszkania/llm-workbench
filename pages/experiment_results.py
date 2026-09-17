@@ -71,8 +71,13 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     default_model = originally_used_models[0] if len(originally_used_models) == 1 else None
 
     widgets.model_picker(default_model=default_model)
+    st.divider()
 
-    widgets.send_prompt_button_with_repetitions(button_label="Rerun interaction")
+    st.header("LLM-as-a-Judge Evaluation")
+    judge_models, judge_config = widgets.judge_model_and_configuration_selector()
+    st.divider()
+
+    widgets.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
 
 
 def display_experiment_overview(interactions, canvas):
