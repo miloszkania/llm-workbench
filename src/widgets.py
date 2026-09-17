@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-import openrouter.errors.openroutererror
 import streamlit as st
 
-from src import view_utils, database, openrouter_api, judge
+from src import view_utils, database, openrouter_api, judge, errors
+from src.errors import OpenRouterRequestError
 
 
 def model_filter_and_sort_controls(canvas=st, key_prefix=""):
@@ -40,10 +40,14 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         key=f"{key_prefix}model-sorting",
     )
 
-    selected_models = view_utils.get_models(
-        model_filter=model_filter,
-        sort=model_sorting,
-    )
+    try:
+        selected_models = view_utils.get_models(
+            model_filter=model_filter,
+            sort=model_sorting,
+        )
+    except OpenRouterRequestError as error:
+        errors.display_error(error, canvas)
+        return [], model_filter
 
     if favorites_only:
         favorite_models = database.get_favorite_models()
@@ -99,16 +103,20 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
 
     # Model pricing
     if selected_model_id:
-        model_object = view_utils.get_model_object(selected_model_id)
+        try:
+            model_object = view_utils.get_model_object(selected_model_id)
 
-        if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
-            canvas.caption(f"***Price***: starting at "
-                 f"**{view_utils.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
-                           f"per 1M input tokens** · "
-                 f"**{view_utils.format_model_price(model_object.data.pricing.completion, markdown=True)} "
-                           f"per 1M output tokens**")
-        else:
-            canvas.caption("***Price***: varies by model")
+            if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
+                canvas.caption(f"***Price***: starting at "
+                     f"**{view_utils.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
+                               f"per 1M input tokens** · "
+                     f"**{view_utils.format_model_price(model_object.data.pricing.completion, markdown=True)} "
+                               f"per 1M output tokens**")
+            else:
+                canvas.caption("***Price***: varies by model")
+
+        except OpenRouterRequestError as error:
+            errors.display_error(error, canvas)
 
     canvas.divider()
 
@@ -140,17 +148,23 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
                 st.error("You need to enter the prompt!")
             else:
                 try:
-                    view_utils.generate_and_evaluate_interactions(
+                    interaction_ids, failed_interactions, failed_judgments = view_utils.generate_and_evaluate_interactions(
                         model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count
                     )
-                except openrouter.errors.toomanyrequestsresponse_error.TooManyRequestsResponseError:
-                    st.error("Too many requests - rate limited by OpenRouter. Try again later.")
-                except openrouter.errors.openroutererror.OpenRouterError as e:
-                    if "flagged" in str(e).lower():
-                        st.error(f"The request to {model} was flagged by OpenInterface. "
-                                 f"Try again with a different model.")
+
+                    # no interactions succeeded, display the error message right away, don't redirect
+                    if failed_interactions and not interaction_ids:
+                        display_failed_interactions_information(interaction_ids, failed_interactions)
                     else:
-                        st.error(f"OpenRouter error: {e}. Try again later.")
+                        # redirect to the prompt/batch details page
+                        st.session_state["failed_judgments"] = failed_judgments
+                        st.session_state["failed_interactions"] = failed_interactions
+
+                        param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
+                        st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
+
+                except OpenRouterRequestError as error:
+                    errors.display_error(error)
 
 
 def save_preset_button(prompt, system_prompt, categories):
@@ -172,105 +186,108 @@ def display_run_judging_dialog(interaction_object):
             st.error("Select at least one judge model and a judge configuration!")
         else:
             with st.spinner("Waiting for judge response…", show_time=True):
-                judge.evaluate_and_store_interaction(
-                    interaction_object["interaction"]["id"],
-                    interaction_object["interaction"]["system_prompt"],
-                    interaction_object["interaction"]["prompt"],
-                    interaction_object["interaction"]["response"],
-                    judge_config,
-                    judge_models
-                )
-                st.rerun()
+                try:
+                    failed_judgments = judge.evaluate_and_store_interaction(
+                        interaction_object["interaction"]["id"],
+                        interaction_object["interaction"]["system_prompt"],
+                        interaction_object["interaction"]["prompt"],
+                        interaction_object["interaction"]["response"],
+                        judge_config,
+                        judge_models
+                    )
+                    st.session_state["failed_judgments"] = failed_judgments
+                    st.rerun()
+                except OpenRouterRequestError as error:
+                    errors.display_error(error)
 
 
 def interaction_card(interaction_object):
     interaction_id = interaction_object["interaction"]["id"]
 
     with st.expander(f"Interaction #{interaction_id}", expanded=True):
-        with st.container(border=True):
-            # count judge labels
-            num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
-            num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
-            num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
-            judging_price = sum(i["price"] for i in interaction_object["judge_results"])
+        # count judge labels
+        num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
+        num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
+        num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
+        judging_price = sum(i["price"] for i in interaction_object["judge_results"])
 
-            col_overview, col_manual_label = st.columns([3, 1])
+        col_overview, col_manual_label = st.columns([3, 1])
 
-            # Overview
-            col_overview.header(f"Interaction #{interaction_id}")
-            col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
-            col_overview.markdown(
-                     f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
-                     f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
-                     f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
-                     f"**{interaction_object['interaction']['token_usage']}** tokens · "
-                     f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
-                     f"judging: **\\${judging_price:.4f}**"
+        # Overview
+        col_overview.header(f"Interaction #{interaction_id}")
+        col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
+        col_overview.markdown(
+                 f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+                 f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
+                 f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
+                 f"**{interaction_object['interaction']['token_usage']}** tokens · "
+                 f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
+                 f"judging: **\\${judging_price:.4f}**"
+        )
+
+        # Manual label field
+        def update_manual_label():
+            new_label = st.session_state[f"manual_label_{interaction_id}"]
+            database.set_interaction_label(interaction_id, new_label)
+            col_manual_label.success("Label saved!")
+
+        possible_labels = ["success", "refusal", "unclear", None]
+        existing_manual_label = interaction_object["interaction"]["manual_label"]
+        col_manual_label.selectbox(
+            label="Set a manual label",
+            options=possible_labels,
+            format_func=lambda x: x.capitalize() if x else "No label",
+            placeholder="Select a label…",
+            index=(possible_labels.index(existing_manual_label) if existing_manual_label else None),
+            key=f"manual_label_{interaction_id}",
+            on_change=update_manual_label,
+        )
+
+        st.divider()
+
+        col_response, col_judge = st.columns(2)
+
+        # Response
+        col_response.subheader("Response")
+        parse_markdown = col_response.toggle("Parse Markdown", value=True, key=f"parse_md_{interaction_id}")
+
+        if parse_markdown:
+            with col_response.container(border=True, height="stretch"):
+                st.markdown(interaction_object["interaction"]["response"])
+        else:
+            col_response.text_area(
+                f"Response for ID={interaction_id}",
+                value=interaction_object["interaction"]["response"],
+                height="stretch",
+                key=f"response_{interaction_id}",
             )
 
-            # Manual label field
-            def update_manual_label():
-                new_label = st.session_state[f"manual_label_{interaction_id}"]
-                database.set_interaction_label(interaction_id, new_label)
-                col_manual_label.success("Label saved!")
+        # Judge results
+        col_title, col_button = col_judge.columns(2)
+        col_title.subheader("Judge results")
 
-            possible_labels = ["success", "refusal", "unclear", None]
-            existing_manual_label = interaction_object["interaction"]["manual_label"]
-            col_manual_label.selectbox(
-                label="Set a manual label",
-                options=possible_labels,
-                format_func=lambda x: x.capitalize() if x else "No label",
-                placeholder="Select a label…",
-                index=(possible_labels.index(existing_manual_label) if existing_manual_label else None),
-                key=f"manual_label_{interaction_id}",
-                on_change=update_manual_label,
-            )
+        # allow running the judge only if there was any response from the target
+        if interaction_object["interaction"]["response"]:
+            with col_button.container(horizontal=True, horizontal_alignment="right"):
+                if st.button("Run judging…", type="primary", key=f"{interaction_id}_run_judge"):
+                    display_run_judging_dialog(interaction_object)
 
-            st.divider()
+        if len(interaction_object["judge_results"]) > 0:
+            for judge_result in interaction_object["judge_results"]:
+                label = judge_result["label"]
+                explanation = judge_result["explanation"] or ""
 
-            col_response, col_judge = st.columns(2)
+                if label == "success": display_fct = col_judge.success
+                elif label == "refusal": display_fct = col_judge.error
+                elif label == "unclear": display_fct = col_judge.warning
+                else: continue
 
-            # Response
-            col_response.subheader("Response")
-            parse_markdown = col_response.toggle("Parse Markdown", value=True, key=f"parse_md_{interaction_id}")
-
-            if parse_markdown:
-                with col_response.container(border=True, height="stretch"):
-                    st.markdown(interaction_object["interaction"]["response"])
-            else:
-                col_response.text_area(
-                    f"Response for ID={interaction_id}",
-                    value=interaction_object["interaction"]["response"],
-                    height="stretch",
-                    key=f"response_{interaction_id}",
+                display_fct(
+                    title=f"{label} · {judge_result['judge_model']} · {judge_result["judge_config_id"]}",
+                    body=explanation,
                 )
-
-            # Judge results
-            col_title, col_button = col_judge.columns(2)
-            col_title.subheader("Judge results")
-
-            # allow running the judge only if there was any response from the target
-            if interaction_object["interaction"]["response"]:
-                with col_button.container(horizontal=True, horizontal_alignment="right"):
-                    if st.button("Run judging…", type="primary", key=f"{interaction_id}_run_judge"):
-                        display_run_judging_dialog(interaction_object)
-
-            if len(interaction_object["judge_results"]) > 0:
-                for judge_result in interaction_object["judge_results"]:
-                    label = judge_result["label"]
-                    explanation = judge_result["explanation"] or ""
-
-                    if label == "success": display_fct = col_judge.success
-                    elif label == "refusal": display_fct = col_judge.error
-                    elif label == "unclear": display_fct = col_judge.warning
-                    else: continue
-
-                    display_fct(
-                        title=f"{label} · {judge_result['judge_model']} · {judge_result["judge_config_id"]}",
-                        body=explanation,
-                    )
-            else:
-                col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
+        else:
+            col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
 
 
 def preset_table_preview(preset_table=None):
@@ -341,13 +358,20 @@ def api_key_details(canvas=st.sidebar):
     canvas.subheader("OpenRouter Details")
 
     # check if the api key can be authentified
-    try:
-        with canvas.spinner(text="Fetching account information…"):
+    with canvas.spinner(text="Fetching account information…"):
+        # get key metadata
+        try:
             metadata = openrouter_api.get_key_metadata()
+        except OpenRouterRequestError as error:
+            errors.display_error(error, canvas, context="Could not fetch API key information.")
+            return
+
+        # get credits
+        try:
             credits = openrouter_api.get_credits()
-    except openrouter.errors.UnauthorizedResponseError:
-        canvas.caption("**API Key:** 🔴 Authentication failed, check `OPENROUTER_API_KEY`")
-        return
+        except OpenRouterRequestError as error:
+            errors.display_error(error, canvas, context="Could not fetch credit information.")
+            return
 
     # key label
     canvas.write(f"**API Key:** 🟢 `{metadata.label}`")
@@ -417,15 +441,23 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
 
         price_table_rows = []
         for model_id in selected_models_ids:
-            model_object = view_utils.get_model_object(model_id)
-
-            price_table_rows.append({
-                "Model": model_id,
-                "Input / 1M tokens": view_utils.format_model_price(model_object.data.pricing.prompt),
-                "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
-            })
+            try:
+                model_object = view_utils.get_model_object(model_id)
+                price_table_rows.append({
+                    "Model": model_id,
+                    "Input / 1M tokens": view_utils.format_model_price(model_object.data.pricing.prompt),
+                    "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
+                })
+            except OpenRouterRequestError as error:
+                errors.display_error(error)
+                price_table_rows.append({
+                    "Model": model_id,
+                    "Input / 1M tokens": "Pricing unavailable",
+                    "Output / 1M tokens": "Pricing unavailable",
+                })
 
         st.dataframe(price_table_rows, hide_index=True)
+
 
     # Configuration
     st.space()
@@ -443,3 +475,24 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
     )
 
     return selected_models_ids, selected_configuration
+
+
+def display_failed_judgments_information(failed_judgments, canvas=st):
+    canvas.error(f"{len(failed_judgments)} judge evaluation{'s' if len(failed_judgments) != 1 else ''} could not be completed:")
+    for failed_judgment in failed_judgments:
+        errors.display_error(
+            error=failed_judgment["error"],
+            canvas=canvas,
+            context=f"Interaction `{failed_judgment['interaction_id']}` "
+                    f"· judge `{failed_judgment['judge_model']}`",
+        )
+
+
+def display_failed_interactions_information(interactions, failed_interactions, canvas=st):
+    canvas.warning(f"Only {len(interactions)} interaction{'s' if len(interactions) != 1 else ''} "
+               f"succeeded. In other interactions, the following errors occurred:")
+    for failed_interaction in failed_interactions:
+        errors.display_error(
+            error=failed_interaction,
+            canvas=canvas,
+        )
