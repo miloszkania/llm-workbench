@@ -170,8 +170,8 @@ def generate_and_evaluate_interactions(
                 model, prompt, system_prompt, conversation_type="target"
             )
             response_content = openrouter_api.extract_response_text(response)
-        except (OpenRouterRequestError, ValueError) as e:
-            failed_interactions.append(e)
+        except (OpenRouterRequestError, ValueError) as error:
+            failed_interactions.append(error)
             continue
 
         # clear the model id (remove the timestamp-snapshot)

@@ -123,7 +123,8 @@ def extract_response_text(response):
     if not response.choices:
         raise ValueError("The model returned no response choices.")
 
-    message = response.choices[0].message
+    choice = response.choices[0]
+    message = choice.message
     content = message.content
 
     if isinstance(content, str) and content.strip():
@@ -133,5 +134,8 @@ def extract_response_text(response):
 
     if isinstance(refusal, str) and refusal.strip():
         return refusal.strip()
+
+    if choice.finish_reason == "length":
+        raise ValueError("The model reached its completion token limit before returning a final response.")
 
     raise ValueError("The model returned no textual response.")

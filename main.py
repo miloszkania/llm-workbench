@@ -6,8 +6,8 @@ from src.config import get_env_config, EnvironmentConfigError
 # Check the presence of required environment variables
 try:
     env_config = get_env_config()
-except EnvironmentConfigError as e:
-    st.error(f"Configuration error: {e}")
+except EnvironmentConfigError as error:
+    st.error(f"Configuration error: {error}")
     st.stop()
 
 

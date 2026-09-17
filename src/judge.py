@@ -101,11 +101,11 @@ def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, respon
         if i > 0: time.sleep(3.2)
         try:
             judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
-        except (OpenRouterRequestError, ValueError) as e:
+        except (OpenRouterRequestError, ValueError) as error:
             failed_judgments.append({
                 "interaction_id": interaction_id,
                 "judge_model": judge_model,
-                "error": e,
+                "error": error,
             })
             continue
 
