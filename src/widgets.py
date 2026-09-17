@@ -18,6 +18,9 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
         "context-high-to-low": "Largest context window",
     }
 
+    if not st.context.url.rstrip("/").endswith("/model_library"):
+        canvas.caption("For details of all available models, visit the [Model Library](/model_library).")
+
     favorites_only = canvas.toggle(
         "Show only favorite models",
         key=f"{key_prefix}favorites-only"
