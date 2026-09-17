@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import openrouter.errors
 import streamlit as st
@@ -147,19 +149,23 @@ ERROR_PRESENTATION = {
 
 
 class OpenRouterRequestError(Exception):
-    def __init__(self, message, kind, original_error):
+    def __init__(self, message: str, kind: str, original_error: Exception) -> None:
         super().__init__(message)
         self.kind = kind
         self.original_error = original_error
 
 
 class ModelResponseError(ValueError):
-    def __init__(self, message, model):
+    def __init__(self, message: str, model: str) -> None:
         super().__init__(message)
         self.model = model
 
 
-def display_error(error: Exception, canvas=st, context=None):
+def display_error(
+        error: Exception,
+        canvas: Any = st,
+        context: str | None = None,
+) -> None:
     if isinstance(error, OpenRouterRequestError):
         presentation = ERROR_PRESENTATION.get(
             error.kind,

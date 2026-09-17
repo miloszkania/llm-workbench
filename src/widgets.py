@@ -1,13 +1,20 @@
+from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
+import pandas as pd
 import streamlit as st
+from openrouter import components
 
 from src import view_utils, database, openrouter_api, judge, errors
 from src.errors import OpenRouterRequestError
 
 
-def model_filter_and_sort_controls(canvas=st, key_prefix=""):
+def model_filter_and_sort_controls(
+        canvas: Any = st,
+        key_prefix: str = "",
+) -> tuple[list[components.Model], str]:
     sorting_options = {
         "most-popular": "Most popular",
         "newest": "Newest",
@@ -59,7 +66,11 @@ def model_filter_and_sort_controls(canvas=st, key_prefix=""):
     return selected_models, model_filter
 
 
-def model_picker(default_model=None, canvas=st, key_prefix=""):
+def model_picker(
+        default_model: str | None = None,
+        canvas: Any = st,
+        key_prefix: str = "",
+) -> None:
     models, model_filter = model_filter_and_sort_controls(canvas, key_prefix)
     model_ids = [model.id for model in models]
 
@@ -122,7 +133,11 @@ def model_picker(default_model=None, canvas=st, key_prefix=""):
             errors.display_error(error, canvas)
 
 
-def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, button_label="Run"):
+def send_prompt_button_with_repetitions(
+        judge_config: str | None = None,
+        judge_models: list[str] | None = None,
+        button_label: str = "Run",
+) -> None:
     model = st.session_state["model"]
     system_prompt = st.session_state["system_prompt"]
     prompt = st.session_state["prompt"]
@@ -155,7 +170,10 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
 
                     # no interactions succeeded, display the error message right away, don't redirect
                     if failed_interactions and not interaction_ids:
-                        display_failed_interactions_information(interaction_ids, failed_interactions)
+                        display_failed_interactions_information(
+                            succeeded_interactions=len(interaction_ids),
+                            failed_interactions=failed_interactions,
+                        )
                     else:
                         # redirect to the prompt/batch details page
                         st.session_state["failed_judgments"] = failed_judgments
@@ -168,7 +186,11 @@ def send_prompt_button_with_repetitions(judge_config=None, judge_models=None, bu
                     errors.display_error(error)
 
 
-def save_preset_button(prompt, system_prompt, categories):
+def save_preset_button(
+        prompt: str,
+        system_prompt: str | None,
+        categories: list[str],
+) -> None:
     if st.button("Add preset", type="secondary"):
         if not prompt:
             st.error("You need to enter the prompt!")
@@ -178,8 +200,8 @@ def save_preset_button(prompt, system_prompt, categories):
 
 
 @st.dialog("Run judging", width="medium")
-def display_run_judging_dialog(interaction_object):
-    judge_models, judge_config = judge_model_and_configuration_selector()
+def display_run_judging_dialog(interaction_object) -> None:
+    judge_config, judge_models = judge_model_and_configuration_selector()
     st.divider()
 
     if st.button("Run judging", type="primary"):
@@ -202,7 +224,7 @@ def display_run_judging_dialog(interaction_object):
                     errors.display_error(error)
 
 
-def interaction_card(interaction_object):
+def interaction_card(interaction_object) -> None:
     interaction_id = interaction_object["interaction"]["id"]
 
     with st.expander(f"Interaction #{interaction_id}", expanded=True):
@@ -291,10 +313,10 @@ def interaction_card(interaction_object):
             col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
 
 
-def preset_table_preview(preset_table=None):
+def preset_table_preview(preset_table: pd.DataFrame | None = None) -> None:
     with st.spinner("Getting preset data…"):
         if preset_table is None:
-            preset_table = view_utils.get_all_preset_entries()
+            preset_table = view_utils.get_all_presets()
 
     with st.expander("All presets"):
         if not preset_table.empty:
@@ -331,9 +353,12 @@ def preset_table_preview(preset_table=None):
             st.warning("There are no presets yet.")
 
 
-def batch_ids_picker(history_table=None, canvas=st):
+def batch_ids_picker(
+        history_table: pd.DataFrame | None = None,
+        canvas: Any = st,
+) -> None:
     if history_table is None:
-        history_table = view_utils.get_all_history_entries()
+        history_table = view_utils.get_all_interactions()
 
     if history_table.empty:
         return
@@ -355,7 +380,7 @@ def batch_ids_picker(history_table=None, canvas=st):
     canvas.divider()
 
 
-def api_key_details(canvas=st.sidebar):
+def api_key_details(canvas: Any = st.sidebar) -> None:
     canvas.subheader("OpenRouter Details")
 
     # check if the api key can be authentified
@@ -406,7 +431,10 @@ def api_key_details(canvas=st.sidebar):
     canvas.write(f"**Monthly usage:** ${metadata.usage_monthly:.4f}")
 
 
-def judge_model_and_configuration_selector(default_config=None, default_models=None):
+def judge_model_and_configuration_selector(
+        default_config: str | None = None,
+        default_models: list[str] | None = None,
+) -> tuple[str | None, list[str]]:
     if not default_config and not default_models:
         default_config, default_models = database.get_default_judge_settings()
 
@@ -475,10 +503,13 @@ def judge_model_and_configuration_selector(default_config=None, default_models=N
         index=previous_selected_configuration,
     )
 
-    return selected_models_ids, selected_configuration
+    return selected_configuration, selected_models_ids
 
 
-def display_failed_judgments_information(failed_judgments, canvas=st):
+def display_failed_judgments_information(
+        failed_judgments,
+        canvas: Any = st,
+) -> None:
     canvas.error(f"{len(failed_judgments)} judge evaluation{'s' if len(failed_judgments) != 1 else ''} could not be completed:")
     for failed_judgment in failed_judgments:
         errors.display_error(
@@ -489,8 +520,12 @@ def display_failed_judgments_information(failed_judgments, canvas=st):
         )
 
 
-def display_failed_interactions_information(interactions, failed_interactions, canvas=st):
-    canvas.warning(f"Only {len(interactions)} interaction{'s' if len(interactions) != 1 else ''} "
+def display_failed_interactions_information(
+        succeeded_interactions: int,
+        failed_interactions: Sequence[Exception],
+        canvas: Any = st,
+) -> None:
+    canvas.warning(f"Only {succeeded_interactions} interaction{'s' if succeeded_interactions != 1 else ''} "
                f"succeeded. In other interactions, the following errors occurred:")
     for failed_interaction in failed_interactions:
         errors.display_error(

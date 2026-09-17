@@ -16,7 +16,7 @@ st.divider()
 ##### PRESET
 
 st.header("Prompt")
-all_presets = view_utils.get_all_preset_entries(fill_null=True)
+all_presets = view_utils.get_all_presets(fill_null=True)
 
 st.page_link("pages/presets.py", label="Edit presets")
 
@@ -87,13 +87,13 @@ judge_config, judge_models = database.get_default_judge_settings()
 
 judging_enabled = st.toggle(
     "Evaluate responses with LLM judges",
-    value=(judge_config and judge_models),
+    value=bool(judge_config and judge_models),
 )
 
 if judging_enabled:
     st.write("The following judge configuration and models will be used to independently evaluate every generated "
              "target response.")
-    judge_models, judge_config = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
+    judge_config, judge_models = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
 
 else:
     judge_models, judge_config = [], None

@@ -2,9 +2,11 @@ import json
 import re
 import time
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 import streamlit as st
+from openrouter import components
 
 from src import database, openrouter_api, judge
 from src.errors import OpenRouterRequestError, ModelResponseError
@@ -12,15 +14,17 @@ from src.errors import OpenRouterRequestError, ModelResponseError
 
 ###### UTILS
 
-def page_config(name=None):
+def page_config(name: str | None = None) -> None:
     st.set_page_config(
         layout="wide",
         page_title=f"{name} | LLM Workbench" if name else "LLM Workbench"
     )
 
 
-def unparse_categories_from_json(text):
-    if not text or not isinstance(text, str) or text == "[]":
+def parse_categories_from_json(
+        text: str | float | None,
+) -> list[str] | None:
+    if not isinstance(text, str) or not text or text == "[]":
         return None
 
     try:
@@ -29,11 +33,13 @@ def unparse_categories_from_json(text):
         return [text]
 
 
-def get_all_categories(history_entries: pd.DataFrame = None):
+def get_all_categories(
+        history_entries: pd.DataFrame | None = None,
+) -> list[str]:
     data_source = history_entries
 
     if data_source is None:
-        data_source = get_all_history_entries()
+        data_source = get_all_interactions()
 
     if data_source.empty:
         return []
@@ -41,17 +47,17 @@ def get_all_categories(history_entries: pd.DataFrame = None):
     return data_source["categories"].explode().dropna().unique().tolist()
 
 
-# removes the snapshot of the model
-def remove_timestamp_from_model_id(model_id):
+def remove_timestamp_from_model_id(model_id: str) -> str:
+    # removes the snapshot of the model
     return re.sub(r"-\d{8}", "", model_id)
 
 
-def format_timestamp(value):
+def format_timestamp(value: str) -> str:
     timestamp = datetime.fromisoformat(value)
     return timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def format_duration(value):
+def format_duration(value: str) -> str:
     point_position = value.find(".")
 
     if point_position >= 0: # if there is no dot in value, point_position = -1
@@ -68,7 +74,10 @@ def format_duration(value):
         return value
 
 
-def format_model_price(raw_price, markdown=False):
+def format_model_price(
+        raw_price: str,
+        markdown: bool = False,
+) -> str:
     price = float(raw_price)
 
     if markdown:
@@ -79,14 +88,14 @@ def format_model_price(raw_price, markdown=False):
 
 ###### HISTORY
 
-def get_all_history_entries(fill_null=False):
+def get_all_interactions(fill_null: bool = False) -> pd.DataFrame:
     df = pd.DataFrame(database.get_all_interactions())
 
     if df.empty:
         return df
 
     # parse categories from json array format
-    df["categories"] = df["categories"].apply(unparse_categories_from_json)
+    df["categories"] = df["categories"].apply(parse_categories_from_json)
 
     # convert timestamps and duration to `datetime` type
     df["time"] = pd.to_datetime(df["time"])
@@ -99,8 +108,8 @@ def get_all_history_entries(fill_null=False):
     return df
 
 
-def get_single_history_entry(entry_id):
-    prompt_data = database.get_interaction_by_id(int(entry_id))
+def get_interaction_by_id(entry_id: int) -> dict[str, Any] | None:
+    prompt_data = database.get_interaction_by_id(entry_id)
 
     if not prompt_data:
         return None
@@ -111,19 +120,19 @@ def get_single_history_entry(entry_id):
     if not categories:
         return prompt_data
 
-    prompt_data["categories"] = unparse_categories_from_json(categories)
+    prompt_data["categories"] = parse_categories_from_json(categories)
     return prompt_data
 
 
 ###### PRESETS
 
-def get_all_preset_entries(fill_null=False):
+def get_all_presets(fill_null: bool = False) -> pd.DataFrame:
     df = pd.DataFrame(database.get_all_presets())
 
     if df.empty:
         return df
 
-    df["categories"] = df["categories"].apply(unparse_categories_from_json)
+    df["categories"] = df["categories"].apply(parse_categories_from_json)
 
     # fill nan values from database (<NULL>) if needed
     if fill_null:
@@ -132,8 +141,12 @@ def get_all_preset_entries(fill_null=False):
     return df
 
 
-def add_preset(system_prompt, prompt, categories):
-    # check if such preset already exists, and if so, return its existing id
+def add_preset(
+        system_prompt: str | None,
+        prompt: str,
+        categories,
+) -> int:
+    # checks if such preset already exists, and if so, returns its existing id
     categories = json.dumps(categories, ensure_ascii=False)
     system_prompt = system_prompt or None
 
@@ -152,8 +165,18 @@ def add_preset(system_prompt, prompt, categories):
 ###### PROMPTS
 
 def generate_and_evaluate_interactions(
-        model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count=1
-):
+        model: str,
+        system_prompt: str | None,
+        prompt: str,
+        categories: list[str],
+        judge_config: str | None,
+        judge_models: list[str] | None,
+        repetition_count: int = 1,
+) -> tuple[
+    list[int],
+    list[OpenRouterRequestError | ModelResponseError],
+    list[dict[str, Any]],
+]:
     # store all ids of the interactions
     interaction_ids = []
     failed_judgments = []
@@ -178,7 +201,7 @@ def generate_and_evaluate_interactions(
         used_model = remove_timestamp_from_model_id(response.model)
 
         # add the prompt to database
-        interaction_id = database.insert_prompt_record({
+        interaction_id = database.insert_interaction({
             "time": str(start_timestamp),
             "model": used_model,
             "prompt": prompt,
@@ -206,12 +229,15 @@ def generate_and_evaluate_interactions(
 
 ###### MODELS
 
-def is_free_model(model_id):
+def is_free_model(model_id: str) -> bool:
     return model_id == "openrouter/free" or model_id.endswith(":free")
 
 
 @st.cache_data(ttl="1h", show_spinner="Loading available models…")
-def get_models(sort="most-popular", model_filter="All"):
+def get_models(
+        sort: str = "most-popular",
+        model_filter: str = "All",
+) -> list[components.Model]:
     models = openrouter_api.get_model_list(sort)
 
     # Get the deserved models
@@ -224,5 +250,5 @@ def get_models(sort="most-popular", model_filter="All"):
 
 
 @st.cache_data(ttl="1h", show_spinner="Loading model information…")
-def get_model_object(model_id):
+def get_model_object(model_id: str) -> components.ModelResponse:
     return openrouter_api.get_model_object(model_id)

@@ -1,10 +1,12 @@
 import json
 import sqlite3
+from collections.abc import Sequence
+from typing import Any, Literal
 
 from src.config import get_env_config
 
 
-def connect():
+def connect() -> sqlite3.Connection:
     db_path = get_env_config().db_path
 
     # if it doesn't exist, create the full specified path from env
@@ -86,7 +88,10 @@ def connect():
     return connection
 
 
-def run_sqlite_command(command, params):
+def run_sqlite_command(
+        command: str,
+        params: Sequence[object],
+) -> int | None:
     connection = connect()
 
     try:
@@ -102,9 +107,8 @@ def run_sqlite_command(command, params):
         connection.close()
 
 
-def insert_prompt_record(data):
-    # returns the id of the inserted record
-    return run_sqlite_command("""
+def insert_interaction(data: dict[str, Any]) -> int:
+    inserted_interaction_id = run_sqlite_command("""
         insert into interactions
             (time, model, prompt, system_prompt, categories, response, duration, token_usage, price)
         values (?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -120,25 +124,29 @@ def insert_prompt_record(data):
         data["price"],
     ))
 
+    if inserted_interaction_id is None:
+        raise RuntimeError("Inserting an interaction did not work!")
 
-def get_interaction_by_id(prompt_id):
+    return inserted_interaction_id
+
+
+def get_interaction_by_id(interaction_id: int) -> list[dict[str, Any]]:
     result = connect().cursor().execute("""
         select * from interactions
             where id = ?
-    """, [int(prompt_id)])
+    """, [interaction_id])
     return [dict(i) for i in result.fetchall()]
 
 
-def delete_prompt_record(prompt_id):
+def delete_interaction(interaction_id: int) -> None:
     run_sqlite_command("""
         delete from interactions
         where id = ?
-    """, [prompt_id])
+    """, [interaction_id])
 
 
-def insert_preset(data):
-    # returns the id of the inserted record
-    return run_sqlite_command("""
+def insert_preset(data: dict[str, Any]) -> int:
+    inserted_prompt_id = run_sqlite_command("""
         insert into presets (prompt, system_prompt, categories)
             values (?, ?, ?);
     """, (
@@ -147,15 +155,24 @@ def insert_preset(data):
         data["categories"]
     ))
 
+    if inserted_prompt_id is None:
+        raise RuntimeError("Inserting a prompt did not work!")
 
-def delete_preset(preset_id):
+    return inserted_prompt_id
+
+
+def delete_preset(preset_id: int) -> None:
     run_sqlite_command("""
         delete from presets
         where id = ?
     """, [preset_id])
 
 
-def modify_preset(preset_id, column, new_value):
+def modify_preset(
+        preset_id: int,
+        column: Literal["categories", "prompt", "system_prompt"],
+        new_value: object,
+) -> None:
     if column in ["categories", "prompt", "system_prompt"]: # only allowed columns
         run_sqlite_command(f"""
             update presets
@@ -167,21 +184,25 @@ def modify_preset(preset_id, column, new_value):
         ))
 
 
-def get_all_presets():
+def get_all_presets() -> list[dict[str, Any]]:
     result = connect().execute("""
         select * from presets;
     """)
     return [dict(i) for i in result.fetchall()]
 
 
-def get_all_interactions():
+def get_all_interactions() -> list[dict[str, Any]]:
     result = connect().execute("""
         select * from interactions;
     """)
     return [dict(i) for i in result.fetchall()]
 
 
-def modify_interaction(interaction_id, column, new_value):
+def modify_interaction(
+        interaction_id: int,
+        column: Literal["manual_label", "categories"],
+        new_value: object,
+) -> None:
     if column in ["manual_label", "categories"]: # only allowed columns
         run_sqlite_command(f"""
             update interactions
@@ -193,15 +214,21 @@ def modify_interaction(interaction_id, column, new_value):
         ))
 
 
-def set_interaction_label(interaction_id, label):
+def set_interaction_label(
+        interaction_id: int,
+        label: Literal["success", "refusal", "unclear"] | None,
+) -> None:
     modify_interaction(interaction_id, "manual_label", label)
 
 
-def set_interaction_categories(interaction_id, categories):
+def set_interaction_categories(
+        interaction_id: int,
+        categories: list[str] | None,
+) -> None:
     modify_interaction(interaction_id, "categories", json.dumps(categories, ensure_ascii=False))
 
 
-def get_default_judge_settings():
+def get_default_judge_settings() -> tuple[str | None, list[str]]:
     result = connect().execute("""
         select * from app_settings
             where property in ('default_judge_config', 'default_judge_models');
@@ -214,7 +241,10 @@ def get_default_judge_settings():
     return default_config, default_models
 
 
-def modify_default_judge_settings(new_default_config, new_default_models):
+def modify_default_judge_settings(
+        new_default_config: str | None,
+        new_default_models,
+) -> None:
     new_default_models = json.dumps(new_default_models, ensure_ascii=False)
 
     connection = connect()
@@ -237,33 +267,37 @@ def modify_default_judge_settings(new_default_config, new_default_models):
         connection.close()
 
 
-def get_saved_configuration_ids():
+def get_saved_configuration_ids() -> list[str]:
     result = connect().execute("""
         select id from judge_configs;
     """)
     return [i["id"] for i in result.fetchall()]
 
 
-def get_all_judge_configurations():
+def get_all_judge_configurations() -> list[dict[str, Any]]:
     result = connect().execute("""
        select * from judge_configs;
    """)
     return [dict(i) for i in result.fetchall()]
 
 
-def insert_judge_configuration(config_id, judge_prompt, require_explanation):
+def insert_judge_configuration(
+        config_id: str,
+        judge_prompt: str,
+        require_explanation: bool,
+) -> None:
     run_sqlite_command("""
         insert into judge_configs (id, judge_prompt, require_explanation) values (?, ?, ?)
     """, (config_id, judge_prompt, require_explanation))
 
 
-def get_judge_configuration_by_id(config_id):
+def get_judge_configuration_by_id(config_id: str) -> list[sqlite3.Row]:
     return connect().execute("""
         select * from judge_configs where id = ?
     """, (config_id,)).fetchall()
 
 
-def insert_judge_result(data):
+def insert_judge_result(data: dict[str, Any]) -> None:
     run_sqlite_command("""
         insert into judge_results (interaction_id, judge_config_id, judge_model, label, explanation, time, duration, price)
             values (?, ?, ?, ?, ?, ?, ?, ?)
@@ -279,7 +313,9 @@ def insert_judge_result(data):
     ))
 
 
-def get_judge_results_by_interaction(interaction_id):
+def get_judge_results_by_interaction(
+        interaction_id: int,
+) -> list[dict[str, Any]]:
     result = connect().execute("""
         select * from judge_results
             where interaction_id = ?
@@ -287,7 +323,11 @@ def get_judge_results_by_interaction(interaction_id):
     return [dict(i) for i in result.fetchall()]
 
 
-def get_preset_id_by_content(prompt, system_prompt, categories):
+def get_preset_id_by_content(
+        prompt: str,
+        system_prompt: str | None,
+        categories: str | None,
+) -> int | None:
     result = connect().execute("""
         select id from presets
             where prompt = ?
@@ -298,7 +338,7 @@ def get_preset_id_by_content(prompt, system_prompt, categories):
     return result["id"] if result is not None else None
 
 
-def get_favorite_models():
+def get_favorite_models() -> list[str]:
     result = connect().execute("""
         select * from app_settings
         where property = 'favorite_models';
@@ -307,7 +347,7 @@ def get_favorite_models():
     return json.loads(result["value"] or "[]") if result else []
 
 
-def update_favorite_models(model_ids):
+def update_favorite_models(model_ids: list[str]) -> None:
     json_list = json.dumps(model_ids, ensure_ascii=False)
 
     # save the updated model list

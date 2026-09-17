@@ -1,3 +1,5 @@
+from typing import Any
+
 import streamlit as st
 
 from src import database, view_utils, widgets
@@ -9,11 +11,11 @@ if not interaction_ids:
     st.switch_page("pages/history.py")
 
 
-def load_interactions(interaction_ids):
-    interaction_ids = interaction_ids.split(",")
+def load_interactions(interaction_ids: str) -> list[dict[str, Any]]:
+    parsed_interaction_ids = [int(interaction_id) for interaction_id in interaction_ids.split(",")]
     interactions = []
 
-    for interaction_id in interaction_ids:
+    for interaction_id in parsed_interaction_ids:
         interaction_object = database.get_interaction_by_id(interaction_id)
 
         # interaction with id interaction_id could not be found -> redirect
@@ -74,7 +76,7 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     st.divider()
 
     st.header("LLM-as-a-Judge Evaluation")
-    judge_models, judge_config = widgets.judge_model_and_configuration_selector()
+    judge_config, judge_models = widgets.judge_model_and_configuration_selector()
     st.divider()
 
     widgets.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
@@ -147,17 +149,17 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
     if save_button:
         col_select_categories, col_save_categories = st.columns([2, 1])
     else:
-        col_select_categories = st # col_save_categories will not be used
+        col_select_categories, col_save_categories = st, None
 
     categories = col_select_categories.multiselect(
         "Categories",
         options=view_utils.get_all_categories(),
-        default=view_utils.unparse_categories_from_json(experiment_input["categories"] or []),
+        default=view_utils.parse_categories_from_json(experiment_input["categories"]),
         accept_new_options=True,
         key=f"{key_prefix}categories",
     )
 
-    if save_button:
+    if col_save_categories:
         col_save_categories.space()
         if col_save_categories.button("Save categories", type="primary"):
             for i in interactions:
@@ -206,7 +208,10 @@ st.divider()
 # if not all interactions succeeded or any judgments failed, let the user know here
 failed_interactions = st.session_state.pop("failed_interactions", [])
 if failed_interactions:
-    widgets.display_failed_interactions_information(interactions, failed_interactions)
+    widgets.display_failed_interactions_information(
+        succeeded_interactions=len(interactions),
+        failed_interactions=failed_interactions,
+    )
 
 
 failed_judgments = st.session_state.pop("failed_judgments", [])

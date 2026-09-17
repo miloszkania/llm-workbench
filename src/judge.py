@@ -1,22 +1,30 @@
 import re
 import time
+from typing import Any
 
 from src import database, openrouter_api, view_utils
 from src.errors import OpenRouterRequestError, ModelResponseError
 
 
-def get_configuration_details(judge_config_id):
+def get_configuration_details(
+        judge_config_id: str,
+) -> tuple[str | None, bool]:
     fetched_object = [dict(i) for i in database.get_judge_configuration_by_id(judge_config_id)]
 
     if len(fetched_object) > 0: # should only have 0 or 1 element
-        instructions = fetched_object[0].get("judge_prompt")
-        explanation = fetched_object[0].get("require_explanation") == 1
-        return instructions, explanation
+        judge_prompt = fetched_object[0].get("judge_prompt")
+        require_explanation = fetched_object[0].get("require_explanation") == 1
+        return judge_prompt, require_explanation
     else:
-        return None, None
+        return None, False
 
 
-def compose_judge_prompt(judge_instructions, system_prompt, prompt, response):
+def compose_judge_prompt(
+        judge_instructions: str,
+        system_prompt: str | None,
+        prompt: str,
+        response: str,
+) -> str:
     # don't include the system_prompt if it doesn't exist
     if system_prompt:
         prompt_replacement = f"{system_prompt} {prompt}"
@@ -38,7 +46,11 @@ def compose_judge_prompt(judge_instructions, system_prompt, prompt, response):
         return f"{before_response}{response}{after_response_before_prompt}{prompt_replacement}{after_prompt}"
 
 
-def get_judge_result(judge_prompt, judge_model, require_explanation):
+def get_judge_result(
+        judge_prompt: str,
+        judge_model: str,
+        require_explanation: bool,
+) -> dict[str, Any]:
     judge_response, time, duration = openrouter_api.send_prompt(
         model=judge_model,
         prompt=judge_prompt,
@@ -89,16 +101,23 @@ def get_judge_result(judge_prompt, judge_model, require_explanation):
     }
 
 
-def evaluate_and_store_interaction(interaction_id, system_prompt, prompt, response, judge_config_id, judge_models):
+def evaluate_and_store_interaction(
+        interaction_id: int,
+        system_prompt: str | None,
+        prompt: str,
+        response: str,
+        judge_config_id: str | None,
+        judge_models: list[str] | None,
+) -> list[dict[str, Any]]:
     if not judge_config_id or not judge_models:
         return []
 
-    judge_instructions, require_explanation = get_configuration_details(judge_config_id)
+    judge_prompt, require_explanation = get_configuration_details(judge_config_id)
 
-    if not judge_instructions:
+    if not judge_prompt:
         return []
 
-    judge_prompt = compose_judge_prompt(judge_instructions, system_prompt, prompt, response)
+    judge_prompt = compose_judge_prompt(judge_prompt, system_prompt, prompt, response)
     failed_judgments = []
 
     for i in range(len(judge_models)):

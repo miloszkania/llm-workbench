@@ -1,5 +1,6 @@
 import json
 
+import pandas as pd
 import streamlit as st
 
 from src import database, view_utils
@@ -7,7 +8,7 @@ from src import database, view_utils
 view_utils.page_config("Presets")
 
 
-def save_changes(original_df):
+def save_changes(original_df: pd.DataFrame) -> None:
     # Delete rows
     for i in changes["deleted_rows"]:
         database.delete_preset(int(original_df.iloc[i]["id"]))
@@ -33,7 +34,7 @@ def save_changes(original_df):
 
 st.title("Presets")
 
-preset_table = view_utils.get_all_preset_entries()
+preset_table = view_utils.get_all_presets()
 
 if not preset_table.empty:
     edited_preset_table = st.data_editor(

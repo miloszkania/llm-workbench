@@ -1,7 +1,9 @@
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timedelta
 import time
+from typing import Any, Literal
 
-from openrouter import OpenRouter
+from openrouter import OpenRouter, components, operations
 
 from src.config import get_env_config
 from src.errors import OpenRouterRequestError, OPENROUTER_ERRORS, ModelResponseError
@@ -22,7 +24,11 @@ client = OpenRouter(
 
 # runs `function` with `**kwargs` as arguments. retries when specified errors occur.
 # if the error persists, throws a local error class, simplifying the error validation in other functions
-def _safe_run(function, max_retries=2, **kwargs):
+def _safe_run(
+        function: Callable[..., Any],
+        max_retries: int = 2,
+        **kwargs: Any,
+) -> Any:
     for attempt in range(max_retries + 1):
         try:
             return function(**kwargs)
@@ -60,12 +66,17 @@ def _safe_run(function, max_retries=2, **kwargs):
             time.sleep(delay)
 
 
-def get_model_list(sort="most-popular"):
+def get_model_list(sort: str = "most-popular") -> list[components.Model]:
     model_list = _safe_run(client.models.list, sort=sort, timeout_ms=API_TIMEOUT_MS)
     return model_list.result.data
 
 
-def send_prompt(model, prompt, system_prompt, conversation_type):
+def send_prompt(
+        model: str,
+        prompt: str,
+        system_prompt: str | None,
+        conversation_type: Literal["target", "judge"],
+) -> tuple[components.ChatResult, datetime, timedelta]:
     # prepare the messages object
     messages = []
     if system_prompt:
@@ -103,23 +114,23 @@ def send_prompt(model, prompt, system_prompt, conversation_type):
     return response, timestamp_start, timestamp_end - timestamp_start
 
 
-def get_key_metadata():
+def get_key_metadata() -> operations.GetCurrentKeyData:
     metadata = _safe_run(client.api_keys.get_current_key_metadata, timeout_ms=API_TIMEOUT_MS)
     return metadata.data
 
 
-def get_credits():
+def get_credits() -> operations.GetCreditsData:
     credits_data = _safe_run(client.credits.get_credits, timeout_ms=API_TIMEOUT_MS)
     return credits_data.data
 
 
-def get_model_object(model_id):
+def get_model_object(model_id: str) -> components.ModelResponse:
     author, slug = model_id.split("/", maxsplit=1)
     model_object = _safe_run(client.models.get, author=author, slug=slug, timeout_ms=API_TIMEOUT_MS)
     return model_object
 
 
-def extract_response_text(response):
+def extract_response_text(response: components.ChatResult) -> str:
     if not response.choices:
         raise ModelResponseError("The model returned no response choices.", response.model)
 

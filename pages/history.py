@@ -7,10 +7,10 @@ view_utils.page_config("History")
 
 label_options = ["success", "refusal", "unclear"]
 
-def save_changes(original_data: pd.DataFrame):
+def save_changes(original_data: pd.DataFrame) -> None:
     # delete rows
     for row_idx in changes["deleted_rows"]:
-        database.delete_prompt_record(int(original_data.iloc[row_idx]["id"]))
+        database.delete_interaction(int(original_data.iloc[row_idx]["id"]))
 
     # adjust record data
     for row_idx, edit_changes in changes["edited_rows"].items():
@@ -33,7 +33,7 @@ error_message = st.session_state.pop("error_message", None)
 if error_message:
     st.error(error_message)
 
-history_table = view_utils.get_all_history_entries()
+history_table = view_utils.get_all_interactions()
 
 if not history_table.empty:
     edited_history_table = st.data_editor(
