@@ -143,47 +143,95 @@ def send_prompt_button_with_repetitions(
     prompt = st.session_state["prompt"]
     categories = st.session_state["categories"]
 
-    with st.spinner("Sending the request and waiting for response…", show_time=True):
-        col1, col2 = st.columns([1, 6])
-        repetition_count = col2.number_input(
-            "Number of target interactions to run",
-            min_value=1,
-            max_value=50,
-            value=1,
-            help="Each interaction independently sends the prompt to the target model and will be separately evaluated "
-                 "by each selected judge.",
-            key="repetition_count",
-        )
+    col1, col2 = st.columns([1, 6])
+    repetition_count = col2.number_input(
+        "Number of target interactions to run",
+        min_value=1,
+        max_value=50,
+        value=1,
+        help="Each interaction independently sends the prompt to the target model and will be separately evaluated "
+             "by each selected judge.",
+        key="repetition_count",
+    )
 
-        col1.space("small")
+    col1.space("small")
 
-        if col1.button(button_label, type="primary", width="stretch"):
-            if not model:
-                st.error("You need to enter the model!")
-            elif not prompt:
-                st.error("You need to enter the prompt!")
-            else:
-                try:
-                    interaction_ids, failed_interactions, failed_judgments = view_utils.generate_and_evaluate_interactions(
-                        model, system_prompt, prompt, categories, judge_config, judge_models, repetition_count
+    if col1.button(button_label, type="primary", width="stretch"):
+        if not model:
+            st.error("You need to enter the model!")
+        elif not prompt:
+            st.error("You need to enter the prompt!")
+        else:
+            status = st.status("Starting run…", expanded=True)
+            interaction_progress = status.empty()
+            judgment_progress = status.empty()
+            current_interaction = 0
+
+            def update_interaction_progress(current: int, total: int) -> None:
+                # increase the current_interaction counter
+                nonlocal current_interaction
+                current_interaction = current
+
+                status.update(
+                    label=f"Interaction {current} of {total} · Waiting for target response…",
+                    expanded=True,
+                )
+                interaction_progress.progress(
+                    value=current / total,
+                    text=f"Interaction {current} of {total}",
+                )
+                judgment_progress.empty()
+
+            def update_judgment_progress(current: int, total: int) -> None:
+                status.update(
+                    label=f"Interaction {current_interaction} of {repetition_count} · Judgment {current} of {total}…",
+                    expanded=True,
+                )
+                judgment_progress.progress(
+                    value=current / total,
+                    text=f"Judgment {current} of {total}",
+                )
+
+            try:
+                interaction_ids, failed_interactions, failed_judgments = view_utils.generate_and_evaluate_interactions(
+                    model,
+                    system_prompt,
+                    prompt,
+                    categories,
+                    judge_config,
+                    judge_models,
+                    repetition_count,
+                    on_interaction_start=update_interaction_progress,
+                    on_judgment_start=update_judgment_progress,
+                )
+
+                succeeded_interactions = len(interaction_ids)
+                status.update(
+                    label=(
+                        f"Run finished · {succeeded_interactions} of {repetition_count} "
+                        f"interaction{'s' if repetition_count != 1 else ''} succeeded"
+                    ),
+                    state="error" if succeeded_interactions == 0 else "complete",
+                    expanded=True,
+                )
+
+                # no interactions succeeded, display the error message right away, don't redirect
+                if failed_interactions and not interaction_ids:
+                    display_failed_interactions_information(
+                        succeeded_interactions=succeeded_interactions,
+                        failed_interactions=failed_interactions,
                     )
+                else:
+                    # redirect to the prompt/batch details page
+                    st.session_state["failed_judgments"] = failed_judgments
+                    st.session_state["failed_interactions"] = failed_interactions
 
-                    # no interactions succeeded, display the error message right away, don't redirect
-                    if failed_interactions and not interaction_ids:
-                        display_failed_interactions_information(
-                            succeeded_interactions=len(interaction_ids),
-                            failed_interactions=failed_interactions,
-                        )
-                    else:
-                        # redirect to the prompt/batch details page
-                        st.session_state["failed_judgments"] = failed_judgments
-                        st.session_state["failed_interactions"] = failed_interactions
+                    param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
+                    st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
 
-                        param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
-                        st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
-
-                except OpenRouterRequestError as error:
-                    errors.display_error(error)
+            except OpenRouterRequestError as error:
+                status.update(label="Run interrupted", state="error")
+                errors.display_error(error)
 
 
 def save_preset_button(
@@ -208,20 +256,43 @@ def display_run_judging_dialog(interaction_object) -> None:
         if not judge_models or not judge_config:
             st.error("Select at least one judge model and a judge configuration!")
         else:
-            with st.spinner("Waiting for judge response…", show_time=True):
-                try:
-                    failed_judgments = judge.evaluate_and_store_interaction(
-                        interaction_object["interaction"]["id"],
-                        interaction_object["interaction"]["system_prompt"],
-                        interaction_object["interaction"]["prompt"],
-                        interaction_object["interaction"]["response"],
-                        judge_config,
-                        judge_models
-                    )
-                    st.session_state["failed_judgments"] = failed_judgments
-                    st.rerun()
-                except OpenRouterRequestError as error:
-                    errors.display_error(error)
+            status = st.status("Starting judging…", expanded=True)
+            judgment_progress = status.progress(
+                value=0,
+                text=f"Judgments: 0 of {len(judge_models)}",
+            )
+
+            def update_judgment_progress(current: int, total: int) -> None:
+                status.update(label=f"Judgment {current} of {total}…")
+                judgment_progress.progress(
+                    value=current / total,
+                    text=f"Judgment {current} of {total}",
+                )
+
+            try:
+                failed_judgments = judge.evaluate_and_store_interaction(
+                    interaction_object["interaction"]["id"],
+                    interaction_object["interaction"]["system_prompt"],
+                    interaction_object["interaction"]["prompt"],
+                    interaction_object["interaction"]["response"],
+                    judge_config,
+                    judge_models,
+                    on_judgment_start=update_judgment_progress,
+                )
+                succeeded_judgments = len(judge_models) - len(failed_judgments)
+                status.update(
+                    label=(
+                        f"Judging finished · {succeeded_judgments} of {len(judge_models)} "
+                        f"judgment{'s' if len(judge_models) != 1 else ''} succeeded"
+                    ),
+                    state="error" if succeeded_judgments == 0 else "complete",
+                    expanded=True,
+                )
+                st.session_state["failed_judgments"] = failed_judgments
+                st.rerun()
+            except OpenRouterRequestError as error:
+                status.update(label="Judging interrupted", state="error")
+                errors.display_error(error)
 
 
 def interaction_card(interaction_object) -> None:

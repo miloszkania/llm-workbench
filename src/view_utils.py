@@ -2,7 +2,7 @@ import json
 import re
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 import streamlit as st
@@ -172,6 +172,8 @@ def generate_and_evaluate_interactions(
         judge_config: str | None,
         judge_models: list[str] | None,
         repetition_count: int = 1,
+        on_interaction_start: Callable[[int, int], None] | None = None,
+        on_judgment_start: Callable[[int, int], None] | None = None,
 ) -> tuple[
     list[int],
     list[OpenRouterRequestError | ModelResponseError],
@@ -183,9 +185,13 @@ def generate_and_evaluate_interactions(
     failed_interactions = []
 
     # send the prompt `repetition_count` times
-    for i in range(repetition_count):
+    for i in range(1, repetition_count + 1):
         # timeout of 3 seconds (if not first prompt of the batch)
-        if i > 0: time.sleep(3.2)
+        if i > 1: time.sleep(3.2)
+
+        # run the callback function to update the progress bar
+        if on_interaction_start:
+            on_interaction_start(i, repetition_count)
 
         # send the prompt and receive a response
         try:
@@ -215,7 +221,13 @@ def generate_and_evaluate_interactions(
 
         # get llm-as-a-judge classification
         current_failed_judgments = judge.evaluate_and_store_interaction(
-            interaction_id, system_prompt, prompt, response_content, judge_config, judge_models
+            interaction_id,
+            system_prompt,
+            prompt,
+            response_content,
+            judge_config,
+            judge_models,
+            on_judgment_start=on_judgment_start,
         )
 
         # save the failed judgments to display them in the next view
