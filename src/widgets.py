@@ -163,8 +163,11 @@ def send_prompt_button_with_repetitions(
             st.error("You need to enter the prompt!")
         else:
             status = st.status("Starting run…", expanded=True)
-            interaction_progress = status.empty()
-            judgment_progress = status.empty()
+
+            col_interaction, col_judgment = status.columns(2)
+            interaction_progress = col_interaction.empty()
+            judgment_progress = col_judgment.empty()
+
             current_interaction = 0
 
             def update_interaction_progress(current: int, total: int) -> None:
