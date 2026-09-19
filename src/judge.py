@@ -1,6 +1,6 @@
 import re
 import time
-from typing import Any
+from typing import Any, Callable
 
 from src import database, openrouter_api, view_utils
 from src.errors import OpenRouterRequestError, ModelResponseError
@@ -108,6 +108,7 @@ def evaluate_and_store_interaction(
         response: str,
         judge_config_id: str | None,
         judge_models: list[str] | None,
+        on_judgment_start: Callable[[int, int], None] | None = None,
 ) -> list[dict[str, Any]]:
     if not judge_config_id or not judge_models:
         return []
@@ -120,10 +121,12 @@ def evaluate_and_store_interaction(
     judge_prompt = compose_judge_prompt(judge_prompt, system_prompt, prompt, response)
     failed_judgments = []
 
-    for i in range(len(judge_models)):
-        judge_model = judge_models[i]
+    for i, judge_model in enumerate(judge_models, start=1):
+        if i > 1: time.sleep(3.2)
 
-        if i > 0: time.sleep(3.2)
+        if on_judgment_start:
+            on_judgment_start(i, len(judge_models))
+
         try:
             judge_result = get_judge_result(judge_prompt, judge_model, require_explanation)
         except (OpenRouterRequestError, ModelResponseError) as error:
