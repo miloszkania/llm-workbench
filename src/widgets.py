@@ -143,8 +143,15 @@ def send_prompt_button_with_repetitions(
     prompt = st.session_state["prompt"]
     categories = st.session_state["categories"]
 
-    col1, col2 = st.columns([1, 6])
-    repetition_count = col2.number_input(
+    failed_run_interactions = st.session_state.pop("failed_run_interactions", [])
+    if failed_run_interactions:
+        display_failed_interactions_information(
+            succeeded_interactions=0,
+            failed_interactions=failed_run_interactions,
+        )
+
+    col_btn_run, col_repetitions = st.columns([1, 6])
+    repetition_count = col_repetitions.number_input(
         "Number of target interactions to run",
         min_value=1,
         max_value=50,
@@ -154,14 +161,29 @@ def send_prompt_button_with_repetitions(
         key="repetition_count",
     )
 
-    col1.space("small")
+    col_btn_run.space("small")
 
-    if col1.button(button_label, type="primary", width="stretch"):
+    run_button = col_btn_run.empty()
+
+    if run_button.button(
+            button_label,
+            type="primary",
+            width="stretch",
+            key=f"{button_label}_interactions_button",
+    ):
         if not model:
             st.error("You need to enter the model!")
         elif not prompt:
             st.error("You need to enter the prompt!")
         else:
+            run_button.button(
+                "Running…",
+                type="primary",
+                width="stretch",
+                disabled=True,
+                key=f"{button_label}_interactions_button_disabled",
+            )
+
             status = st.status("Starting run…", expanded=True)
 
             col_interaction, col_judgment = status.columns(2)
@@ -218,12 +240,10 @@ def send_prompt_button_with_repetitions(
                     expanded=True,
                 )
 
-                # no interactions succeeded, display the error message right away, don't redirect
                 if failed_interactions and not interaction_ids:
-                    display_failed_interactions_information(
-                        succeeded_interactions=succeeded_interactions,
-                        failed_interactions=failed_interactions,
-                    )
+                    # no interactions succeeded, rerun to re-enable the button and display the errors
+                    st.session_state["failed_run_interactions"] = failed_interactions
+                    st.rerun()
                 else:
                     # redirect to the prompt/batch details page
                     st.session_state["failed_judgments"] = failed_judgments
