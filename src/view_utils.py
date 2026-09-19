@@ -182,7 +182,7 @@ def generate_and_evaluate_interactions(
     # store all ids of the interactions
     interaction_ids = []
     failed_judgments = []
-    failed_interactions = []
+    interaction_errors = []
 
     # send the prompt `repetition_count` times
     for i in range(1, repetition_count + 1):
@@ -200,7 +200,7 @@ def generate_and_evaluate_interactions(
             )
             response_content = openrouter_api.extract_response_text(response)
         except (OpenRouterRequestError, ModelResponseError) as error:
-            failed_interactions.append(error)
+            interaction_errors.append(error)
             continue
 
         # clear the model id (remove the timestamp-snapshot)
@@ -236,7 +236,7 @@ def generate_and_evaluate_interactions(
         # save the id of the resulting interaction in the array
         interaction_ids.append(interaction_id)
 
-    return interaction_ids, failed_interactions, failed_judgments
+    return interaction_ids, interaction_errors, failed_judgments
 
 
 ###### MODELS

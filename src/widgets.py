@@ -143,13 +143,6 @@ def send_prompt_button_with_repetitions(
     prompt = st.session_state["prompt"]
     categories = st.session_state["categories"]
 
-    failed_run_interactions = st.session_state.pop("failed_run_interactions", [])
-    if failed_run_interactions:
-        display_failed_interactions_information(
-            succeeded_interactions=0,
-            failed_interactions=failed_run_interactions,
-        )
-
     col_btn_run, col_repetitions = st.columns([1, 6])
     repetition_count = col_repetitions.number_input(
         "Number of target interactions to run",
@@ -186,9 +179,15 @@ def send_prompt_button_with_repetitions(
 
             status = st.status("Starting run…", expanded=True)
 
-            col_interaction, col_judgment = status.columns(2)
-            interaction_progress = col_interaction.empty()
-            judgment_progress = col_judgment.empty()
+            if judge_config and judge_models:
+                # prepare both interaction and judgment progress bars
+                col_interaction, col_judgment = status.columns(2)
+                interaction_progress = col_interaction.empty()
+                judgment_progress = col_judgment.empty()
+            else:
+                # only prepare the interaction progress bar
+                interaction_progress = status.empty()
+                judgment_progress = None
 
             current_interaction = 0
 
@@ -197,28 +196,41 @@ def send_prompt_button_with_repetitions(
                 nonlocal current_interaction
                 current_interaction = current
 
+                # update the label
                 status.update(
                     label=f"Interaction {current} of {total} · Waiting for target response…",
                     expanded=True,
                 )
+
+                # update the progress bar
                 interaction_progress.progress(
                     value=current / total,
                     text=f"Interaction {current} of {total}",
                 )
-                judgment_progress.empty()
+
+                # clear the judgment progress (if judging is also included)
+                if judgment_progress is not None:
+                    judgment_progress.empty()
 
             def update_judgment_progress(current: int, total: int) -> None:
+                # update the label
                 status.update(
-                    label=f"Interaction {current_interaction} of {repetition_count} · Judgment {current} of {total}…",
+                    label=(
+                        f"Interaction {current_interaction} of {repetition_count} "
+                        f"· Judgment {current} of {total}…"
+                    ),
                     expanded=True,
                 )
-                judgment_progress.progress(
-                    value=current / total,
-                    text=f"Judgment {current} of {total}",
-                )
+
+                # update the progress bar
+                if judgment_progress is not None:
+                    judgment_progress.progress(
+                        value=current / total,
+                        text=f"Judgment {current} of {total}",
+                    )
 
             try:
-                interaction_ids, failed_interactions, failed_judgments = view_utils.generate_and_evaluate_interactions(
+                interaction_ids, interaction_errors, failed_judgments = view_utils.generate_and_evaluate_interactions(
                     model,
                     system_prompt,
                     prompt,
@@ -240,14 +252,16 @@ def send_prompt_button_with_repetitions(
                     expanded=True,
                 )
 
-                if failed_interactions and not interaction_ids:
+                if interaction_errors and not interaction_ids:
                     # no interactions succeeded, rerun to re-enable the button and display the errors
-                    st.session_state["failed_run_interactions"] = failed_interactions
+                    st.session_state["interaction_errors"] = interaction_errors
+                    st.session_state["succeeded_interaction_count"] = 0
                     st.rerun()
                 else:
                     # redirect to the prompt/batch details page
                     st.session_state["failed_judgments"] = failed_judgments
-                    st.session_state["failed_interactions"] = failed_interactions
+                    st.session_state["interaction_errors"] = interaction_errors
+                    st.session_state["succeeded_interaction_count"] = succeeded_interactions
 
                     param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
                     st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
@@ -275,10 +289,25 @@ def display_run_judging_dialog(interaction_object) -> None:
     judge_config, judge_models = judge_model_and_configuration_selector()
     st.divider()
 
-    if st.button("Run judging", type="primary"):
+    interaction_id = interaction_object["interaction"]["id"]
+    run_judging_button = st.empty()
+
+    if run_judging_button.button(
+            "Run judging",
+            type="primary",
+            key=f"{interaction_id}_run_judging_button",
+    ):
         if not judge_models or not judge_config:
             st.error("Select at least one judge model and a judge configuration!")
         else:
+            # disable the run judging button
+            run_judging_button.button(
+                "Judging…",
+                type="primary",
+                disabled=True,
+                key=f"{interaction_id}_run_judging_button_disabled",
+            )
+
             status = st.status("Starting judging…", expanded=True)
             judgment_progress = status.progress(
                 value=0,
@@ -294,7 +323,7 @@ def display_run_judging_dialog(interaction_object) -> None:
 
             try:
                 failed_judgments = judge.evaluate_and_store_interaction(
-                    interaction_object["interaction"]["id"],
+                    interaction_id,
                     interaction_object["interaction"]["system_prompt"],
                     interaction_object["interaction"]["prompt"],
                     interaction_object["interaction"]["response"],
@@ -614,15 +643,15 @@ def display_failed_judgments_information(
         )
 
 
-def display_failed_interactions_information(
+def display_interaction_errors(
         succeeded_interactions: int,
-        failed_interactions: Sequence[Exception],
+        interaction_errors: Sequence[Exception],
         canvas: Any = st,
 ) -> None:
     canvas.warning(f"Only {succeeded_interactions} interaction{'s' if succeeded_interactions != 1 else ''} "
                f"succeeded. In other interactions, the following errors occurred:")
-    for failed_interaction in failed_interactions:
+    for interaction_error in interaction_errors:
         errors.display_error(
-            error=failed_interaction,
+            error=interaction_error,
             canvas=canvas,
         )

@@ -206,11 +206,12 @@ with col_rerun.container(horizontal=True, horizontal_alignment="right"):
 st.divider()
 
 # if not all interactions succeeded or any judgments failed, let the user know here
-failed_interactions = st.session_state.pop("failed_interactions", [])
-if failed_interactions:
-    widgets.display_failed_interactions_information(
-        succeeded_interactions=len(interactions),
-        failed_interactions=failed_interactions,
+interaction_errors = st.session_state.pop("interaction_errors", [])
+succeeded_interaction_count = st.session_state.pop("succeeded_interaction_count", len(interactions))
+if interaction_errors:
+    widgets.display_interaction_errors(
+        succeeded_interactions=succeeded_interaction_count,
+        interaction_errors=interaction_errors,
     )
 
 
@@ -218,7 +219,7 @@ failed_judgments = st.session_state.pop("failed_judgments", [])
 if failed_judgments:
     widgets.display_failed_judgments_information(failed_judgments)
 
-if failed_interactions or failed_judgments:
+if interaction_errors or failed_judgments:
     st.divider()
 
 # prompt information
