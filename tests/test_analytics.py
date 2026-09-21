@@ -210,6 +210,29 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(distribution["count"].tolist(), [2, 1, 0])
         self.assertAlmostEqual(distribution["percentage"].sum(), 100.0)
 
+    def test_activity_and_cost_summaries_group_values_by_date(self) -> None:
+        interactions = analytics.prepare_interactions([
+            {"id": 1, "time": "2026-09-20 10:00:00", "price": 0.10},
+            {"id": 2, "time": "2026-09-20 12:00:00", "price": 0.20},
+            {"id": 3, "time": "2026-09-21 10:00:00", "price": None},
+        ])
+        judge_results = analytics.prepare_judge_results([
+            {"id": 1, "time": "2026-09-20 10:01:00", "price": 0.01},
+            {"id": 2, "time": "2026-09-22 10:00:00", "price": 0.02},
+        ])
+
+        activity = analytics.summarize_activity(interactions)
+        costs = analytics.summarize_costs(interactions, judge_results)
+
+        self.assertEqual(activity["interaction_count"].tolist(), [2, 1])
+        self.assertEqual(costs["date"].dt.day.tolist(), [20, 21, 22])
+        self.assertAlmostEqual(costs.loc[0, "target_cost"], 0.30)
+        self.assertAlmostEqual(costs.loc[0, "judging_cost"], 0.01)
+        self.assertAlmostEqual(costs.loc[0, "total_cost"], 0.31)
+        self.assertEqual(costs.loc[1:, "target_cost"].tolist(), [0.0, 0.0])
+        self.assertEqual(costs.loc[1:, "judging_cost"].tolist(), [0.0, 0.02])
+        self.assertEqual(costs.loc[1:, "total_cost"].tolist(), [0.0, 0.02])
+
     def test_overview_counts_all_judgment_costs(self) -> None:
         interactions = analytics.prepare_interactions([
             {

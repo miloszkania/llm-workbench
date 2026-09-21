@@ -236,6 +236,59 @@ def summarize_labels(labels: pd.Series) -> pd.DataFrame:
     return distribution
 
 
+def summarize_activity(interactions: pd.DataFrame) -> pd.DataFrame:
+    dated_interactions = interactions.loc[interactions["time"].notna()].copy()
+
+    if dated_interactions.empty:
+        return pd.DataFrame(columns=["date", "interaction_count"])
+
+    dated_interactions["date"] = dated_interactions["time"].dt.normalize()
+
+    return (
+        dated_interactions
+        .groupby("date")
+        .size()
+        .rename("interaction_count")
+        .reset_index()
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+
+
+def summarize_costs(
+        interactions: pd.DataFrame,
+        judge_results: pd.DataFrame,
+) -> pd.DataFrame:
+    target_costs = interactions.loc[interactions["time"].notna()].copy()
+    target_costs["date"] = target_costs["time"].dt.normalize()
+    target_costs = (
+        target_costs
+        .groupby("date", as_index=False)["price"]
+        .sum()
+        .rename(columns={"price": "target_cost"})
+    )
+
+    judging_costs = judge_results.loc[judge_results["time"].notna()].copy()
+    judging_costs["date"] = judging_costs["time"].dt.normalize()
+    judging_costs = (
+        judging_costs
+        .groupby("date", as_index=False)["price"]
+        .sum()
+        .rename(columns={"price": "judging_cost"})
+    )
+
+    # keep dates that contain either a target interaction or a judge evaluation
+    costs = target_costs.merge(judging_costs, on="date", how="outer")
+
+    if costs.empty:
+        return pd.DataFrame(columns=["date", "target_cost", "judging_cost", "total_cost"])
+
+    costs[["target_cost", "judging_cost"]] = costs[["target_cost", "judging_cost"]].fillna(0.0)
+    costs["total_cost"] = costs["target_cost"] + costs["judging_cost"]
+
+    return costs.sort_values("date").reset_index(drop=True)
+
+
 def get_overview_metrics(
         interactions: pd.DataFrame,
         judge_results: pd.DataFrame,
