@@ -16,6 +16,11 @@ LABEL_COLORS = {
 
 TARGET_COLOR = "#0072B2"
 JUDGING_COLOR = "#E69F00"
+DURATION_COLOR_SCALE = [
+    [0.0, "#56B4E9"],
+    [0.5, "#0072B2"],
+    [1.0, "#003B5C"],
+]
 
 FILTER_KEYS = (
     "analytics_date_range",
@@ -24,6 +29,7 @@ FILTER_KEYS = (
     "analytics_label_source",
     "analytics_judge_configs",
     "analytics_judge_models",
+    "analytics_minimum_sample_size",
 )
 
 CHART_CONFIG = {
@@ -267,10 +273,467 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
     return figure
 
 
+def create_group_label_distribution_chart(
+        summary: pd.DataFrame,
+        group_column: str,
+) -> go.Figure:
+    chart_data = summary.melt(
+        id_vars=[group_column, "label_count"],
+        value_vars=list(analytics.LABEL_COUNT_COLUMNS),
+        var_name="label",
+        value_name="count",
+    )
+    chart_data["label"] = chart_data["label"].str.removesuffix("_count")
+    chart_data["percentage"] = chart_data["count"] / chart_data["label_count"] * 100
+    chart_data["text"] = chart_data["percentage"].apply(
+        lambda percentage: f"{percentage:.0f}%" if percentage >= 5 else ""
+    )
+
+    group_order = summary[group_column].tolist()
+    figure = px.bar(
+        chart_data,
+        x="percentage",
+        y=group_column,
+        color="label",
+        orientation="h",
+        barmode="stack",
+        text="text",
+        custom_data=["count", "label_count"],
+        color_discrete_map=LABEL_COLORS,
+        labels={
+            "percentage": "Share of labels",
+            group_column: "",
+            "label": "Label",
+        },
+    )
+    figure.update_traces(
+        textposition="inside",
+        hovertemplate=(
+            "%{y}<br>%{fullData.name}: %{customdata[0]:,}"
+            "<br>%{x:.1f}% of %{customdata[1]:,} labels<extra></extra>"
+        ),
+    )
+    figure.update_xaxes(range=[0, 100], ticksuffix="%")
+    figure.update_yaxes(
+        categoryorder="array",
+        categoryarray=list(reversed(group_order)),
+    )
+    figure.update_layout(
+        height=min(max(340, len(summary) * 42 + 110), 850),
+        legend_title_text=None,
+        legend_orientation="h",
+        legend_y=-0.15,
+        margin=dict(l=10, r=20, t=10, b=55),
+    )
+
+    return figure
+
+
+def create_category_usage_chart(category_summary: pd.DataFrame) -> go.Figure:
+    figure = px.bar(
+        category_summary,
+        x="interaction_count",
+        y="category",
+        orientation="h",
+        text="interaction_count",
+        labels={"interaction_count": "Interactions", "category": ""},
+    )
+    figure.update_traces(
+        marker_color=TARGET_COLOR,
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate="%{y}<br>%{x:,} interactions<extra></extra>",
+    )
+    figure.update_yaxes(
+        categoryorder="array",
+        categoryarray=list(reversed(category_summary["category"].tolist())),
+    )
+    figure.update_layout(
+        height=min(max(340, len(category_summary) * 38 + 80), 850),
+        margin=dict(l=10, r=60, t=10, b=10),
+    )
+
+    return figure
+
+
+def create_model_category_heatmap(
+        model_category_summary: pd.DataFrame,
+        model_order: list[str],
+        category_order: list[str],
+) -> go.Figure:
+    metric_columns = [
+        "success_share",
+        "label_count",
+        *analytics.LABEL_COUNT_COLUMNS,
+    ]
+    matrices = {
+        column: (
+            model_category_summary
+            .pivot(index="model", columns="category", values=column)
+            .reindex(index=model_order, columns=category_order)
+        )
+        for column in metric_columns
+    }
+    custom_data = [
+        [
+            [
+                matrices["label_count"].loc[model, category],
+                matrices["success_count"].loc[model, category],
+                matrices["refusal_count"].loc[model, category],
+                matrices["unclear_count"].loc[model, category],
+            ]
+            for category in category_order
+        ]
+        for model in model_order
+    ]
+    cell_text = [
+        [
+            (
+                f"{matrices['success_share'].loc[model, category]:.0f}%"
+                f"<br>n={matrices['label_count'].loc[model, category]:.0f}"
+                if pd.notna(matrices["success_share"].loc[model, category])
+                else ""
+            )
+            for category in category_order
+        ]
+        for model in model_order
+    ]
+
+    figure = go.Figure(go.Heatmap(
+        z=matrices["success_share"].values,
+        x=category_order,
+        y=model_order,
+        customdata=custom_data,
+        zmin=0,
+        zmax=100,
+        colorscale=[
+            [0.0, LABEL_COLORS["refusal"]],
+            [0.5, LABEL_COLORS["unclear"]],
+            [1.0, LABEL_COLORS["success"]],
+        ],
+        colorbar=dict(title="Success", ticksuffix="%"),
+        text=cell_text,
+        texttemplate="%{text}",
+        hoverongaps=False,
+        hovertemplate=(
+            "Model: %{y}<br>Category: %{x}<br>Success: %{z:.1f}%"
+            "<br>Labels: %{customdata[0]:.0f}"
+            "<br>Success: %{customdata[1]:.0f}"
+            "<br>Refusal: %{customdata[2]:.0f}"
+            "<br>Unclear: %{customdata[3]:.0f}<extra></extra>"
+        ),
+    ))
+    figure.update_yaxes(autorange="reversed")
+    figure.update_xaxes(tickangle=-30)
+    figure.update_layout(
+        height=min(max(360, len(model_order) * 58 + 140), 800),
+        margin=dict(l=10, r=20, t=10, b=90),
+    )
+
+    return figure
+
+
+def create_model_cost_scatter(model_summary: pd.DataFrame) -> go.Figure:
+    color_column = (
+        "median_duration_seconds"
+        if model_summary["median_duration_seconds"].notna().any()
+        else None
+    )
+    figure = px.scatter(
+        model_summary,
+        x="average_cost",
+        y="success_share",
+        size="interaction_count",
+        color=color_column,
+        text="model",
+        custom_data=[
+            "model",
+            "label_count",
+            "success_count",
+            "refusal_count",
+            "unclear_count",
+            "interaction_count",
+        ],
+        labels={
+            "average_cost": "Average target cost",
+            "success_share": "Success share",
+            "median_duration_seconds": "Median duration (s)",
+        },
+        color_continuous_scale=DURATION_COLOR_SCALE,
+        size_max=42,
+    )
+    figure.update_traces(
+        textposition="top center",
+        marker_opacity=0.85,
+        marker_line_color="#17324D",
+        marker_line_width=1,
+        hovertemplate=(
+            "%{customdata[0]}<br>Average target cost: $%{x:.6f}"
+            "<br>Success: %{y:.1f}%"
+            "<br>Labels: %{customdata[1]:,}"
+            "<br>Success: %{customdata[2]:,}"
+            "<br>Refusal: %{customdata[3]:,}"
+            "<br>Unclear: %{customdata[4]:,}"
+            "<br>Interactions: %{customdata[5]:,}<extra></extra>"
+        ),
+    )
+    figure.update_xaxes(tickprefix="$", tickformat=".6f", rangemode="tozero")
+    figure.update_yaxes(range=[0, 100], ticksuffix="%")
+    figure.update_layout(
+        height=460,
+        margin=dict(l=10, r=20, t=10, b=10),
+    )
+
+    return figure
+
+
 def display_coverage(label: str, covered: int, total: int) -> None:
     percentage = covered / total if total else 0.0
     st.markdown(f"**{label}**")
     st.progress(percentage, text=f"{covered:,} of {total:,} · {percentage:.1%}")
+
+
+def display_overview(
+        filtered_interactions: pd.DataFrame,
+        filtered_judge_results: pd.DataFrame,
+        label_distribution: pd.DataFrame,
+        label_source_caption: str,
+        metrics: analytics.OverviewMetrics,
+) -> None:
+    st.subheader("Outcomes")
+    st.caption(label_source_caption)
+
+    if int(label_distribution["count"].sum()) > 0:
+        st.plotly_chart(
+            create_label_distribution_chart(label_distribution),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
+    else:
+        st.info("No labels from the selected source match the current filters.")
+
+    st.subheader("Activity and cost")
+    activity_column, cost_column = st.columns(2)
+    activity = analytics.summarize_activity(filtered_interactions)
+    costs = analytics.summarize_costs(
+        filtered_interactions,
+        filtered_judge_results,
+    )
+
+    with activity_column:
+        st.markdown("**Interactions over time**")
+        if activity.empty:
+            st.info("No valid interaction timestamps are available.")
+        else:
+            st.plotly_chart(
+                create_activity_chart(activity),
+                width="stretch",
+                config=CHART_CONFIG,
+            )
+
+    with cost_column:
+        st.markdown("**Cost over time**")
+        if costs.empty:
+            st.info("No valid cost timestamps are available.")
+        elif not costs["total_cost"].gt(0).any():
+            st.info(
+                "No costs were recorded for the selected filters. "
+                "The selected models may be free, or pricing data may be unavailable."
+            )
+        else:
+            st.plotly_chart(
+                create_cost_chart(costs),
+                width="stretch",
+                config=CHART_CONFIG,
+            )
+
+    st.subheader("Data coverage")
+    coverage_columns = st.columns(3)
+
+    with coverage_columns[0]:
+        display_coverage(
+            "Categorized interactions",
+            metrics.categorized_interaction_count,
+            metrics.interaction_count,
+        )
+
+    with coverage_columns[1]:
+        display_coverage(
+            "Manually labeled interactions",
+            metrics.manually_labeled_interaction_count,
+            metrics.interaction_count,
+        )
+
+    with coverage_columns[2]:
+        display_coverage(
+            "Judge-evaluated interactions",
+            metrics.judged_interaction_count,
+            metrics.interaction_count,
+        )
+
+
+def display_model_table(model_summary: pd.DataFrame) -> None:
+    table = model_summary.rename(columns={
+        "model": "Model",
+        "interaction_count": "Interactions",
+        "label_count": "Labels",
+        "success_count": "Success",
+        "refusal_count": "Refusal",
+        "unclear_count": "Unclear",
+        "success_share": "Success share",
+        "median_duration_seconds": "Median duration",
+        "median_tokens": "Median tokens",
+        "total_cost": "Total target cost",
+        "average_cost": "Average target cost",
+    })
+    table = table[[
+        "Model",
+        "Interactions",
+        "Labels",
+        "Success",
+        "Refusal",
+        "Unclear",
+        "Success share",
+        "Median duration",
+        "Median tokens",
+        "Total target cost",
+        "Average target cost",
+    ]]
+
+    st.dataframe(
+        table,
+        hide_index=True,
+        width="stretch",
+        height="content" if len(table) <= 20 else 750,
+        column_config={
+            "Success share": st.column_config.NumberColumn(format="%.1f%%"),
+            "Median duration": st.column_config.NumberColumn(format="%.2f s"),
+            "Median tokens": st.column_config.NumberColumn(format="%.0f"),
+            "Total target cost": st.column_config.NumberColumn(format="$%.6f"),
+            "Average target cost": st.column_config.NumberColumn(format="$%.6f"),
+        },
+    )
+
+
+def display_model_analytics(
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+        minimum_sample_size: int,
+) -> None:
+    st.subheader("Model comparison")
+    st.caption(
+        "Interactions count target calls; n on outcome charts counts labels from the "
+        "selected source. Costs and duration describe target calls only."
+    )
+    model_summary = analytics.summarize_models(interactions, label_records)
+    display_model_table(model_summary)
+
+    comparable_models = model_summary.loc[
+        model_summary["label_count"] >= minimum_sample_size
+    ].copy()
+    st.markdown("**Label distribution by model**")
+    if comparable_models.empty:
+        st.info("No model has enough labels for the selected minimum sample size.")
+    else:
+        st.plotly_chart(
+            create_group_label_distribution_chart(comparable_models, "model"),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
+
+    st.markdown("**Success by model and category**")
+    model_categories = analytics.summarize_model_categories(
+        interactions,
+        label_records,
+    )
+    comparable_cells = model_categories.loc[
+        model_categories["label_count"] >= minimum_sample_size
+    ].copy()
+    if comparable_cells.empty:
+        st.info(
+            "No model-category pair has enough labels for the selected minimum "
+            "sample size."
+        )
+    else:
+        model_order = [
+            model
+            for model in model_summary["model"]
+            if model in set(comparable_cells["model"])
+        ]
+        category_order = (
+            comparable_cells
+            .groupby("category")["interaction_count"]
+            .sum()
+            .sort_values(ascending=False)
+            .index
+            .tolist()
+        )
+        st.plotly_chart(
+            create_model_category_heatmap(
+                comparable_cells,
+                model_order,
+                category_order,
+            ),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
+
+    st.markdown("**Average target cost vs success**")
+    scatter_data = comparable_models.loc[
+        comparable_models["success_share"].notna()
+        & comparable_models["average_cost"].notna()
+    ].copy()
+    if scatter_data.empty:
+        st.info(
+            "No model has both enough labels and recorded target cost data for this "
+            "comparison."
+        )
+    else:
+        st.plotly_chart(
+            create_model_cost_scatter(scatter_data),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
+
+
+def display_category_analytics(
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+        minimum_sample_size: int,
+) -> None:
+    st.subheader("Category comparison")
+    st.caption(
+        "An interaction assigned to multiple categories contributes once to each of "
+        "them, so category totals may exceed the overall interaction count."
+    )
+    category_summary = analytics.summarize_categories(interactions, label_records)
+
+    if category_summary.empty:
+        st.info("No categorized interactions match the current filters.")
+        return
+
+    st.markdown("**Interactions by category**")
+    st.plotly_chart(
+        create_category_usage_chart(category_summary),
+        width="stretch",
+        config=CHART_CONFIG,
+    )
+
+    st.markdown("**Label distribution by category**")
+    comparable_categories = category_summary.loc[
+        category_summary["label_count"] >= minimum_sample_size
+    ].copy()
+    if comparable_categories.empty:
+        st.info("No category has enough labels for the selected minimum sample size.")
+    else:
+        st.plotly_chart(
+            create_group_label_distribution_chart(
+                comparable_categories,
+                "category",
+            ),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
 
 
 view_utils.page_config("Analytics")
@@ -294,6 +757,19 @@ st.html(
         .st-key-analytics-judge-filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
             flex: 1 1 {JUDGE_FILTER_MIN_WIDTH}px;
             min-width: {JUDGE_FILTER_MIN_WIDTH}px;
+        }}
+
+        .st-key-analytics_view [data-testid="stButtonGroup"] button {{
+            min-height: 3rem;
+        }}
+
+        .st-key-analytics_view [data-testid="stButtonGroup"] button p {{
+            font-size: 1rem;
+            font-weight: 600;
+        }}
+
+        .st-key-analytics_view [data-testid="stButtonGroup"] button[aria-checked="true"] {{
+            box-shadow: inset 0 0 0 1px currentColor;
         }}
 
         @media (max-width: {RESPONSIVE_BREAKPOINT}px) {{
@@ -432,86 +908,63 @@ valid_latest_judge_results = latest_judge_results.loc[
 ]
 
 if label_source == "Manual":
-    selected_labels = filtered_interactions["manual_label"]
-    label_coverage = int(selected_labels.isin(analytics.LABELS).sum())
+    label_records = analytics.get_manual_label_records(filtered_interactions)
     label_source_caption = "Each manually labeled interaction contributes one label."
 else:
-    selected_labels = valid_latest_judge_results["label"]
-    label_coverage = valid_latest_judge_results["interaction_id"].nunique()
+    label_records = analytics.get_judge_label_records(valid_latest_judge_results)
     label_source_caption = (
         "Each judge model and configuration contributes its latest label per interaction. "
         "Judging costs include all evaluations."
     )
 
-label_distribution = analytics.summarize_labels(selected_labels)
+label_distribution = analytics.summarize_labels(label_records["label"])
+label_coverage = label_records["interaction_id"].nunique()
 metrics = analytics.get_overview_metrics(filtered_interactions, filtered_judge_results)
 
 display_metric_cards(metrics, label_distribution, label_coverage)
 
-st.subheader("Outcomes")
-st.caption(label_source_caption)
+st.space(20)
+st.subheader("Results analytics")
+selected_view = st.segmented_control(
+    "Analytics view",
+    options=["Overview", "Models", "Categories"],
+    default="Overview",
+    required=True,
+    width="stretch",
+    key="analytics_view",
+    label_visibility="collapsed",
+)
 
-if int(label_distribution["count"].sum()) > 0:
-    st.plotly_chart(
-        create_label_distribution_chart(label_distribution),
-        width="stretch",
-        config=CHART_CONFIG,
+if selected_view == "Overview":
+    display_overview(
+        filtered_interactions,
+        filtered_judge_results,
+        label_distribution,
+        label_source_caption,
+        metrics,
     )
 else:
-    st.info("No labels from the selected source match the current filters.")
+    minimum_sample_size = int(st.number_input(
+        "Minimum labels per group",
+        min_value=1,
+        value=3,
+        step=1,
+        help=(
+            "Hide small samples from comparison charts. The model table always "
+            "shows every model."
+        ),
+        key="analytics_minimum_sample_size",
+    ))
 
-st.subheader("Activity and cost")
-activity_column, cost_column = st.columns(2)
-activity = analytics.summarize_activity(filtered_interactions)
-costs = analytics.summarize_costs(filtered_interactions, filtered_judge_results)
-
-with activity_column:
-    st.markdown("**Interactions over time**")
-    if activity.empty:
-        st.info("No valid interaction timestamps are available.")
-    else:
-        st.plotly_chart(
-            create_activity_chart(activity),
-            width="stretch",
-            config=CHART_CONFIG,
-        )
-
-with cost_column:
-    st.markdown("**Cost over time**")
-    if costs.empty:
-        st.info("No valid cost timestamps are available.")
-    elif not costs["total_cost"].gt(0).any():
-        st.info(
-            "No costs were recorded for the selected filters. "
-            "The selected models may be free, or pricing data may be unavailable."
+    if selected_view == "Models":
+        display_model_analytics(
+            filtered_interactions,
+            label_records,
+            minimum_sample_size,
         )
     else:
-        st.plotly_chart(
-            create_cost_chart(costs),
-            width="stretch",
-            config=CHART_CONFIG,
+        display_category_analytics(
+            filtered_interactions,
+            label_records,
+            minimum_sample_size,
         )
-
-st.subheader("Data coverage")
-coverage_columns = st.columns(3)
-
-with coverage_columns[0]:
-    display_coverage(
-        "Categorized interactions",
-        metrics.categorized_interaction_count,
-        metrics.interaction_count,
-    )
-
-with coverage_columns[1]:
-    display_coverage(
-        "Manually labeled interactions",
-        metrics.manually_labeled_interaction_count,
-        metrics.interaction_count,
-    )
-
-with coverage_columns[2]:
-    display_coverage(
-        "Judge-evaluated interactions",
-        metrics.judged_interaction_count,
-        metrics.interaction_count,
-    )

@@ -233,6 +233,116 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(costs.loc[1:, "judging_cost"].tolist(), [0.0, 0.02])
         self.assertEqual(costs.loc[1:, "total_cost"].tolist(), [0.0, 0.02])
 
+    def test_label_records_keep_only_supported_labels(self) -> None:
+        interactions = analytics.prepare_interactions([
+            {"id": 1, "manual_label": "success"},
+            {"id": 2, "manual_label": "invalid"},
+            {"id": 3, "manual_label": None},
+        ])
+        judge_results = analytics.prepare_judge_results([
+            {"id": 1, "interaction_id": 1, "label": "refusal"},
+            {"id": 2, "interaction_id": 1, "label": "unclear"},
+            {"id": 3, "interaction_id": 2, "label": None},
+        ])
+
+        manual_labels = analytics.get_manual_label_records(interactions)
+        judge_labels = analytics.get_judge_label_records(judge_results)
+
+        self.assertEqual(manual_labels.to_dict("records"), [
+            {"interaction_id": 1, "label": "success"},
+        ])
+        self.assertEqual(judge_labels.to_dict("records"), [
+            {"interaction_id": 1, "label": "refusal"},
+            {"interaction_id": 1, "label": "unclear"},
+        ])
+
+    def test_model_summary_separates_interactions_from_labels(self) -> None:
+        interactions = analytics.prepare_interactions([
+            {
+                "id": 1,
+                "model": "model/a",
+                "categories": '["alpha", "beta"]',
+                "duration": "0:00:02",
+                "token_usage": 10,
+                "price": 0.10,
+            },
+            {
+                "id": 2,
+                "model": "model/a",
+                "categories": '["alpha"]',
+                "duration": "0:00:04",
+                "token_usage": 30,
+                "price": 0.30,
+            },
+            {
+                "id": 3,
+                "model": "model/b",
+                "categories": '["beta"]',
+                "duration": "0:00:06",
+                "token_usage": 50,
+                "price": None,
+            },
+        ])
+        label_records = pd.DataFrame([
+            {"interaction_id": 1, "label": "success"},
+            {"interaction_id": 1, "label": "refusal"},
+            {"interaction_id": 2, "label": "success"},
+        ])
+
+        summary = analytics.summarize_models(interactions, label_records)
+        model_a = summary.loc[summary["model"] == "model/a"].iloc[0]
+        model_b = summary.loc[summary["model"] == "model/b"].iloc[0]
+
+        self.assertEqual(model_a["interaction_count"], 2)
+        self.assertEqual(model_a["label_count"], 3)
+        self.assertEqual(model_a["success_count"], 2)
+        self.assertEqual(model_a["refusal_count"], 1)
+        self.assertAlmostEqual(model_a["success_share"], 200 / 3)
+        self.assertEqual(model_a["median_duration_seconds"], 3.0)
+        self.assertEqual(model_a["median_tokens"], 20)
+        self.assertAlmostEqual(model_a["total_cost"], 0.40)
+        self.assertAlmostEqual(model_a["average_cost"], 0.20)
+        self.assertEqual(model_b["interaction_count"], 1)
+        self.assertEqual(model_b["label_count"], 0)
+        self.assertTrue(pd.isna(model_b["success_share"]))
+
+    def test_category_summaries_keep_every_category_membership(self) -> None:
+        interactions = analytics.prepare_interactions([
+            {"id": 1, "model": "model/a", "categories": '["alpha", "beta"]'},
+            {"id": 2, "model": "model/a", "categories": '["alpha"]'},
+            {"id": 3, "model": "model/b", "categories": '["beta"]'},
+        ])
+        label_records = pd.DataFrame([
+            {"interaction_id": 1, "label": "success"},
+            {"interaction_id": 1, "label": "refusal"},
+            {"interaction_id": 2, "label": "success"},
+        ])
+
+        categories = analytics.summarize_categories(interactions, label_records)
+        model_categories = analytics.summarize_model_categories(
+            interactions,
+            label_records,
+        )
+        alpha = categories.loc[categories["category"] == "alpha"].iloc[0]
+        beta = categories.loc[categories["category"] == "beta"].iloc[0]
+        model_a_beta = model_categories.loc[
+            (model_categories["model"] == "model/a")
+            & (model_categories["category"] == "beta")
+        ].iloc[0]
+        model_b_beta = model_categories.loc[
+            (model_categories["model"] == "model/b")
+            & (model_categories["category"] == "beta")
+        ].iloc[0]
+
+        self.assertEqual(alpha["interaction_count"], 2)
+        self.assertEqual(alpha["label_count"], 3)
+        self.assertEqual(beta["interaction_count"], 2)
+        self.assertEqual(beta["label_count"], 2)
+        self.assertEqual(model_a_beta["interaction_count"], 1)
+        self.assertEqual(model_a_beta["label_count"], 2)
+        self.assertEqual(model_b_beta["interaction_count"], 1)
+        self.assertEqual(model_b_beta["label_count"], 0)
+
     def test_overview_counts_all_judgment_costs(self) -> None:
         interactions = analytics.prepare_interactions([
             {

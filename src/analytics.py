@@ -10,6 +10,7 @@ from src import database
 
 
 LABELS = ("success", "refusal", "unclear")
+LABEL_COUNT_COLUMNS = tuple(f"{label}_count" for label in LABELS)
 
 INTERACTION_COLUMNS = (
     "id",
@@ -287,6 +288,187 @@ def summarize_costs(
     costs["total_cost"] = costs["target_cost"] + costs["judging_cost"]
 
     return costs.sort_values("date").reset_index(drop=True)
+
+
+def get_manual_label_records(interactions: pd.DataFrame) -> pd.DataFrame:
+    label_records = interactions.loc[
+        interactions["manual_label"].isin(LABELS),
+        ["id", "manual_label"],
+    ]
+
+    return (
+        label_records
+        .rename(columns={"id": "interaction_id", "manual_label": "label"})
+        .reset_index(drop=True)
+    )
+
+
+def get_judge_label_records(judge_results: pd.DataFrame) -> pd.DataFrame:
+    return (
+        judge_results.loc[
+            judge_results["label"].isin(LABELS),
+            ["interaction_id", "label"],
+        ]
+        .reset_index(drop=True)
+    )
+
+
+def _add_label_metrics(
+        summary: pd.DataFrame,
+        labeled_groups: pd.DataFrame,
+        group_columns: Sequence[str],
+) -> pd.DataFrame:
+    group_columns = list(group_columns)
+
+    if labeled_groups.empty:
+        result = summary.copy()
+        for column in LABEL_COUNT_COLUMNS:
+            result[column] = 0
+    else:
+        label_counts = (
+            labeled_groups
+            .groupby([*group_columns, "label"])
+            .size()
+            .unstack(fill_value=0)
+            .reindex(columns=LABELS, fill_value=0)
+            .rename(columns={label: f"{label}_count" for label in LABELS})
+            .reset_index()
+        )
+        result = summary.merge(label_counts, on=group_columns, how="left")
+        result[list(LABEL_COUNT_COLUMNS)] = (
+            result[list(LABEL_COUNT_COLUMNS)]
+            .fillna(0)
+            .astype(int)
+        )
+
+    result["label_count"] = result[list(LABEL_COUNT_COLUMNS)].sum(axis=1)
+    result["success_share"] = (
+        result["success_count"]
+        .div(result["label_count"])
+        .mul(100)
+        .where(result["label_count"].gt(0))
+    )
+
+    return result
+
+
+def summarize_models(
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+) -> pd.DataFrame:
+    model_data = interactions.loc[interactions["model"].notna()].copy()
+
+    if model_data.empty:
+        return pd.DataFrame(columns=[
+            "model",
+            "interaction_count",
+            *LABEL_COUNT_COLUMNS,
+            "label_count",
+            "success_share",
+            "median_duration_seconds",
+            "median_tokens",
+            "total_cost",
+            "average_cost",
+        ])
+
+    model_data["duration_seconds"] = model_data["duration"].dt.total_seconds()
+    summary = (
+        model_data
+        .groupby("model", as_index=False)
+        .agg(
+            interaction_count=("id", "size"),
+            median_duration_seconds=("duration_seconds", "median"),
+            median_tokens=("token_usage", "median"),
+            total_cost=("price", lambda values: values.sum(min_count=1)),
+            average_cost=("price", "mean"),
+        )
+    )
+    labeled_models = label_records.merge(
+        model_data[["id", "model"]],
+        left_on="interaction_id",
+        right_on="id",
+        how="inner",
+    )
+    summary = _add_label_metrics(summary, labeled_models, ["model"])
+
+    return (
+        summary
+        .sort_values(["interaction_count", "model"], ascending=[False, True])
+        .reset_index(drop=True)
+    )
+
+
+def summarize_categories(
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+) -> pd.DataFrame:
+    categorized = explode_categories(interactions)
+
+    if categorized.empty:
+        return pd.DataFrame(columns=[
+            "category",
+            "interaction_count",
+            *LABEL_COUNT_COLUMNS,
+            "label_count",
+            "success_share",
+        ])
+
+    summary = (
+        categorized
+        .groupby("category", as_index=False)["id"]
+        .nunique()
+        .rename(columns={"id": "interaction_count"})
+    )
+    labeled_categories = label_records.merge(
+        categorized[["id", "category"]],
+        left_on="interaction_id",
+        right_on="id",
+        how="inner",
+    )
+    summary = _add_label_metrics(summary, labeled_categories, ["category"])
+
+    return (
+        summary
+        .sort_values(["interaction_count", "category"], ascending=[False, True])
+        .reset_index(drop=True)
+    )
+
+
+def summarize_model_categories(
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+) -> pd.DataFrame:
+    categorized = explode_categories(interactions)
+
+    if categorized.empty:
+        return pd.DataFrame(columns=[
+            "model",
+            "category",
+            "interaction_count",
+            *LABEL_COUNT_COLUMNS,
+            "label_count",
+            "success_share",
+        ])
+
+    summary = (
+        categorized
+        .groupby(["model", "category"], as_index=False)["id"]
+        .nunique()
+        .rename(columns={"id": "interaction_count"})
+    )
+    labeled_groups = label_records.merge(
+        categorized[["id", "model", "category"]],
+        left_on="interaction_id",
+        right_on="id",
+        how="inner",
+    )
+    summary = _add_label_metrics(
+        summary,
+        labeled_groups,
+        ["model", "category"],
+    )
+
+    return summary.sort_values(["model", "category"]).reset_index(drop=True)
 
 
 def get_overview_metrics(
