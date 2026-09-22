@@ -487,6 +487,132 @@ def create_model_cost_scatter(model_summary: pd.DataFrame) -> go.Figure:
     return figure
 
 
+def create_judge_agreement_heatmap(
+        agreement: pd.DataFrame,
+        judge_order: list[str],
+) -> go.Figure:
+    agreement_share = (
+        agreement
+        .pivot(index="judge_a", columns="judge_b", values="agreement_share")
+        .reindex(index=judge_order, columns=judge_order)
+    )
+    overlap_count = (
+        agreement
+        .pivot(index="judge_a", columns="judge_b", values="overlap_count")
+        .reindex(index=judge_order, columns=judge_order)
+    )
+    agreement_count = (
+        agreement
+        .pivot(index="judge_a", columns="judge_b", values="agreement_count")
+        .reindex(index=judge_order, columns=judge_order)
+    )
+    custom_data = [
+        [
+            [
+                overlap_count.loc[judge_a, judge_b],
+                agreement_count.loc[judge_a, judge_b],
+            ]
+            for judge_b in judge_order
+        ]
+        for judge_a in judge_order
+    ]
+    cell_text = [
+        [
+            (
+                f"{agreement_share.loc[judge_a, judge_b]:.0f}%"
+                f"<br>n={overlap_count.loc[judge_a, judge_b]:.0f}"
+                if pd.notna(agreement_share.loc[judge_a, judge_b])
+                else ""
+            )
+            for judge_b in judge_order
+        ]
+        for judge_a in judge_order
+    ]
+
+    figure = go.Figure(go.Heatmap(
+        z=agreement_share.values,
+        x=judge_order,
+        y=judge_order,
+        customdata=custom_data,
+        zmin=0,
+        zmax=100,
+        colorscale=[
+            [0.0, LABEL_COLORS["refusal"]],
+            [0.5, LABEL_COLORS["unclear"]],
+            [1.0, LABEL_COLORS["success"]],
+        ],
+        colorbar=dict(title="Agreement", ticksuffix="%"),
+        text=cell_text,
+        texttemplate="%{text}",
+        hoverongaps=False,
+        hovertemplate=(
+            "Judge A: %{y}<br>Judge B: %{x}<br>Agreement: %{z:.1f}%"
+            "<br>Matching labels: %{customdata[1]:.0f}"
+            "<br>Shared interactions: %{customdata[0]:.0f}<extra></extra>"
+        ),
+    ))
+    figure.update_yaxes(autorange="reversed")
+    figure.update_xaxes(tickangle=-25)
+    figure.update_layout(
+        height=min(max(420, len(judge_order) * 80 + 160), 850),
+        margin=dict(l=10, r=20, t=10, b=120),
+    )
+
+    return figure
+
+
+def create_judge_efficiency_scatter(judge_summary: pd.DataFrame) -> go.Figure:
+    cost_midpoint = (
+        judge_summary["average_cost"].min()
+        + judge_summary["average_cost"].max()
+    ) / 2
+    text_positions = judge_summary["average_cost"].apply(
+        lambda cost: "middle right" if cost <= cost_midpoint else "middle left"
+    ).tolist()
+    figure = px.scatter(
+        judge_summary,
+        x="average_cost",
+        y="median_duration_seconds",
+        size="evaluation_count",
+        text="judge_setup",
+        custom_data=[
+            "judge_setup",
+            "evaluation_count",
+            "interaction_count",
+            "label_count",
+            "total_cost",
+        ],
+        labels={
+            "average_cost": "Average judging cost",
+            "median_duration_seconds": "Median judging duration",
+        },
+        size_max=42,
+    )
+    figure.update_traces(
+        textposition=text_positions,
+        marker_color=JUDGING_COLOR,
+        marker_opacity=0.85,
+        marker_line_color="#704A00",
+        marker_line_width=1,
+        hovertemplate=(
+            "%{customdata[0]}<br>Average cost: $%{x:.6f}"
+            "<br>Median duration: %{y:.2f} s"
+            "<br>Evaluations: %{customdata[1]:,}"
+            "<br>Interactions: %{customdata[2]:,}"
+            "<br>Latest labels: %{customdata[3]:,}"
+            "<br>Total cost: $%{customdata[4]:.6f}<extra></extra>"
+        ),
+    )
+    figure.update_xaxes(tickprefix="$", tickformat=".6f", rangemode="tozero")
+    figure.update_yaxes(tickformat=".2f", ticksuffix=" s", rangemode="tozero")
+    figure.update_layout(
+        height=460,
+        margin=dict(l=10, r=20, t=10, b=10),
+    )
+
+    return figure
+
+
 def display_coverage(label: str, covered: int, total: int) -> None:
     percentage = covered / total if total else 0.0
     st.markdown(f"**{label}**")
@@ -736,6 +862,124 @@ def display_category_analytics(
         )
 
 
+def display_judge_table(judge_summary: pd.DataFrame) -> None:
+    table = judge_summary.rename(columns={
+        "judge_setup": "Judge setup",
+        "evaluation_count": "Evaluations",
+        "interaction_count": "Interactions",
+        "label_count": "Latest labels",
+        "success_count": "Success",
+        "refusal_count": "Refusal",
+        "unclear_count": "Unclear",
+        "success_share": "Success share",
+        "median_duration_seconds": "Median duration",
+        "total_cost": "Total judging cost",
+        "average_cost": "Average judging cost",
+    })
+    table = table[[
+        "Judge setup",
+        "Evaluations",
+        "Interactions",
+        "Latest labels",
+        "Success",
+        "Refusal",
+        "Unclear",
+        "Success share",
+        "Median duration",
+        "Total judging cost",
+        "Average judging cost",
+    ]]
+
+    st.dataframe(
+        table,
+        hide_index=True,
+        width="stretch",
+        height="content" if len(table) <= 20 else 750,
+        column_config={
+            "Success share": st.column_config.NumberColumn(format="%.1f%%"),
+            "Median duration": st.column_config.NumberColumn(format="%.2f s"),
+            "Total judging cost": st.column_config.NumberColumn(format="$%.6f"),
+            "Average judging cost": st.column_config.NumberColumn(format="$%.6f"),
+        },
+    )
+
+
+def display_judge_analytics(
+        judge_results: pd.DataFrame,
+        minimum_sample_size: int,
+) -> None:
+    st.subheader("Judge comparison")
+    st.caption(
+        "Costs and duration include every evaluation. Outcome and agreement charts "
+        "use the latest valid label per interaction, judge model, and configuration."
+    )
+
+    judge_summary = analytics.summarize_judges(judge_results)
+
+    if judge_summary.empty:
+        st.info("No judge evaluations match the current filters.")
+        return
+
+    display_judge_table(judge_summary)
+
+    comparable_judges = judge_summary.loc[
+        judge_summary["label_count"] >= minimum_sample_size
+    ].copy()
+    st.markdown("**Label distribution by judge setup**")
+    if comparable_judges.empty:
+        st.info("No judge setup has enough labels for the selected minimum sample size.")
+    else:
+        st.plotly_chart(
+            create_group_label_distribution_chart(
+                comparable_judges,
+                "judge_setup",
+            ),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
+
+    st.markdown("**Agreement between judge setups**")
+    judge_order = comparable_judges["judge_setup"].tolist()
+    if len(judge_order) < 2:
+        st.info("Select at least two judge setups with enough labels to compare agreement.")
+    else:
+        agreement = analytics.summarize_judge_agreement(judge_results)
+        agreement = agreement.loc[
+            agreement["judge_a"].isin(judge_order)
+            & agreement["judge_b"].isin(judge_order)
+            & agreement["overlap_count"].ge(minimum_sample_size)
+        ].copy()
+        pairwise_agreement = agreement.loc[
+            agreement["judge_a"] != agreement["judge_b"]
+        ]
+
+        if pairwise_agreement.empty:
+            st.info(
+                "No pair of judge setups has enough shared interactions for the "
+                "selected minimum sample size."
+            )
+        else:
+            st.plotly_chart(
+                create_judge_agreement_heatmap(agreement, judge_order),
+                width="stretch",
+                config=CHART_CONFIG,
+            )
+
+    st.markdown("**Judging cost vs duration**")
+    efficiency_data = judge_summary.loc[
+        judge_summary["average_cost"].notna()
+        & judge_summary["median_duration_seconds"].notna()
+    ].copy()
+    if efficiency_data.empty:
+        st.info("No judge setup has both recorded cost and duration data.")
+    else:
+        st.plotly_chart(
+            create_judge_efficiency_scatter(efficiency_data),
+            width="stretch",
+            config=CHART_CONFIG,
+        )
+
+
 view_utils.page_config("Analytics")
 st.title("Analytics")
 st.caption("Explore experiment outcomes, activity, cost, and data coverage.")
@@ -798,6 +1042,7 @@ category_options = sorted({category for assigned in interactions["categories"] f
 judge_config_options = sorted(judge_results["judge_config_id"].dropna().unique().tolist())
 judge_model_options = sorted(judge_results["judge_model"].dropna().unique().tolist())
 valid_times = interactions["time"].dropna()
+current_view = st.session_state.get("analytics_view", "Overview")
 
 with st.expander("Filters", expanded=True):
     filter_header = st.container(
@@ -862,7 +1107,7 @@ with st.expander("Filters", expanded=True):
     selected_judge_configs = []
     selected_judge_models = []
 
-    if label_source == "LLM judge":
+    if label_source == "LLM judge" or current_view == "Judges":
         judge_filter_grid = st.container(key="analytics-judge-filters")
         judge_filter_row = judge_filter_grid.container(
             horizontal=True,
@@ -927,7 +1172,7 @@ st.space(20)
 st.subheader("Results analytics")
 selected_view = st.segmented_control(
     "Analytics view",
-    options=["Overview", "Models", "Categories"],
+    options=["Overview", "Models", "Categories", "Judges"],
     default="Overview",
     required=True,
     width="stretch",
@@ -950,8 +1195,8 @@ else:
         value=3,
         step=1,
         help=(
-            "Hide small samples from comparison charts. The model table always "
-            "shows every model."
+            "Hide small samples from outcome and agreement charts. Summary tables "
+            "always show every group."
         ),
         key="analytics_minimum_sample_size",
     ))
@@ -962,9 +1207,19 @@ else:
             label_records,
             minimum_sample_size,
         )
-    else:
+    elif selected_view == "Categories":
         display_category_analytics(
             filtered_interactions,
             label_records,
+            minimum_sample_size,
+        )
+    else:
+        if label_source == "Manual":
+            st.info(
+                "Judge analytics use LLM judge results. The label source selector "
+                "still controls the shared KPI cards above."
+            )
+        display_judge_analytics(
+            filtered_judge_results,
             minimum_sample_size,
         )

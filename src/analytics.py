@@ -11,6 +11,7 @@ from src import database
 
 LABELS = ("success", "refusal", "unclear")
 LABEL_COUNT_COLUMNS = tuple(f"{label}_count" for label in LABELS)
+JUDGE_SETUP_SEPARATOR = " · "
 
 INTERACTION_COLUMNS = (
     "id",
@@ -469,6 +470,124 @@ def summarize_model_categories(
     )
 
     return summary.sort_values(["model", "category"]).reset_index(drop=True)
+
+
+def _add_judge_setup(judge_results: pd.DataFrame) -> pd.DataFrame:
+    results = judge_results.loc[
+        judge_results["judge_model"].notna()
+        & judge_results["judge_config_id"].notna()
+    ].copy()
+    results["judge_setup"] = (
+        results["judge_model"].astype(str)
+        + JUDGE_SETUP_SEPARATOR
+        + results["judge_config_id"].astype(str)
+    )
+
+    return results
+
+
+def summarize_judges(judge_results: pd.DataFrame) -> pd.DataFrame:
+    judge_data = _add_judge_setup(judge_results)
+
+    if judge_data.empty:
+        return pd.DataFrame(columns=[
+            "judge_model",
+            "judge_config_id",
+            "judge_setup",
+            "evaluation_count",
+            "interaction_count",
+            *LABEL_COUNT_COLUMNS,
+            "label_count",
+            "success_share",
+            "median_duration_seconds",
+            "total_cost",
+            "average_cost",
+        ])
+
+    judge_data["duration_seconds"] = judge_data["duration"].dt.total_seconds()
+    summary = (
+        judge_data
+        .groupby(["judge_model", "judge_config_id"], as_index=False)
+        .agg(
+            evaluation_count=("id", "size"),
+            interaction_count=("interaction_id", "nunique"),
+            median_duration_seconds=("duration_seconds", "median"),
+            total_cost=("price", lambda values: values.sum(min_count=1)),
+            average_cost=("price", "mean"),
+        )
+    )
+
+    # costs include every evaluation, while outcomes use one latest label per setup
+    latest_results = _add_judge_setup(get_latest_judge_results(judge_data))
+    valid_latest_results = latest_results.loc[
+        latest_results["label"].isin(LABELS)
+    ]
+    summary = _add_label_metrics(
+        summary,
+        valid_latest_results,
+        ["judge_model", "judge_config_id"],
+    )
+    summary["judge_setup"] = (
+        summary["judge_model"].astype(str)
+        + JUDGE_SETUP_SEPARATOR
+        + summary["judge_config_id"].astype(str)
+    )
+
+    return (
+        summary
+        .sort_values(
+            ["evaluation_count", "judge_model", "judge_config_id"],
+            ascending=[False, True, True],
+        )
+        .reset_index(drop=True)
+    )
+
+
+def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
+    latest_results = _add_judge_setup(get_latest_judge_results(judge_results))
+    valid_results = latest_results.loc[latest_results["label"].isin(LABELS)]
+
+    if valid_results.empty:
+        return pd.DataFrame(columns=[
+            "judge_a",
+            "judge_b",
+            "overlap_count",
+            "agreement_count",
+            "agreement_share",
+        ])
+
+    label_matrix = valid_results.pivot(
+        index="interaction_id",
+        columns="judge_setup",
+        values="label",
+    )
+    agreement_rows = []
+
+    for judge_a in label_matrix.columns:
+        for judge_b in label_matrix.columns:
+            paired_labels = pd.concat(
+                [label_matrix[judge_a], label_matrix[judge_b]],
+                axis=1,
+                keys=["label_a", "label_b"],
+            ).dropna()
+            overlap_count = len(paired_labels)
+            agreement_count = int(
+                paired_labels["label_a"].eq(paired_labels["label_b"]).sum()
+            )
+            agreement_share = (
+                agreement_count / overlap_count * 100
+                if overlap_count > 0
+                else None
+            )
+            agreement_rows.append({
+                "judge_a": judge_a,
+                "judge_b": judge_b,
+                "overlap_count": overlap_count,
+                "agreement_count": agreement_count,
+                "agreement_share": agreement_share,
+            })
+
+    return pd.DataFrame(agreement_rows)
 
 
 def get_overview_metrics(

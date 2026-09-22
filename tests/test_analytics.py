@@ -343,6 +343,153 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(model_b_beta["interaction_count"], 1)
         self.assertEqual(model_b_beta["label_count"], 0)
 
+    def test_judge_summary_uses_all_costs_and_latest_outcomes(self) -> None:
+        judge_results = analytics.prepare_judge_results([
+            {
+                "id": 1,
+                "interaction_id": 1,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/a",
+                "label": "refusal",
+                "time": "2026-09-20 10:00:00",
+                "duration": "0:00:01",
+                "price": 0.01,
+            },
+            {
+                "id": 2,
+                "interaction_id": 1,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/a",
+                "label": "success",
+                "time": "2026-09-20 11:00:00",
+                "duration": "0:00:03",
+                "price": 0.02,
+            },
+            {
+                "id": 3,
+                "interaction_id": 2,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/a",
+                "label": "success",
+                "time": "2026-09-20 12:00:00",
+                "duration": "0:00:05",
+                "price": 0.03,
+            },
+            {
+                "id": 4,
+                "interaction_id": 1,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/b",
+                "label": "success",
+                "time": "2026-09-20 11:00:00",
+                "duration": "0:00:02",
+                "price": 0.04,
+            },
+            {
+                "id": 5,
+                "interaction_id": 2,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/b",
+                "label": "refusal",
+                "time": "2026-09-20 12:00:00",
+                "duration": "0:00:04",
+                "price": 0.05,
+            },
+        ])
+
+        summary = analytics.summarize_judges(judge_results)
+        judge_a = summary.loc[summary["judge_model"] == "judge/a"].iloc[0]
+        judge_b = summary.loc[summary["judge_model"] == "judge/b"].iloc[0]
+
+        self.assertEqual(judge_a["evaluation_count"], 3)
+        self.assertEqual(judge_a["interaction_count"], 2)
+        self.assertEqual(judge_a["label_count"], 2)
+        self.assertEqual(judge_a["success_count"], 2)
+        self.assertEqual(judge_a["refusal_count"], 0)
+        self.assertEqual(judge_a["median_duration_seconds"], 3.0)
+        self.assertAlmostEqual(judge_a["total_cost"], 0.06)
+        self.assertAlmostEqual(judge_a["average_cost"], 0.02)
+        self.assertEqual(judge_b["label_count"], 2)
+        self.assertEqual(judge_b["success_count"], 1)
+        self.assertEqual(judge_b["refusal_count"], 1)
+
+    def test_judge_agreement_uses_overlapping_latest_labels(self) -> None:
+        judge_results = analytics.prepare_judge_results([
+            {
+                "id": 1,
+                "interaction_id": 1,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/a",
+                "label": "refusal",
+                "time": "2026-09-20 10:00:00",
+            },
+            {
+                "id": 2,
+                "interaction_id": 1,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/a",
+                "label": "success",
+                "time": "2026-09-20 11:00:00",
+            },
+            {
+                "id": 3,
+                "interaction_id": 2,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/a",
+                "label": "success",
+                "time": "2026-09-20 12:00:00",
+            },
+            {
+                "id": 4,
+                "interaction_id": 1,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/b",
+                "label": "success",
+                "time": "2026-09-20 11:00:00",
+            },
+            {
+                "id": 5,
+                "interaction_id": 2,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/b",
+                "label": "refusal",
+                "time": "2026-09-20 12:00:00",
+            },
+            {
+                "id": 6,
+                "interaction_id": 3,
+                "judge_config_id": "config-a",
+                "judge_model": "judge/c",
+                "label": "unclear",
+                "time": "2026-09-20 12:00:00",
+            },
+        ])
+
+        agreement = analytics.summarize_judge_agreement(judge_results)
+        setup_a = "judge/a · config-a"
+        setup_b = "judge/b · config-a"
+        setup_c = "judge/c · config-a"
+        a_to_b = agreement.loc[
+            (agreement["judge_a"] == setup_a)
+            & (agreement["judge_b"] == setup_b)
+        ].iloc[0]
+        a_to_a = agreement.loc[
+            (agreement["judge_a"] == setup_a)
+            & (agreement["judge_b"] == setup_a)
+        ].iloc[0]
+        a_to_c = agreement.loc[
+            (agreement["judge_a"] == setup_a)
+            & (agreement["judge_b"] == setup_c)
+        ].iloc[0]
+
+        self.assertEqual(a_to_b["overlap_count"], 2)
+        self.assertEqual(a_to_b["agreement_count"], 1)
+        self.assertEqual(a_to_b["agreement_share"], 50.0)
+        self.assertEqual(a_to_a["overlap_count"], 2)
+        self.assertEqual(a_to_a["agreement_share"], 100.0)
+        self.assertEqual(a_to_c["overlap_count"], 0)
+        self.assertTrue(pd.isna(a_to_c["agreement_share"]))
+
     def test_overview_counts_all_judgment_costs(self) -> None:
         interactions = analytics.prepare_interactions([
             {
