@@ -63,6 +63,8 @@ class OverviewMetrics:
     median_duration_seconds: float | None
 
 
+##### DATA PREPARATION
+
 def _create_frame(
         records: Sequence[Mapping[str, Any]] | pd.DataFrame,
         columns: Sequence[str],
@@ -72,7 +74,7 @@ def _create_frame(
     else:
         frame = pd.DataFrame.from_records(records)
 
-    # keep stable schemas so empty database results need no special handling in the UI
+    # keep the expected columns even if the database result is empty
     return frame.reindex(columns=columns)
 
 
@@ -83,9 +85,11 @@ def _parse_categories(value: object) -> list[str]:
     if not isinstance(value, str) or not value or value == "[]":
         return []
 
+    # categories are stored in the database as a json array
     try:
         parsed_value = json.loads(value)
     except json.JSONDecodeError:
+        # keep old plain-text values as a single category
         return [value]
 
     if not isinstance(parsed_value, list):
@@ -99,7 +103,7 @@ def prepare_interactions(
 ) -> pd.DataFrame:
     interactions = _create_frame(records, INTERACTION_COLUMNS)
 
-    # parse database values once before filtering and aggregating them
+    # convert database values to the types used by analytics
     interactions["categories"] = interactions["categories"].apply(_parse_categories)
     interactions["time"] = pd.to_datetime(interactions["time"], errors="coerce")
     interactions["duration"] = pd.to_timedelta(interactions["duration"], errors="coerce")
@@ -132,6 +136,8 @@ def prepare_presets(
     return presets
 
 
+##### DATA LOADING
+
 def load_interactions() -> pd.DataFrame:
     return prepare_interactions(database.get_all_interactions())
 
@@ -143,6 +149,8 @@ def load_judge_results() -> pd.DataFrame:
 def load_presets() -> pd.DataFrame:
     return prepare_presets(database.get_all_presets())
 
+
+##### FILTERS
 
 def filter_interactions(
         interactions: pd.DataFrame,
@@ -167,6 +175,7 @@ def filter_interactions(
 
     if categories is not None:
         selected_categories = set(categories)
+        # include interactions that have at least one selected category
         filtered = filtered.loc[
             filtered["categories"].apply(
                 lambda assigned: bool(selected_categories.intersection(assigned))
@@ -196,11 +205,13 @@ def filter_judge_results(
     return filtered.reset_index(drop=True)
 
 
+##### SHARED SUMMARIES
+
 def get_latest_judge_results(judge_results: pd.DataFrame) -> pd.DataFrame:
     if judge_results.empty:
         return judge_results.copy()
 
-    # use the row id as a stable tie-breaker when two results have the same timestamp
+    # if times are equal, use the database id to select the latest result
     sorted_results = judge_results.sort_values(
         by=["time", "id"],
         na_position="first",
@@ -221,7 +232,7 @@ def explode_categories(interactions: pd.DataFrame) -> pd.DataFrame:
     exploded = interactions.copy().explode("categories")
     exploded = exploded.rename(columns={"categories": "category"})
 
-    # uncategorized interactions are measured separately and do not form a chart category
+    # don't include uncategorized interactions as a chart category
     return exploded.loc[exploded["category"].notna() & exploded["category"].ne("")].reset_index(drop=True)
 
 
@@ -279,7 +290,7 @@ def summarize_costs(
         .rename(columns={"price": "judging_cost"})
     )
 
-    # keep dates that contain either a target interaction or a judge evaluation
+    # include dates that have target interactions or judge evaluations
     costs = target_costs.merge(judging_costs, on="date", how="outer")
 
     if costs.empty:
@@ -322,10 +333,12 @@ def _add_label_metrics(
     group_columns = list(group_columns)
 
     if labeled_groups.empty:
+        # add zero counts if none of the groups have labels
         result = summary.copy()
         for column in LABEL_COUNT_COLUMNS:
             result[column] = 0
     else:
+        # count every supported label separately for each group
         label_counts = (
             labeled_groups
             .groupby([*group_columns, "label"])
@@ -343,6 +356,7 @@ def _add_label_metrics(
         )
 
     result["label_count"] = result[list(LABEL_COUNT_COLUMNS)].sum(axis=1)
+    # leave the success share empty for groups without labels
     result["success_share"] = (
         result["success_count"]
         .div(result["label_count"])
@@ -352,6 +366,8 @@ def _add_label_metrics(
 
     return result
 
+
+##### MODEL AND CATEGORY ANALYTICS
 
 def summarize_models(
         interactions: pd.DataFrame,
@@ -384,6 +400,7 @@ def summarize_models(
             average_cost=("price", "mean"),
         )
     )
+    # join labels separately, so repeated judge labels don't change interaction metrics
     labeled_models = label_records.merge(
         model_data[["id", "model"]],
         left_on="interaction_id",
@@ -403,6 +420,7 @@ def summarize_categories(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
 ) -> pd.DataFrame:
+    # one interaction can contribute once to each assigned category
     categorized = explode_categories(interactions)
 
     if categorized.empty:
@@ -439,6 +457,7 @@ def summarize_model_categories(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
 ) -> pd.DataFrame:
+    # use one row for every model and assigned category pair
     categorized = explode_categories(interactions)
 
     if categorized.empty:
@@ -472,7 +491,10 @@ def summarize_model_categories(
     return summary.sort_values(["model", "category"]).reset_index(drop=True)
 
 
+##### JUDGE ANALYTICS
+
 def _add_judge_setup(judge_results: pd.DataFrame) -> pd.DataFrame:
+    # each model and configuration pair is a separate judge setup
     results = judge_results.loc[
         judge_results["judge_model"].notna()
         & judge_results["judge_config_id"].notna()
@@ -517,7 +539,7 @@ def summarize_judges(judge_results: pd.DataFrame) -> pd.DataFrame:
         )
     )
 
-    # costs include every evaluation, while outcomes use one latest label per setup
+    # use every evaluation for costs, but only the latest label for outcomes
     latest_results = _add_judge_setup(get_latest_judge_results(judge_data))
     valid_latest_results = latest_results.loc[
         latest_results["label"].isin(LABELS)
@@ -556,6 +578,7 @@ def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
             "agreement_share",
         ])
 
+    # align labels by interaction before comparing every judge pair
     label_matrix = valid_results.pivot(
         index="interaction_id",
         columns="judge_setup",
@@ -590,10 +613,13 @@ def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(agreement_rows)
 
 
+##### OVERVIEW
+
 def get_overview_metrics(
         interactions: pd.DataFrame,
         judge_results: pd.DataFrame,
 ) -> OverviewMetrics:
+    # count each category once across all filtered interactions
     category_values = {
         category
         for assigned_categories in interactions["categories"]

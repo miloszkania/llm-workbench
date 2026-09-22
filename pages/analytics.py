@@ -1,4 +1,5 @@
 from datetime import date
+from functools import partial
 
 import pandas as pd
 import plotly.express as px
@@ -37,6 +38,8 @@ CHART_CONFIG = {
     "scrollZoom": False,
 }
 
+CHART_EXPORT_WIDTH = 1400
+MINIMUM_CHART_EXPORT_HEIGHT = 500
 DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 DAILY_BAR_WIDTH = DAY_IN_MILLISECONDS * 7 // 10
 METRIC_CARD_MIN_WIDTH = 190
@@ -44,6 +47,8 @@ FILTER_FIELD_MIN_WIDTH = 250
 JUDGE_FILTER_MIN_WIDTH = 375
 RESPONSIVE_BREAKPOINT = 900
 
+
+##### FILTERS AND FORMATTING
 
 def reset_filters() -> None:
     for key in FILTER_KEYS:
@@ -72,6 +77,93 @@ def format_duration(seconds: float | None) -> str:
     return f"{seconds / 3600:.1f} h"
 
 
+##### CHART EXPORT
+
+def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
+    # copy the figure, so export changes don't affect the dashboard
+    export_figure = go.Figure(figure)
+
+    # add enough space for axis titles and long values
+    export_figure.update_xaxes(automargin=True)
+    export_figure.update_yaxes(automargin=True)
+
+    # allow model names next to scatter points to use the chart margins
+    export_figure.update_traces(
+        cliponaxis=False,
+        selector={"type": "scatter"},
+    )
+
+    return export_figure
+
+
+def export_chart_image(figure: go.Figure, image_format: str) -> bytes:
+    export_figure = prepare_chart_for_export(figure)
+    height = max(export_figure.layout.height or 0, MINIMUM_CHART_EXPORT_HEIGHT)
+
+    # png needs a larger scale, while pdf remains vector-based
+    scale = 2 if image_format == "png" else 1
+
+    return export_figure.to_image(
+        format=image_format,
+        width=CHART_EXPORT_WIDTH,
+        height=height,
+        scale=scale,
+    )
+
+
+def export_chart_html(figure: go.Figure) -> bytes:
+    export_figure = prepare_chart_for_export(figure)
+
+    # include plotly, so the downloaded chart also works offline
+    return export_figure.to_html(
+        config=CHART_CONFIG,
+        full_html=True,
+        include_plotlyjs=True,
+    ).encode("utf-8")
+
+
+def display_chart(figure: go.Figure, export_name: str) -> None:
+    st.plotly_chart(
+        figure,
+        width="stretch",
+        config=CHART_CONFIG,
+    )
+
+    with st.popover("Export chart", icon=":material/download:"):
+        st.caption("Select the export file format.")
+
+        # generate the file only after the user selects a format
+        st.download_button(
+            "Download PDF",
+            data=partial(export_chart_image, figure, "pdf"),
+            file_name=f"llm-workbench-{export_name}.pdf",
+            mime="application/pdf",
+            key=f"analytics-export-{export_name}-pdf",
+            on_click="ignore",
+            width="stretch",
+        )
+        st.download_button(
+            "Download PNG",
+            data=partial(export_chart_image, figure, "png"),
+            file_name=f"llm-workbench-{export_name}.png",
+            mime="image/png",
+            key=f"analytics-export-{export_name}-png",
+            on_click="ignore",
+            width="stretch",
+        )
+        st.download_button(
+            "Download interactive HTML",
+            data=partial(export_chart_html, figure),
+            file_name=f"llm-workbench-{export_name}.html",
+            mime="text/html",
+            key=f"analytics-export-{export_name}-html",
+            on_click="ignore",
+            width="stretch",
+        )
+
+
+##### METRIC CARDS
+
 def display_metric_cards(
         metrics: analytics.OverviewMetrics,
         label_distribution: pd.DataFrame,
@@ -81,6 +173,7 @@ def display_metric_cards(
     success_count = int(
         label_distribution.loc[label_distribution["label"] == "success", "count"].iloc[0]
     )
+    # calculate success only from the currently selected label source
     success_percentage = success_count / label_count * 100 if label_count else 0.0
     total_cost = metrics.target_cost + metrics.judging_cost
 
@@ -150,6 +243,8 @@ def display_metric_cards(
     )
 
 
+##### CHARTS
+
 def create_label_distribution_chart(label_distribution: pd.DataFrame) -> go.Figure:
     chart_data = label_distribution.copy()
     chart_data["label_name"] = chart_data["label"].str.capitalize()
@@ -194,8 +289,8 @@ def configure_daily_bar_chart(figure: go.Figure, dates: pd.Series) -> None:
     first_date = dates.min()
     last_date = dates.max()
 
-    # Plotly uses a millisecond-wide range for a single date by default.
-    # A fixed two-day window keeps the daily bar readable and centered.
+    # plotly uses a millisecond-wide range if there is only one date
+    # add one day on each side to keep the bar visible and centered
     if first_date == last_date:
         figure.update_xaxes(
             range=[
@@ -285,6 +380,8 @@ def create_group_label_distribution_chart(
     )
     chart_data["label"] = chart_data["label"].str.removesuffix("_count")
     chart_data["percentage"] = chart_data["count"] / chart_data["label_count"] * 100
+
+    # hide percentages that would not fit inside their bar segment
     chart_data["text"] = chart_data["percentage"].apply(
         lambda percentage: f"{percentage:.0f}%" if percentage >= 5 else ""
     )
@@ -361,6 +458,7 @@ def create_model_category_heatmap(
         model_order: list[str],
         category_order: list[str],
 ) -> go.Figure:
+    # build matrices for the cell color, text and hover details
     metric_columns = [
         "success_share",
         "label_count",
@@ -434,6 +532,7 @@ def create_model_category_heatmap(
 
 
 def create_model_cost_scatter(model_summary: pd.DataFrame) -> go.Figure:
+    # don't display an empty color scale if no duration was recorded
     color_column = (
         "median_duration_seconds"
         if model_summary["median_duration_seconds"].notna().any()
@@ -491,6 +590,7 @@ def create_judge_agreement_heatmap(
         agreement: pd.DataFrame,
         judge_order: list[str],
 ) -> go.Figure:
+    # keep the same judge order in every heatmap matrix
     agreement_share = (
         agreement
         .pivot(index="judge_a", columns="judge_b", values="agreement_share")
@@ -566,6 +666,8 @@ def create_judge_efficiency_scatter(judge_summary: pd.DataFrame) -> go.Figure:
         judge_summary["average_cost"].min()
         + judge_summary["average_cost"].max()
     ) / 2
+
+    # place labels toward the center of the chart
     text_positions = judge_summary["average_cost"].apply(
         lambda cost: "middle right" if cost <= cost_midpoint else "middle left"
     ).tolist()
@@ -613,6 +715,8 @@ def create_judge_efficiency_scatter(judge_summary: pd.DataFrame) -> go.Figure:
     return figure
 
 
+##### ANALYTICS VIEWS
+
 def display_coverage(label: str, covered: int, total: int) -> None:
     percentage = covered / total if total else 0.0
     st.markdown(f"**{label}**")
@@ -630,10 +734,9 @@ def display_overview(
     st.caption(label_source_caption)
 
     if int(label_distribution["count"].sum()) > 0:
-        st.plotly_chart(
+        display_chart(
             create_label_distribution_chart(label_distribution),
-            width="stretch",
-            config=CHART_CONFIG,
+            "label-distribution",
         )
     else:
         st.info("No labels from the selected source match the current filters.")
@@ -651,10 +754,9 @@ def display_overview(
         if activity.empty:
             st.info("No valid interaction timestamps are available.")
         else:
-            st.plotly_chart(
+            display_chart(
                 create_activity_chart(activity),
-                width="stretch",
-                config=CHART_CONFIG,
+                "interactions-over-time",
             )
 
     with cost_column:
@@ -667,10 +769,9 @@ def display_overview(
                 "The selected models may be free, or pricing data may be unavailable."
             )
         else:
-            st.plotly_chart(
+            display_chart(
                 create_cost_chart(costs),
-                width="stretch",
-                config=CHART_CONFIG,
+                "cost-over-time",
             )
 
     st.subheader("Data coverage")
@@ -761,10 +862,9 @@ def display_model_analytics(
     if comparable_models.empty:
         st.info("No model has enough labels for the selected minimum sample size.")
     else:
-        st.plotly_chart(
+        display_chart(
             create_group_label_distribution_chart(comparable_models, "model"),
-            width="stretch",
-            config=CHART_CONFIG,
+            "model-label-distribution",
         )
 
     st.markdown("**Success by model and category**")
@@ -794,14 +894,13 @@ def display_model_analytics(
             .index
             .tolist()
         )
-        st.plotly_chart(
+        display_chart(
             create_model_category_heatmap(
                 comparable_cells,
                 model_order,
                 category_order,
             ),
-            width="stretch",
-            config=CHART_CONFIG,
+            "model-category-success",
         )
 
     st.markdown("**Average target cost vs success**")
@@ -815,10 +914,9 @@ def display_model_analytics(
             "comparison."
         )
     else:
-        st.plotly_chart(
+        display_chart(
             create_model_cost_scatter(scatter_data),
-            width="stretch",
-            config=CHART_CONFIG,
+            "model-cost-success",
         )
 
 
@@ -839,10 +937,9 @@ def display_category_analytics(
         return
 
     st.markdown("**Interactions by category**")
-    st.plotly_chart(
+    display_chart(
         create_category_usage_chart(category_summary),
-        width="stretch",
-        config=CHART_CONFIG,
+        "category-usage",
     )
 
     st.markdown("**Label distribution by category**")
@@ -852,13 +949,12 @@ def display_category_analytics(
     if comparable_categories.empty:
         st.info("No category has enough labels for the selected minimum sample size.")
     else:
-        st.plotly_chart(
+        display_chart(
             create_group_label_distribution_chart(
                 comparable_categories,
                 "category",
             ),
-            width="stretch",
-            config=CHART_CONFIG,
+            "category-label-distribution",
         )
 
 
@@ -929,13 +1025,12 @@ def display_judge_analytics(
     if comparable_judges.empty:
         st.info("No judge setup has enough labels for the selected minimum sample size.")
     else:
-        st.plotly_chart(
+        display_chart(
             create_group_label_distribution_chart(
                 comparable_judges,
                 "judge_setup",
             ),
-            width="stretch",
-            config=CHART_CONFIG,
+            "judge-label-distribution",
         )
 
     st.markdown("**Agreement between judge setups**")
@@ -959,10 +1054,9 @@ def display_judge_analytics(
                 "selected minimum sample size."
             )
         else:
-            st.plotly_chart(
+            display_chart(
                 create_judge_agreement_heatmap(agreement, judge_order),
-                width="stretch",
-                config=CHART_CONFIG,
+                "judge-agreement",
             )
 
     st.markdown("**Judging cost vs duration**")
@@ -973,18 +1067,19 @@ def display_judge_analytics(
     if efficiency_data.empty:
         st.info("No judge setup has both recorded cost and duration data.")
     else:
-        st.plotly_chart(
+        display_chart(
             create_judge_efficiency_scatter(efficiency_data),
-            width="stretch",
-            config=CHART_CONFIG,
+            "judge-cost-duration",
         )
 
+
+##### PAGE
 
 view_utils.page_config("Analytics")
 st.title("Analytics")
 st.caption("Explore experiment outcomes, activity, cost, and data coverage.")
 
-# keep responsive overrides local to the keyed analytics containers
+# apply responsive styles only to the analytics containers
 st.html(
     f"""
     <style>
@@ -1030,6 +1125,7 @@ st.html(
     """
 )
 
+# load analytics data before preparing filter options
 interactions = analytics.load_interactions()
 judge_results = analytics.load_judge_results()
 
@@ -1037,6 +1133,7 @@ if interactions.empty:
     st.info("No interaction data yet. Run an experiment to start building analytics.")
     st.stop()
 
+# prepare all values available in the filter fields
 model_options = sorted(interactions["model"].dropna().unique().tolist())
 category_options = sorted({category for assigned in interactions["categories"] for category in assigned})
 judge_config_options = sorted(judge_results["judge_config_id"].dropna().unique().tolist())
@@ -1044,6 +1141,7 @@ judge_model_options = sorted(judge_results["judge_model"].dropna().unique().toli
 valid_times = interactions["time"].dropna()
 current_view = st.session_state.get("analytics_view", "Overview")
 
+# empty multiselect fields include all available values
 with st.expander("Filters", expanded=True):
     filter_header = st.container(
         horizontal=True,
@@ -1107,6 +1205,7 @@ with st.expander("Filters", expanded=True):
     selected_judge_configs = []
     selected_judge_models = []
 
+    # keep judge filters available for judge labels and the Judges view
     if label_source == "LLM judge" or current_view == "Judges":
         judge_filter_grid = st.container(key="analytics-judge-filters")
         judge_filter_row = judge_filter_grid.container(
@@ -1128,6 +1227,7 @@ with st.expander("Filters", expanded=True):
             width="stretch",
         )
 
+# filter interactions first and use their ids to filter judge results
 start_date, end_date = parse_date_range(selected_dates) if selected_dates else (None, None)
 filtered_interactions = analytics.filter_interactions(
     interactions,
@@ -1147,11 +1247,14 @@ filtered_judge_results = analytics.filter_judge_results(
     judge_config_ids=selected_judge_configs or None,
     judge_models=selected_judge_models or None,
 )
+
+# use one latest valid label for every judge setup
 latest_judge_results = analytics.get_latest_judge_results(filtered_judge_results)
 valid_latest_judge_results = latest_judge_results.loc[
     latest_judge_results["label"].isin(analytics.LABELS)
 ]
 
+# choose labels used by the shared metrics and outcome charts
 if label_source == "Manual":
     label_records = analytics.get_manual_label_records(filtered_interactions)
     label_source_caption = "Each manually labeled interaction contributes one label."
@@ -1168,6 +1271,7 @@ metrics = analytics.get_overview_metrics(filtered_interactions, filtered_judge_r
 
 display_metric_cards(metrics, label_distribution, label_coverage)
 
+# switch between detailed analytics without changing the shared filters and metrics
 st.space(20)
 st.subheader("Results analytics")
 selected_view = st.segmented_control(
