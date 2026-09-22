@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import analytics, view_utils
+from src import analytics, view_utils, widgets
 
 
 LABEL_COLORS = {
@@ -531,6 +531,90 @@ def create_model_category_heatmap(
     return figure
 
 
+def create_preset_model_heatmap(
+        preset_model_summary: pd.DataFrame,
+        preset_order: list[str],
+        model_order: list[str],
+) -> go.Figure:
+    # keep every heatmap value in the same preset and model order
+    metric_columns = [
+        "success_share",
+        "label_count",
+        *analytics.LABEL_COUNT_COLUMNS,
+    ]
+    matrices = {
+        column: (
+            preset_model_summary
+            .pivot(index="preset_label", columns="model", values=column)
+            .reindex(index=preset_order, columns=model_order)
+        )
+        for column in metric_columns
+    }
+    custom_data = [
+        [
+            [
+                matrices["label_count"].loc[preset, model],
+                matrices["success_count"].loc[preset, model],
+                matrices["refusal_count"].loc[preset, model],
+                matrices["unclear_count"].loc[preset, model],
+            ]
+            for model in model_order
+        ]
+        for preset in preset_order
+    ]
+    cell_text = [
+        [
+            (
+                f"{matrices['success_share'].loc[preset, model]:.0f}%"
+                f"<br>n={matrices['label_count'].loc[preset, model]:.0f}"
+                if pd.notna(matrices["success_share"].loc[preset, model])
+                else ""
+            )
+            for model in model_order
+        ]
+        for preset in preset_order
+    ]
+
+    figure = go.Figure(go.Heatmap(
+        z=matrices["success_share"].values,
+        x=model_order,
+        y=preset_order,
+        customdata=custom_data,
+        zmin=0,
+        zmax=100,
+        colorscale=[
+            [0.0, LABEL_COLORS["refusal"]],
+            [0.5, LABEL_COLORS["unclear"]],
+            [1.0, LABEL_COLORS["success"]],
+        ],
+        colorbar=dict(title="Success", ticksuffix="%"),
+        text=cell_text,
+        texttemplate="%{text}",
+        hoverongaps=False,
+        hovertemplate=(
+            "Preset: %{y}<br>Target model: %{x}<br>Success: %{z:.1f}%"
+            "<br>Labels: %{customdata[0]:.0f}"
+            "<br>Success: %{customdata[1]:.0f}"
+            "<br>Refusal: %{customdata[2]:.0f}"
+            "<br>Unclear: %{customdata[3]:.0f}<extra></extra>"
+        ),
+    ))
+    # plotly skips some labels on larger heatmaps unless every tick is explicit
+    figure.update_yaxes(
+        autorange="reversed",
+        tickmode="array",
+        tickvals=preset_order,
+        ticktext=preset_order,
+    )
+    figure.update_xaxes(tickangle=-25)
+    figure.update_layout(
+        height=min(max(380, len(preset_order) * 60 + 150), 850),
+        margin=dict(l=10, r=20, t=10, b=120),
+    )
+
+    return figure
+
+
 def create_model_cost_scatter(model_summary: pd.DataFrame) -> go.Figure:
     # don't display an empty color scale if no duration was recorded
     color_column = (
@@ -958,6 +1042,147 @@ def display_category_analytics(
         )
 
 
+def display_preset_table(preset_summary: pd.DataFrame) -> None:
+    table = preset_summary.rename(columns={
+        "preset_label": "Preset",
+        "prompt": "Prompt",
+        "categories": "Categories",
+        "interaction_count": "Interactions",
+        "target_model_count": "Target models",
+        "label_count": "Labels",
+        "success_count": "Success",
+        "refusal_count": "Refusal",
+        "unclear_count": "Unclear",
+        "success_share": "Success share",
+        "median_duration_seconds": "Median duration",
+        "median_tokens": "Median tokens",
+        "total_cost": "Total target cost",
+        "average_cost": "Average target cost",
+    })
+    table = table[[
+        "Preset",
+        "Prompt",
+        "Categories",
+        "Interactions",
+        "Target models",
+        "Labels",
+        "Success",
+        "Refusal",
+        "Unclear",
+        "Success share",
+        "Median duration",
+        "Median tokens",
+        "Total target cost",
+        "Average target cost",
+    ]]
+
+    st.dataframe(
+        table,
+        hide_index=True,
+        width="stretch",
+        height="content" if len(table) <= 20 else 750,
+        column_config={
+            "Prompt": st.column_config.TextColumn(width="large"),
+            "Categories": st.column_config.MultiselectColumn(),
+            "Success share": st.column_config.NumberColumn(format="%.1f%%"),
+            "Median duration": st.column_config.NumberColumn(format="%.2f s"),
+            "Median tokens": st.column_config.NumberColumn(format="%.0f"),
+            "Total target cost": st.column_config.NumberColumn(format="$%.6f"),
+            "Average target cost": st.column_config.NumberColumn(format="$%.6f"),
+        },
+    )
+
+
+def display_preset_analytics(
+        presets: pd.DataFrame,
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+        minimum_sample_size: int,
+) -> None:
+    st.subheader("Preset comparison")
+    st.caption(
+        "Presets act as current configuration markers. A match requires the same "
+        "prompt, system prompt, and set of categories, so editing a preset updates "
+        "these statistics immediately."
+    )
+    widgets.preset_table_preview(presets)
+
+    if presets.empty:
+        st.info("No presets are available to compare with the selected interactions.")
+        return
+
+    preset_summary = analytics.summarize_presets(
+        presets,
+        interactions,
+        label_records,
+    )
+    display_preset_table(preset_summary)
+
+    comparable_presets = preset_summary.loc[
+        preset_summary["label_count"] >= minimum_sample_size
+    ].copy()
+    st.markdown("**Label distribution by preset**")
+    if comparable_presets.empty:
+        st.info("No preset has enough labels for the selected minimum sample size.")
+    else:
+        preset_order = comparable_presets["preset_label"].tolist()
+        label_distribution_chart = create_group_label_distribution_chart(
+            comparable_presets,
+            "preset_label",
+        )
+        # show the id next to every bar instead of letting plotly thin the axis
+        label_distribution_chart.update_yaxes(
+            categoryorder="array",
+            categoryarray=preset_order,
+            autorange="reversed",
+            tickmode="array",
+            tickvals=preset_order,
+            ticktext=preset_order,
+        )
+        display_chart(
+            label_distribution_chart,
+            "preset-label-distribution",
+        )
+
+    st.markdown("**Success by preset and target model**")
+    preset_models = analytics.summarize_preset_models(
+        presets,
+        interactions,
+        label_records,
+    )
+    comparable_cells = preset_models.loc[
+        preset_models["label_count"] >= minimum_sample_size
+    ].copy()
+    if comparable_cells.empty:
+        st.info(
+            "No preset-model pair has enough labels for the selected minimum "
+            "sample size."
+        )
+    else:
+        available_presets = set(comparable_cells["preset_label"])
+        preset_order = [
+            preset
+            for preset in preset_summary["preset_label"]
+            if preset in available_presets
+        ]
+        model_order = (
+            comparable_cells
+            .groupby("model")["interaction_count"]
+            .sum()
+            .sort_values(ascending=False)
+            .index
+            .tolist()
+        )
+        display_chart(
+            create_preset_model_heatmap(
+                comparable_cells,
+                preset_order,
+                model_order,
+            ),
+            "preset-model-success",
+        )
+
+
 def display_judge_table(judge_summary: pd.DataFrame) -> None:
     table = judge_summary.rename(columns={
         "judge_setup": "Judge setup",
@@ -1128,6 +1353,7 @@ st.html(
 # load analytics data before preparing filter options
 interactions = analytics.load_interactions()
 judge_results = analytics.load_judge_results()
+presets = analytics.load_presets()
 
 if interactions.empty:
     st.info("No interaction data yet. Run an experiment to start building analytics.")
@@ -1276,7 +1502,7 @@ st.space(20)
 st.subheader("Results analytics")
 selected_view = st.segmented_control(
     "Analytics view",
-    options=["Overview", "Models", "Categories", "Judges"],
+    options=["Overview", "Models", "Categories", "Presets", "Judges"],
     default="Overview",
     required=True,
     width="stretch",
@@ -1313,6 +1539,13 @@ else:
         )
     elif selected_view == "Categories":
         display_category_analytics(
+            filtered_interactions,
+            label_records,
+            minimum_sample_size,
+        )
+    elif selected_view == "Presets":
+        display_preset_analytics(
+            presets,
             filtered_interactions,
             label_records,
             minimum_sample_size,

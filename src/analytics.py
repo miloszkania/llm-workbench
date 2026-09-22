@@ -491,6 +491,220 @@ def summarize_model_categories(
     return summary.sort_values(["model", "category"]).reset_index(drop=True)
 
 
+##### PRESET ANALYTICS
+
+def _add_preset_match_key(frame: pd.DataFrame) -> pd.DataFrame:
+    keyed = frame.copy()
+
+    # an empty system prompt and a database null describe the same configuration
+    system_prompts = keyed["system_prompt"].apply(
+        lambda value: value if isinstance(value, str) else ""
+    )
+    # category order doesn't change what a preset represents
+    category_sets = keyed["categories"].apply(
+        lambda values: tuple(sorted(set(values))) if isinstance(values, list) else ()
+    )
+    prompts = keyed["prompt"].apply(
+        lambda value: value if isinstance(value, str) else ""
+    )
+    keyed["_preset_match_key"] = list(zip(
+        prompts,
+        system_prompts,
+        category_sets,
+    ))
+
+    return keyed
+
+
+def _group_current_presets(presets: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "_preset_match_key",
+        "preset_ids",
+        "preset_label",
+        "prompt",
+        "system_prompt",
+        "categories",
+    ]
+
+    if presets.empty:
+        return pd.DataFrame(columns=columns)
+
+    keyed_presets = _add_preset_match_key(presets)
+    grouped = (
+        keyed_presets
+        .groupby("_preset_match_key", sort=False, as_index=False)
+        .agg(
+            preset_ids=(
+                "id",
+                lambda values: tuple(
+                    sorted(int(value) for value in values if pd.notna(value))
+                ),
+            ),
+            prompt=("prompt", "first"),
+            system_prompt=("system_prompt", "first"),
+            categories=("categories", "first"),
+        )
+    )
+
+    # identical presets share one marker, so matched data isn't counted twice
+    grouped["preset_label"] = grouped["preset_ids"].apply(
+        lambda ids: ", ".join(f"#{preset_id}" for preset_id in ids)
+    )
+
+    return grouped[columns]
+
+
+def match_current_presets(
+        presets: pd.DataFrame,
+        interactions: pd.DataFrame,
+) -> pd.DataFrame:
+    preset_groups = _group_current_presets(presets)
+    result_columns = [*interactions.columns, "preset_ids", "preset_label"]
+
+    if preset_groups.empty or interactions.empty:
+        return pd.DataFrame(columns=result_columns)
+
+    keyed_interactions = _add_preset_match_key(interactions)
+    matches = keyed_interactions.merge(
+        preset_groups[["_preset_match_key", "preset_ids", "preset_label"]],
+        on="_preset_match_key",
+        how="inner",
+        validate="many_to_one",
+    )
+
+    return matches.drop(columns="_preset_match_key").reset_index(drop=True)
+
+
+def summarize_presets(
+        presets: pd.DataFrame,
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+) -> pd.DataFrame:
+    columns = [
+        "preset_ids",
+        "preset_label",
+        "prompt",
+        "system_prompt",
+        "categories",
+        "interaction_count",
+        "target_model_count",
+        *LABEL_COUNT_COLUMNS,
+        "label_count",
+        "success_share",
+        "median_duration_seconds",
+        "median_tokens",
+        "total_cost",
+        "average_cost",
+    ]
+    preset_groups = _group_current_presets(presets)
+
+    if preset_groups.empty:
+        return pd.DataFrame(columns=columns)
+
+    matches = match_current_presets(presets, interactions)
+    summary = preset_groups.drop(columns="_preset_match_key")
+
+    if matches.empty:
+        interaction_summary = pd.DataFrame(columns=[
+            "preset_label",
+            "interaction_count",
+            "target_model_count",
+            "median_duration_seconds",
+            "median_tokens",
+            "total_cost",
+            "average_cost",
+        ])
+    else:
+        matches["duration_seconds"] = matches["duration"].dt.total_seconds()
+        interaction_summary = (
+            matches
+            .groupby("preset_label", as_index=False)
+            .agg(
+                interaction_count=("id", "size"),
+                target_model_count=("model", "nunique"),
+                median_duration_seconds=("duration_seconds", "median"),
+                median_tokens=("token_usage", "median"),
+                total_cost=("price", lambda values: values.sum(min_count=1)),
+                average_cost=("price", "mean"),
+            )
+        )
+
+    # keep current presets visible even if no filtered interaction matches them
+    summary = summary.merge(interaction_summary, on="preset_label", how="left")
+    summary[["interaction_count", "target_model_count"]] = (
+        summary[["interaction_count", "target_model_count"]]
+        .fillna(0)
+        .astype(int)
+    )
+
+    # labels are joined separately, so multiple judge labels don't change call metrics
+    labeled_presets = label_records.merge(
+        matches[["id", "preset_label"]],
+        left_on="interaction_id",
+        right_on="id",
+        how="inner",
+    )
+    summary = _add_label_metrics(summary, labeled_presets, ["preset_label"])
+    # sort by the numeric id instead of the displayed text, so #2 comes before #10
+    summary["_preset_sort_id"] = summary["preset_ids"].apply(lambda ids: ids[0])
+
+    return (
+        summary
+        .sort_values("_preset_sort_id")
+        [columns]
+        .reset_index(drop=True)
+    )
+
+
+def summarize_preset_models(
+        presets: pd.DataFrame,
+        interactions: pd.DataFrame,
+        label_records: pd.DataFrame,
+) -> pd.DataFrame:
+    columns = [
+        "preset_label",
+        "model",
+        "interaction_count",
+        *LABEL_COUNT_COLUMNS,
+        "label_count",
+        "success_share",
+    ]
+    matches = match_current_presets(presets, interactions)
+    matches = matches.loc[matches["model"].notna()].copy()
+
+    if matches.empty:
+        return pd.DataFrame(columns=columns)
+
+    matches["_preset_sort_id"] = matches["preset_ids"].apply(lambda ids: ids[0])
+    summary = (
+        matches
+        .groupby(
+            ["_preset_sort_id", "preset_label", "model"],
+            as_index=False,
+        )["id"]
+        .nunique()
+        .rename(columns={"id": "interaction_count"})
+    )
+    labeled_groups = label_records.merge(
+        matches[["id", "preset_label", "model"]],
+        left_on="interaction_id",
+        right_on="id",
+        how="inner",
+    )
+    summary = _add_label_metrics(
+        summary,
+        labeled_groups,
+        ["preset_label", "model"],
+    )
+
+    return (
+        summary
+        .sort_values(["_preset_sort_id", "model"])
+        [columns]
+        .reset_index(drop=True)
+    )
+
+
 ##### JUDGE ANALYTICS
 
 def _add_judge_setup(judge_results: pd.DataFrame) -> pd.DataFrame:
