@@ -94,9 +94,8 @@ if judging_enabled:
     st.write("The following judge configuration and models will be used to independently evaluate every generated "
              "target response.")
     judge_config, judge_models = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
-
 else:
-    judge_models, judge_config = [], None
+    judge_config, judge_models = None, []
 
 st.divider()
 

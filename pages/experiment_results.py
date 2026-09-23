@@ -76,7 +76,19 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     st.divider()
 
     st.header("LLM-as-a-Judge Evaluation")
-    judge_config, judge_models = widgets.judge_model_and_configuration_selector()
+
+
+    # enable judging by default if any interaction has been judged before
+    judging_enabled = st.toggle(
+        "Evaluate responses with LLM judges",
+        value=(sum([len(i["judge_results"]) for i in interactions]) > 0),
+    )
+
+    if judging_enabled:
+        judge_config, judge_models = widgets.judge_model_and_configuration_selector()
+    else:
+        judge_config, judge_models = None, []
+
     st.divider()
 
     widgets.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
