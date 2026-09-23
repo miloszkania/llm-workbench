@@ -198,6 +198,13 @@ def get_all_interactions() -> list[dict[str, Any]]:
     return [dict(i) for i in result.fetchall()]
 
 
+def get_all_judge_results() -> list[dict[str, Any]]:
+    result = connect().execute("""
+                               select * from judge_results;
+                               """)
+    return [dict(i) for i in result.fetchall()]
+
+
 def modify_interaction(
         interaction_id: int,
         column: Literal["manual_label", "categories"],
