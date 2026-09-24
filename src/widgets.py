@@ -30,7 +30,7 @@ def model_filter_and_sort_controls(
 
     favorites_only = canvas.toggle(
         "Show only favorite models",
-        key=f"{key_prefix}favorites-only"
+        key=f"{key_prefix}favorites_only"
     )
 
     model_filter = canvas.segmented_control(
@@ -38,7 +38,7 @@ def model_filter_and_sort_controls(
         options=["All", "Free", "Paid"],
         default="All",
         required=True,
-        key=f"{key_prefix}model-filter",
+        key=f"{key_prefix}model_filter",
     )
 
     model_sorting = canvas.segmented_control(
@@ -47,7 +47,7 @@ def model_filter_and_sort_controls(
         format_func=lambda x: sorting_options[x],
         default="most-popular",
         required=True,
-        key=f"{key_prefix}model-sorting",
+        key=f"{key_prefix}model_sorting",
     )
 
     try:
@@ -112,7 +112,7 @@ def model_picker(
             "Random free model",
             type="secondary",
             on_click=set_random_free_model,
-            key=f"{key_prefix}random-model-button",
+            key=f"{key_prefix}random_model_button",
         )
 
     # Model pricing

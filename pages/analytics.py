@@ -138,7 +138,7 @@ def display_chart(figure: go.Figure, export_name: str) -> None:
             data=partial(export_chart_image, figure, "pdf"),
             file_name=f"llm-workbench-{export_name}.pdf",
             mime="application/pdf",
-            key=f"analytics-export-{export_name}-pdf",
+            key=f"analytics_export_{export_name}_pdf",
             on_click="ignore",
             width="stretch",
         )
@@ -147,7 +147,7 @@ def display_chart(figure: go.Figure, export_name: str) -> None:
             data=partial(export_chart_image, figure, "png"),
             file_name=f"llm-workbench-{export_name}.png",
             mime="image/png",
-            key=f"analytics-export-{export_name}-png",
+            key=f"analytics_export_{export_name}_png",
             on_click="ignore",
             width="stretch",
         )
@@ -156,7 +156,7 @@ def display_chart(figure: go.Figure, export_name: str) -> None:
             data=partial(export_chart_html, figure),
             file_name=f"llm-workbench-{export_name}.html",
             mime="text/html",
-            key=f"analytics-export-{export_name}-html",
+            key=f"analytics_export_{export_name}_html",
             on_click="ignore",
             width="stretch",
         )
@@ -177,7 +177,7 @@ def display_metric_cards(
     success_percentage = success_count / label_count * 100 if label_count else 0.0
     total_cost = metrics.target_cost + metrics.judging_cost
 
-    metric_grid = st.container(key="analytics-metrics")
+    metric_grid = st.container(key="analytics_metrics")
     first_row = metric_grid.container(
         horizontal=True,
         gap="xsmall",
@@ -820,7 +820,7 @@ def display_overview(
     if int(label_distribution["count"].sum()) > 0:
         display_chart(
             create_label_distribution_chart(label_distribution),
-            "label-distribution",
+            "label_distribution",
         )
     else:
         st.info("No labels from the selected source match the current filters.")
@@ -840,7 +840,7 @@ def display_overview(
         else:
             display_chart(
                 create_activity_chart(activity),
-                "interactions-over-time",
+                "interactions_over_time",
             )
 
     with cost_column:
@@ -855,7 +855,7 @@ def display_overview(
         else:
             display_chart(
                 create_cost_chart(costs),
-                "cost-over-time",
+                "cost_over_time",
             )
 
     st.subheader("Data coverage")
@@ -948,7 +948,7 @@ def display_model_analytics(
     else:
         display_chart(
             create_group_label_distribution_chart(comparable_models, "model"),
-            "model-label-distribution",
+            "model_label_distribution",
         )
 
     st.markdown("**Success by model and category**")
@@ -984,7 +984,7 @@ def display_model_analytics(
                 model_order,
                 category_order,
             ),
-            "model-category-success",
+            "model_category_success",
         )
 
     st.markdown("**Average target cost vs success**")
@@ -1000,7 +1000,7 @@ def display_model_analytics(
     else:
         display_chart(
             create_model_cost_scatter(scatter_data),
-            "model-cost-success",
+            "model_cost_success",
         )
 
 
@@ -1023,7 +1023,7 @@ def display_category_analytics(
     st.markdown("**Interactions by category**")
     display_chart(
         create_category_usage_chart(category_summary),
-        "category-usage",
+        "category_usage",
     )
 
     st.markdown("**Label distribution by category**")
@@ -1038,7 +1038,7 @@ def display_category_analytics(
                 comparable_categories,
                 "category",
             ),
-            "category-label-distribution",
+            "category_label_distribution",
         )
 
 
@@ -1141,7 +1141,7 @@ def display_preset_analytics(
         )
         display_chart(
             label_distribution_chart,
-            "preset-label-distribution",
+            "preset_label_distribution",
         )
 
     st.markdown("**Success by preset and target model**")
@@ -1179,7 +1179,7 @@ def display_preset_analytics(
                 preset_order,
                 model_order,
             ),
-            "preset-model-success",
+            "preset_model_success",
         )
 
 
@@ -1255,7 +1255,7 @@ def display_judge_analytics(
                 comparable_judges,
                 "judge_setup",
             ),
-            "judge-label-distribution",
+            "judge_label_distribution",
         )
 
     st.markdown("**Agreement between judge setups**")
@@ -1281,7 +1281,7 @@ def display_judge_analytics(
         else:
             display_chart(
                 create_judge_agreement_heatmap(agreement, judge_order),
-                "judge-agreement",
+                "judge_agreement",
             )
 
     st.markdown("**Judging cost vs duration**")
@@ -1294,7 +1294,7 @@ def display_judge_analytics(
     else:
         display_chart(
             create_judge_efficiency_scatter(efficiency_data),
-            "judge-cost-duration",
+            "judge_cost_duration",
         )
 
 
@@ -1308,17 +1308,17 @@ st.caption("Explore experiment outcomes, activity, cost, and data coverage.")
 st.html(
     f"""
     <style>
-        .st-key-analytics-metrics [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+        .st-key-analytics_metrics [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
             flex: 1 1 {METRIC_CARD_MIN_WIDTH}px;
             min-width: {METRIC_CARD_MIN_WIDTH}px;
         }}
 
-        .st-key-analytics-primary-filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+        .st-key-analytics_primary_filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
             flex: 1 1 {FILTER_FIELD_MIN_WIDTH}px;
             min-width: {FILTER_FIELD_MIN_WIDTH}px;
         }}
 
-        .st-key-analytics-judge-filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+        .st-key-analytics_judge_filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
             flex: 1 1 {JUDGE_FILTER_MIN_WIDTH}px;
             min-width: {JUDGE_FILTER_MIN_WIDTH}px;
         }}
@@ -1337,12 +1337,12 @@ st.html(
         }}
 
         @media (max-width: {RESPONSIVE_BREAKPOINT}px) {{
-            .st-key-analytics-metrics [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"],
-            .st-key-analytics-primary-filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+            .st-key-analytics_metrics [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"],
+            .st-key-analytics_primary_filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
                 flex-basis: calc(50% - 0.25rem);
             }}
 
-            .st-key-analytics-judge-filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+            .st-key-analytics_judge_filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
                 flex-basis: 100%;
             }}
         }}
@@ -1380,7 +1380,7 @@ with st.expander("Filters", expanded=True):
     )
     filter_header.button("Reset filters", on_click=reset_filters)
 
-    primary_filter_grid = st.container(key="analytics-primary-filters")
+    primary_filter_grid = st.container(key="analytics_primary_filters")
     first_filter_row = primary_filter_grid.container(
         horizontal=True,
         gap="xsmall",
@@ -1433,7 +1433,7 @@ with st.expander("Filters", expanded=True):
 
     # keep judge filters available for judge labels and the Judges view
     if label_source == "LLM judge" or current_view == "Judges":
-        judge_filter_grid = st.container(key="analytics-judge-filters")
+        judge_filter_grid = st.container(key="analytics_judge_filters")
         judge_filter_row = judge_filter_grid.container(
             horizontal=True,
             gap="xsmall",
