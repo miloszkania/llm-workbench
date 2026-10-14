@@ -48,8 +48,8 @@ def get_all_categories(
 
 
 def remove_timestamp_from_model_id(model_id: str) -> str:
-    # removes the snapshot of the model
-    return re.sub(r"-\d{8}", "", model_id)
+    # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
+    return re.sub(r"-\d{8}(?=$|:)", "", model_id)
 
 
 def format_timestamp(value: str) -> str:
