@@ -9,14 +9,12 @@ from src.errors import OpenRouterRequestError, ModelResponseError
 def get_configuration_details(
         judge_config_id: str,
 ) -> tuple[str | None, bool]:
-    fetched_object = [dict(i) for i in database.get_judge_configuration_by_id(judge_config_id)]
+    judge_config = database.get_judge_configuration_by_id(judge_config_id)
 
-    if len(fetched_object) > 0: # should only have 0 or 1 element
-        judge_prompt = fetched_object[0].get("judge_prompt")
-        require_explanation = fetched_object[0].get("require_explanation") == 1
-        return judge_prompt, require_explanation
-    else:
+    if judge_config is None:
         return None, False
+
+    return judge_config["judge_prompt"], judge_config["require_explanation"] == 1
 
 
 def compose_judge_prompt(
