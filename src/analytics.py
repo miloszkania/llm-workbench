@@ -11,6 +11,8 @@ from src import database
 
 LABELS = ("success", "refusal", "unclear")
 LABEL_COUNT_COLUMNS = tuple(f"{label}_count" for label in LABELS)
+LABEL_METRIC_COLUMNS = (*LABEL_COUNT_COLUMNS, "label_count", "success_share")
+TARGET_CALL_METRIC_COLUMNS = ("median_duration_seconds", "median_tokens", "total_cost", "average_cost")
 JUDGE_SETUP_SEPARATOR = " · "
 
 INTERACTION_COLUMNS = (
@@ -82,7 +84,7 @@ def _parse_categories(value: object) -> list[str]:
     if isinstance(value, list):
         return [category for category in value if isinstance(category, str) and category]
 
-    if not isinstance(value, str) or not value or value == "[]":
+    if not isinstance(value, str) or not value:
         return []
 
     # categories are stored in the database as a json array
@@ -325,6 +327,29 @@ def get_judge_label_records(judge_results: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _sum_if_any(values: pd.Series) -> float:
+    # keep the total empty instead of 0 if no value was recorded
+    return values.sum(min_count=1)
+
+
+def _target_call_aggregations() -> dict[str, tuple[str, Any]]:
+    # shared metrics describing target calls, used with `DataFrame.agg`
+    return {
+        "median_duration_seconds": ("duration_seconds", "median"),
+        "median_tokens": ("token_usage", "median"),
+        "total_cost": ("price", _sum_if_any),
+        "average_cost": ("price", "mean"),
+    }
+
+
+def _join_labels(
+        label_records: pd.DataFrame,
+        groups: pd.DataFrame,
+) -> pd.DataFrame:
+    # attach the group columns of each interaction to its labels
+    return label_records.merge(groups, left_on="interaction_id", right_on="id", how="inner")
+
+
 def _add_label_metrics(
         summary: pd.DataFrame,
         labeled_groups: pd.DataFrame,
@@ -376,37 +401,16 @@ def summarize_models(
     model_data = interactions.loc[interactions["model"].notna()].copy()
 
     if model_data.empty:
-        return pd.DataFrame(columns=[
-            "model",
-            "interaction_count",
-            *LABEL_COUNT_COLUMNS,
-            "label_count",
-            "success_share",
-            "median_duration_seconds",
-            "median_tokens",
-            "total_cost",
-            "average_cost",
-        ])
+        return pd.DataFrame(columns=["model", "interaction_count", *LABEL_METRIC_COLUMNS, *TARGET_CALL_METRIC_COLUMNS])
 
     model_data["duration_seconds"] = model_data["duration"].dt.total_seconds()
     summary = (
         model_data
         .groupby("model", as_index=False)
-        .agg(
-            interaction_count=("id", "size"),
-            median_duration_seconds=("duration_seconds", "median"),
-            median_tokens=("token_usage", "median"),
-            total_cost=("price", lambda values: values.sum(min_count=1)),
-            average_cost=("price", "mean"),
-        )
+        .agg(interaction_count=("id", "size"), **_target_call_aggregations())
     )
     # join labels separately, so repeated judge labels don't change interaction metrics
-    labeled_models = label_records.merge(
-        model_data[["id", "model"]],
-        left_on="interaction_id",
-        right_on="id",
-        how="inner",
-    )
+    labeled_models = _join_labels(label_records, model_data[["id", "model"]])
     summary = _add_label_metrics(summary, labeled_models, ["model"])
 
     return (
@@ -424,13 +428,7 @@ def summarize_categories(
     categorized = explode_categories(interactions)
 
     if categorized.empty:
-        return pd.DataFrame(columns=[
-            "category",
-            "interaction_count",
-            *LABEL_COUNT_COLUMNS,
-            "label_count",
-            "success_share",
-        ])
+        return pd.DataFrame(columns=["category", "interaction_count", *LABEL_METRIC_COLUMNS])
 
     summary = (
         categorized
@@ -438,12 +436,7 @@ def summarize_categories(
         .nunique()
         .rename(columns={"id": "interaction_count"})
     )
-    labeled_categories = label_records.merge(
-        categorized[["id", "category"]],
-        left_on="interaction_id",
-        right_on="id",
-        how="inner",
-    )
+    labeled_categories = _join_labels(label_records, categorized[["id", "category"]])
     summary = _add_label_metrics(summary, labeled_categories, ["category"])
 
     return (
@@ -461,14 +454,7 @@ def summarize_model_categories(
     categorized = explode_categories(interactions)
 
     if categorized.empty:
-        return pd.DataFrame(columns=[
-            "model",
-            "category",
-            "interaction_count",
-            *LABEL_COUNT_COLUMNS,
-            "label_count",
-            "success_share",
-        ])
+        return pd.DataFrame(columns=["model", "category", "interaction_count", *LABEL_METRIC_COLUMNS])
 
     summary = (
         categorized
@@ -476,17 +462,8 @@ def summarize_model_categories(
         .nunique()
         .rename(columns={"id": "interaction_count"})
     )
-    labeled_groups = label_records.merge(
-        categorized[["id", "model", "category"]],
-        left_on="interaction_id",
-        right_on="id",
-        how="inner",
-    )
-    summary = _add_label_metrics(
-        summary,
-        labeled_groups,
-        ["model", "category"],
-    )
+    labeled_groups = _join_labels(label_records, categorized[["id", "model", "category"]])
+    summary = _add_label_metrics(summary, labeled_groups, ["model", "category"])
 
     return summary.sort_values(["model", "category"]).reset_index(drop=True)
 
@@ -497,23 +474,20 @@ def _add_preset_match_key(frame: pd.DataFrame) -> pd.DataFrame:
     keyed = frame.copy()
 
     # an empty system prompt and a database null describe the same configuration
-    system_prompts = keyed["system_prompt"].apply(
-        lambda value: value if isinstance(value, str) else ""
-    )
+    prompts = keyed["prompt"].apply(lambda value: value if isinstance(value, str) else "")
+    system_prompts = keyed["system_prompt"].apply(lambda value: value if isinstance(value, str) else "")
     # category order doesn't change what a preset represents
     category_sets = keyed["categories"].apply(
         lambda values: tuple(sorted(set(values))) if isinstance(values, list) else ()
     )
-    prompts = keyed["prompt"].apply(
-        lambda value: value if isinstance(value, str) else ""
-    )
-    keyed["_preset_match_key"] = list(zip(
-        prompts,
-        system_prompts,
-        category_sets,
-    ))
+    keyed["_preset_match_key"] = list(zip(prompts, system_prompts, category_sets))
 
     return keyed
+
+
+def _first_preset_id(frame: pd.DataFrame) -> pd.Series:
+    # sort by the numeric id instead of the displayed text, so #2 comes before #10
+    return frame["preset_ids"].apply(lambda ids: ids[0])
 
 
 def _group_current_presets(presets: pd.DataFrame) -> pd.DataFrame:
@@ -534,12 +508,7 @@ def _group_current_presets(presets: pd.DataFrame) -> pd.DataFrame:
         keyed_presets
         .groupby("_preset_match_key", sort=False, as_index=False)
         .agg(
-            preset_ids=(
-                "id",
-                lambda values: tuple(
-                    sorted(int(value) for value in values if pd.notna(value))
-                ),
-            ),
+            preset_ids=("id", lambda values: tuple(sorted(int(value) for value in values if pd.notna(value)))),
             prompt=("prompt", "first"),
             system_prompt=("system_prompt", "first"),
             categories=("categories", "first"),
@@ -588,13 +557,8 @@ def summarize_presets(
         "categories",
         "interaction_count",
         "target_model_count",
-        *LABEL_COUNT_COLUMNS,
-        "label_count",
-        "success_share",
-        "median_duration_seconds",
-        "median_tokens",
-        "total_cost",
-        "average_cost",
+        *LABEL_METRIC_COLUMNS,
+        *TARGET_CALL_METRIC_COLUMNS,
     ]
     preset_groups = _group_current_presets(presets)
 
@@ -605,15 +569,9 @@ def summarize_presets(
     summary = preset_groups.drop(columns="_preset_match_key")
 
     if matches.empty:
-        interaction_summary = pd.DataFrame(columns=[
-            "preset_label",
-            "interaction_count",
-            "target_model_count",
-            "median_duration_seconds",
-            "median_tokens",
-            "total_cost",
-            "average_cost",
-        ])
+        interaction_summary = pd.DataFrame(
+            columns=["preset_label", "interaction_count", "target_model_count", *TARGET_CALL_METRIC_COLUMNS]
+        )
     else:
         matches["duration_seconds"] = matches["duration"].dt.total_seconds()
         interaction_summary = (
@@ -622,10 +580,7 @@ def summarize_presets(
             .agg(
                 interaction_count=("id", "size"),
                 target_model_count=("model", "nunique"),
-                median_duration_seconds=("duration_seconds", "median"),
-                median_tokens=("token_usage", "median"),
-                total_cost=("price", lambda values: values.sum(min_count=1)),
-                average_cost=("price", "mean"),
+                **_target_call_aggregations(),
             )
         )
 
@@ -638,22 +593,11 @@ def summarize_presets(
     )
 
     # labels are joined separately, so multiple judge labels don't change call metrics
-    labeled_presets = label_records.merge(
-        matches[["id", "preset_label"]],
-        left_on="interaction_id",
-        right_on="id",
-        how="inner",
-    )
+    labeled_presets = _join_labels(label_records, matches[["id", "preset_label"]])
     summary = _add_label_metrics(summary, labeled_presets, ["preset_label"])
-    # sort by the numeric id instead of the displayed text, so #2 comes before #10
-    summary["_preset_sort_id"] = summary["preset_ids"].apply(lambda ids: ids[0])
+    summary["_preset_sort_id"] = _first_preset_id(summary)
 
-    return (
-        summary
-        .sort_values("_preset_sort_id")
-        [columns]
-        .reset_index(drop=True)
-    )
+    return summary.sort_values("_preset_sort_id")[columns].reset_index(drop=True)
 
 
 def summarize_preset_models(
@@ -661,63 +605,39 @@ def summarize_preset_models(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
 ) -> pd.DataFrame:
-    columns = [
-        "preset_label",
-        "model",
-        "interaction_count",
-        *LABEL_COUNT_COLUMNS,
-        "label_count",
-        "success_share",
-    ]
+    columns = ["preset_label", "model", "interaction_count", *LABEL_METRIC_COLUMNS]
     matches = match_current_presets(presets, interactions)
     matches = matches.loc[matches["model"].notna()].copy()
 
     if matches.empty:
         return pd.DataFrame(columns=columns)
 
-    matches["_preset_sort_id"] = matches["preset_ids"].apply(lambda ids: ids[0])
+    matches["_preset_sort_id"] = _first_preset_id(matches)
     summary = (
         matches
-        .groupby(
-            ["_preset_sort_id", "preset_label", "model"],
-            as_index=False,
-        )["id"]
+        .groupby(["_preset_sort_id", "preset_label", "model"], as_index=False)["id"]
         .nunique()
         .rename(columns={"id": "interaction_count"})
     )
-    labeled_groups = label_records.merge(
-        matches[["id", "preset_label", "model"]],
-        left_on="interaction_id",
-        right_on="id",
-        how="inner",
-    )
-    summary = _add_label_metrics(
-        summary,
-        labeled_groups,
-        ["preset_label", "model"],
-    )
+    labeled_groups = _join_labels(label_records, matches[["id", "preset_label", "model"]])
+    summary = _add_label_metrics(summary, labeled_groups, ["preset_label", "model"])
 
-    return (
-        summary
-        .sort_values(["_preset_sort_id", "model"])
-        [columns]
-        .reset_index(drop=True)
-    )
+    return summary.sort_values(["_preset_sort_id", "model"])[columns].reset_index(drop=True)
 
 
 ##### JUDGE ANALYTICS
 
-def _add_judge_setup(judge_results: pd.DataFrame) -> pd.DataFrame:
+def _judge_setup_names(frame: pd.DataFrame) -> pd.Series:
     # each model and configuration pair is a separate judge setup
+    return frame["judge_model"].astype(str) + JUDGE_SETUP_SEPARATOR + frame["judge_config_id"].astype(str)
+
+
+def _add_judge_setup(judge_results: pd.DataFrame) -> pd.DataFrame:
     results = judge_results.loc[
         judge_results["judge_model"].notna()
         & judge_results["judge_config_id"].notna()
     ].copy()
-    results["judge_setup"] = (
-        results["judge_model"].astype(str)
-        + JUDGE_SETUP_SEPARATOR
-        + results["judge_config_id"].astype(str)
-    )
+    results["judge_setup"] = _judge_setup_names(results)
 
     return results
 
@@ -732,9 +652,7 @@ def summarize_judges(judge_results: pd.DataFrame) -> pd.DataFrame:
             "judge_setup",
             "evaluation_count",
             "interaction_count",
-            *LABEL_COUNT_COLUMNS,
-            "label_count",
-            "success_share",
+            *LABEL_METRIC_COLUMNS,
             "median_duration_seconds",
             "total_cost",
             "average_cost",
@@ -748,26 +666,16 @@ def summarize_judges(judge_results: pd.DataFrame) -> pd.DataFrame:
             evaluation_count=("id", "size"),
             interaction_count=("interaction_id", "nunique"),
             median_duration_seconds=("duration_seconds", "median"),
-            total_cost=("price", lambda values: values.sum(min_count=1)),
+            total_cost=("price", _sum_if_any),
             average_cost=("price", "mean"),
         )
     )
 
     # use every evaluation for costs, but only the latest label for outcomes
-    latest_results = _add_judge_setup(get_latest_judge_results(judge_data))
-    valid_latest_results = latest_results.loc[
-        latest_results["label"].isin(LABELS)
-    ]
-    summary = _add_label_metrics(
-        summary,
-        valid_latest_results,
-        ["judge_model", "judge_config_id"],
-    )
-    summary["judge_setup"] = (
-        summary["judge_model"].astype(str)
-        + JUDGE_SETUP_SEPARATOR
-        + summary["judge_config_id"].astype(str)
-    )
+    latest_results = get_latest_judge_results(judge_data)
+    valid_latest_results = latest_results.loc[latest_results["label"].isin(LABELS)]
+    summary = _add_label_metrics(summary, valid_latest_results, ["judge_model", "judge_config_id"])
+    summary["judge_setup"] = _judge_setup_names(summary)
 
     return (
         summary
@@ -784,20 +692,10 @@ def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
     valid_results = latest_results.loc[latest_results["label"].isin(LABELS)]
 
     if valid_results.empty:
-        return pd.DataFrame(columns=[
-            "judge_a",
-            "judge_b",
-            "overlap_count",
-            "agreement_count",
-            "agreement_share",
-        ])
+        return pd.DataFrame(columns=["judge_a", "judge_b", "overlap_count", "agreement_count", "agreement_share"])
 
     # align labels by interaction before comparing every judge pair
-    label_matrix = valid_results.pivot(
-        index="interaction_id",
-        columns="judge_setup",
-        values="label",
-    )
+    label_matrix = valid_results.pivot(index="interaction_id", columns="judge_setup", values="label")
     agreement_rows = []
 
     for judge_a in label_matrix.columns:
@@ -808,14 +706,8 @@ def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
                 keys=["label_a", "label_b"],
             ).dropna()
             overlap_count = len(paired_labels)
-            agreement_count = int(
-                paired_labels["label_a"].eq(paired_labels["label_b"]).sum()
-            )
-            agreement_share = (
-                agreement_count / overlap_count * 100
-                if overlap_count > 0
-                else None
-            )
+            agreement_count = int(paired_labels["label_a"].eq(paired_labels["label_b"]).sum())
+            agreement_share = agreement_count / overlap_count * 100 if overlap_count > 0 else None
             agreement_rows.append({
                 "judge_a": judge_a,
                 "judge_b": judge_b,
@@ -858,3 +750,12 @@ def get_overview_metrics(
         token_usage=int(interactions["token_usage"].sum()),
         median_duration_seconds=median_duration_seconds,
     )
+
+
+def filter_by_sample_size(
+        summary: pd.DataFrame,
+        minimum_sample_size: int,
+        count_column: str = "label_count",
+) -> pd.DataFrame:
+    # hide groups that are too small to compare in outcome charts
+    return summary.loc[summary[count_column] >= minimum_sample_size].copy()
