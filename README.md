@@ -26,7 +26,7 @@ source .venv/bin/activate # For fish shell: .venv/bin/activate.fish
 
 ### 2. Install dependencies
 ```shell
-python3 -m pip install -r requirements.txt
+python3 -m pip install -e .
 ```
 
 ### 3. Configure the environment variables

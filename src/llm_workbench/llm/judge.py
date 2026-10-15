@@ -2,14 +2,15 @@ import re
 import time
 from typing import Any, Callable
 
-from src import database, openrouter_api, view_utils
-from src.errors import OpenRouterRequestError, ModelResponseError
+from llm_workbench import db, formatting
+from llm_workbench.llm import openrouter_api
+from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
 def get_configuration_details(
         judge_config_id: str,
 ) -> tuple[str | None, bool]:
-    judge_config = database.get_judge_configuration_by_id(judge_config_id)
+    judge_config = db.judges.get_judge_configuration_by_id(judge_config_id)
 
     if judge_config is None:
         return None, False
@@ -56,7 +57,7 @@ def get_judge_result(
         conversation_type="judge",
     )
     judge_message = openrouter_api.extract_response_text(judge_response)
-    used_model = view_utils.remove_timestamp_from_model_id(judge_response.model)
+    used_model = formatting.remove_timestamp_from_model_id(judge_response.model)
     _, price = openrouter_api.extract_usage(judge_response)
 
     # parse the judge response
@@ -133,7 +134,7 @@ def evaluate_and_store_interaction(
 
             # if a response was received, show the model that actually generated it
             if isinstance(error, ModelResponseError):
-                failed_model = view_utils.remove_timestamp_from_model_id(error.model)
+                failed_model = formatting.remove_timestamp_from_model_id(error.model)
 
             failed_judgments.append({
                 "interaction_id": interaction_id,
@@ -143,7 +144,7 @@ def evaluate_and_store_interaction(
             continue
 
         # save the judge result into the database
-        database.insert_judge_result({
+        db.judges.insert_judge_result({
             "interaction_id": interaction_id,
             "judge_config_id": judge_config_id,
             "judge_model": judge_result["judge_model"],

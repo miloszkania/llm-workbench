@@ -1,21 +1,22 @@
 import streamlit as st
 import pandas as pd
 
-from src import view_utils, widgets, database, errors
-from src.errors import OpenRouterRequestError
+from llm_workbench import db, formatting
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display, model_selection, page
 
-view_utils.page_config("Model library")
+page.page_config("Model library")
 
 st.title("Model library")
 
 # Favorite models
 st.header("Favorite models")
 
-favorite_models = database.get_favorite_models()
+favorite_models = db.settings.get_favorite_models()
 try:
-    all_model_ids = [i.id for i in view_utils.get_models()]
+    all_model_ids = [i.id for i in model_selection.get_models()]
 except OpenRouterRequestError as error:
-    errors.display_error(error)
+    error_display.display_error(error)
     st.stop()
 
 # also include models that are currently not available
@@ -28,7 +29,7 @@ selected_favorite_models = st.multiselect(
 )
 
 if st.button("Save favorites"):
-    database.update_favorite_models(selected_favorite_models)
+    db.settings.update_favorite_models(selected_favorite_models)
     favorite_models = selected_favorite_models
     st.success("Saved!")
 
@@ -39,7 +40,7 @@ st.divider()
 st.header("All models")
 
 # Filtering and sorting
-model_objects, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_")
+model_objects, _ = model_selection.model_filter_and_sort_controls(key_prefix="model_library_", show_library_link=False)
 st.space()
 
 # Create model library dataframe
@@ -51,8 +52,8 @@ model_table = pd.DataFrame(
             "description": model_object.description,
             "context_length": model_object.context_length,
             "knowledge_cutoff": model_object.knowledge_cutoff,
-            "input_price": view_utils.format_model_price(model_object.pricing.prompt),
-            "output_price": view_utils.format_model_price(model_object.pricing.completion),
+            "input_price": formatting.format_model_price(model_object.pricing.prompt),
+            "output_price": formatting.format_model_price(model_object.pricing.completion),
         }
         for model_object in model_objects
     ],
@@ -107,5 +108,5 @@ for model_id, is_favorite in visible_favorite_dict.items():
 
 # save changes if existent
 if updated_favorite_models != favorite_models:
-    database.update_favorite_models(updated_favorite_models)
+    db.settings.update_favorite_models(updated_favorite_models)
     st.rerun()

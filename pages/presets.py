@@ -3,15 +3,16 @@ import json
 import pandas as pd
 import streamlit as st
 
-from src import database, view_utils
+from llm_workbench import db, records
+from llm_workbench.ui import page
 
-view_utils.page_config("Presets")
+page.page_config("Presets")
 
 
 def save_changes(original_df: pd.DataFrame) -> None:
     # Delete rows
     for i in changes["deleted_rows"]:
-        database.delete_preset(int(original_df.iloc[i]["id"]))
+        db.presets.delete_preset(int(original_df.iloc[i]["id"]))
 
     # Adjust preset data
     for row_idx, ch in changes["edited_rows"].items():
@@ -20,11 +21,11 @@ def save_changes(original_df: pd.DataFrame) -> None:
                 new_value = json.dumps(ch.get("categories"), ensure_ascii=False)
 
             preset_id = int(original_df.iloc[row_idx]["id"])
-            database.modify_preset(preset_id, column, new_value)
+            db.presets.modify_preset(preset_id, column, new_value)
 
     # Add new rows
     for ch in changes["added_rows"]:
-        database.insert_preset({
+        db.presets.insert_preset({
             "prompt": ch["prompt"],
             "system_prompt": ch.get("system_prompt"),
             "categories": json.dumps(ch.get("categories"), ensure_ascii=False) if ch.get("categories") else None,
@@ -34,7 +35,7 @@ def save_changes(original_df: pd.DataFrame) -> None:
 
 st.title("Presets")
 
-preset_table = view_utils.get_all_presets()
+preset_table = records.get_all_presets()
 
 if not preset_table.empty:
     edited_preset_table = st.data_editor(
@@ -70,7 +71,7 @@ if not preset_table.empty:
             ),
             "categories": st.column_config.MultiselectColumn(
                 "Categories",
-                options=view_utils.get_all_categories(preset_table),
+                options=records.get_all_categories(preset_table),
                 accept_new_options=True,
             ),
         },

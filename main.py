@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.config import get_env_config, EnvironmentConfigError
+from llm_workbench.config import get_env_config, EnvironmentConfigError
 
 
 # Check the presence of required environment variables
@@ -11,9 +11,9 @@ except EnvironmentConfigError as error:
     st.stop()
 
 
-from src import widgets, view_utils
+from llm_workbench.ui import page, sidebar
 
-view_utils.page_config()
+page.page_config()
 
 
 # Define all subpages
@@ -42,6 +42,6 @@ navigation = st.navigation({
 
 navigation.run()
 
-widgets.batch_ids_picker(canvas=st.sidebar)
+sidebar.batch_ids_picker(canvas=st.sidebar)
 
-widgets.api_key_details()
+sidebar.api_key_details()

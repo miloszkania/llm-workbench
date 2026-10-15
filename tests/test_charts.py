@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from src import analytics, charts
+from llm_workbench.analytics import charts, stats
 
 
 class ChartTests(unittest.TestCase):
@@ -60,7 +60,7 @@ class ChartTests(unittest.TestCase):
         self.assertEqual(texts, {"success": "", "refusal": "98%", "unclear": ""})
 
     def test_export_preparation_does_not_modify_the_dashboard_figure(self) -> None:
-        activity = analytics.summarize_activity(analytics.prepare_interactions([
+        activity = stats.summarize_activity(stats.prepare_interactions([
             {"id": 1, "time": "2026-09-20 10:00:00"},
         ]))
         figure = charts.create_activity_chart(activity)

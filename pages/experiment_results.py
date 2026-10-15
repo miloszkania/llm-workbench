@@ -2,7 +2,8 @@ from typing import Any
 
 import streamlit as st
 
-from src import database, view_utils, widgets
+from llm_workbench import db, formatting, records
+from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls
 
 interaction_ids = st.query_params.get("id")
 
@@ -16,14 +17,14 @@ def load_interactions(interaction_ids: str) -> list[dict[str, Any]]:
     interactions = []
 
     for interaction_id in parsed_interaction_ids:
-        interaction_object = database.get_interaction_by_id(interaction_id)
+        interaction_object = db.interactions.get_interaction_by_id(interaction_id)
 
         # interaction with id interaction_id could not be found -> redirect
         if len(interaction_object) == 0:
             st.session_state["error_message"] = f"No interaction with ID={interaction_id} could be found."
             st.switch_page("pages/history.py")
 
-        judge_results = database.get_judge_results_by_interaction(interaction_id)
+        judge_results = db.judges.get_judge_results_by_interaction(interaction_id)
         if judge_results:
             judge_results = sorted(judge_results, key=lambda x: x["label"])
         else:
@@ -72,7 +73,7 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     originally_used_models = list(set([i["interaction"]["model"] for i in interactions]))
     default_model = originally_used_models[0] if len(originally_used_models) == 1 else None
 
-    widgets.model_picker(default_model=default_model)
+    model_selection.model_picker(default_model=default_model)
     st.divider()
 
     st.header("LLM-as-a-Judge Evaluation")
@@ -85,13 +86,13 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     )
 
     if judging_enabled:
-        judge_config, judge_models = widgets.judge_model_and_configuration_selector()
+        judge_config, judge_models = judge_selection.judge_model_and_configuration_selector()
     else:
         judge_config, judge_models = None, []
 
     st.divider()
 
-    widgets.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
+    run_controls.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
 
 
 def display_experiment_overview(interactions, canvas):
@@ -122,7 +123,7 @@ def display_experiment_overview(interactions, canvas):
 def display_prompt(experiment_input):
     st.header("Prompt")
 
-    matching_preset = database.get_preset_id_by_content(
+    matching_preset = db.presets.get_preset_id_by_content(
         experiment_input["prompt"], experiment_input["system_prompt"], experiment_input["categories"]
     )
     if matching_preset:
@@ -165,8 +166,8 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
 
     categories = col_select_categories.multiselect(
         "Categories",
-        options=view_utils.get_all_categories(),
-        default=view_utils.parse_categories_from_json(experiment_input["categories"]),
+        options=records.get_all_categories(),
+        default=formatting.parse_categories_from_json(experiment_input["categories"]),
         accept_new_options=True,
         key=f"{key_prefix}categories",
     )
@@ -175,10 +176,10 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
         col_save_categories.space()
         if col_save_categories.button("Save categories", type="primary"):
             for i in interactions:
-                database.set_interaction_categories(i["interaction"]["id"], categories)
+                db.interactions.set_interaction_categories(i["interaction"]["id"], categories)
             st.success("Categories updated!")
 
-        widgets.save_preset_button(
+        preset_controls.save_preset_button(
             experiment_input["prompt"],
             experiment_input["system_prompt"],
             categories
@@ -196,7 +197,7 @@ ensure_same_experiment(experiment_input, interactions)
 
 ### Start frontend
 
-view_utils.page_config("Experiment results")
+page.page_config("Experiment results")
 st.title("Experiment Results")
 st.page_link("pages/history.py", label="← Show all interactions")
 
@@ -221,7 +222,7 @@ st.divider()
 interaction_errors = st.session_state.pop("interaction_errors", [])
 succeeded_interaction_count = st.session_state.pop("succeeded_interaction_count", len(interactions))
 if interaction_errors:
-    widgets.display_interaction_errors(
+    error_display.display_interaction_errors(
         succeeded_interactions=succeeded_interaction_count,
         interaction_errors=interaction_errors,
     )
@@ -229,7 +230,7 @@ if interaction_errors:
 
 failed_judgments = st.session_state.pop("failed_judgments", [])
 if failed_judgments:
-    widgets.display_failed_judgments_information(failed_judgments)
+    error_display.display_failed_judgments_information(failed_judgments)
 
 if interaction_errors or failed_judgments:
     st.divider()
@@ -244,4 +245,4 @@ st.divider()
 
 # display outcomes and judge results
 for interaction_object in interactions:
-    widgets.interaction_card(interaction_object)
+    interaction_view.interaction_card(interaction_object)

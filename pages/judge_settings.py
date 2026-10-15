@@ -1,9 +1,10 @@
 import pandas as pd
 import streamlit as st
 
-from src import view_utils, database, widgets
+from llm_workbench import db
+from llm_workbench.ui import judge_selection, page
 
-view_utils.page_config("Judge settings")
+page.page_config("Judge settings")
 
 st.title("Judge Settings")
 
@@ -13,7 +14,7 @@ if created_config_name:
     st.success(f"A new configuration `{created_config_name}` has been successfully created!")
 
 # Load existing configurations
-all_configs = pd.DataFrame(database.get_all_judge_configurations())
+all_configs = pd.DataFrame(db.judges.get_all_judge_configurations())
 
 
 if not all_configs.empty:
@@ -21,7 +22,7 @@ if not all_configs.empty:
     st.header("Default settings")
 
     # get current default settings
-    judge_config, judge_models = database.get_default_judge_settings()
+    judge_config, judge_models = db.settings.get_default_judge_settings()
 
     judging_enabled = st.toggle(
         "Evaluate responses with LLM judges",
@@ -32,7 +33,7 @@ if not all_configs.empty:
         st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")
         st.space()
 
-        selected_config, selected_models = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
+        selected_config, selected_models = judge_selection.judge_model_and_configuration_selector(judge_config, judge_models)
         st.space()
     else:
         selected_models, selected_config = [], None
@@ -41,7 +42,7 @@ if not all_configs.empty:
         if judging_enabled and (not selected_config or not selected_models):
             st.error("Select a judge configuration and at least one judge model!")
         else:
-            database.modify_default_judge_settings(selected_config, selected_models)
+            db.settings.modify_default_judge_settings(selected_config, selected_models)
             st.success("Saved!")
 
     st.divider()

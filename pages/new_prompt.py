@@ -1,28 +1,29 @@
 import streamlit as st
 
-from src import view_utils, widgets, database
+from llm_workbench import db, records
+from llm_workbench.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls
 
-view_utils.page_config("New prompt")
+page.page_config("New prompt")
 
 
 st.title("New Prompt")
 
 ##### MODEL
 st.header("Model")
-widgets.model_picker()
+model_selection.model_picker()
 st.divider()
 
 
 ##### PRESET
 
 st.header("Prompt")
-all_presets = view_utils.get_all_presets(fill_null=True)
+all_presets = records.get_all_presets(fill_null=True)
 
 st.page_link("pages/presets.py", label="Edit presets")
 
 
 # Preset table expander
-widgets.preset_table_preview(all_presets)
+preset_controls.preset_table_preview(all_presets)
 
 # After a preset was selected, sets text fields to its data
 def fill_preset_fields():
@@ -65,7 +66,7 @@ prompt = st.text_area(
 
 categories = st.multiselect(
     "Categories",
-    options=view_utils.get_all_categories(),
+    options=records.get_all_categories(),
     accept_new_options=True,
     key="categories",
     on_change=reset_preset_selection,
@@ -74,7 +75,7 @@ categories = st.multiselect(
 st.space("small")
 
 ### Add preset button
-widgets.save_preset_button(prompt, system_prompt, categories)
+preset_controls.save_preset_button(prompt, system_prompt, categories)
 
 st.divider()
 
@@ -83,7 +84,7 @@ st.divider()
 st.header("LLM-as-a-Judge Evaluation")
 
 # Fetch the judging configuration
-judge_config, judge_models = database.get_default_judge_settings()
+judge_config, judge_models = db.settings.get_default_judge_settings()
 
 judging_enabled = st.toggle(
     "Evaluate responses with LLM judges",
@@ -93,7 +94,7 @@ judging_enabled = st.toggle(
 if judging_enabled:
     st.write("The following judge configuration and models will be used to independently evaluate every generated "
              "target response.")
-    judge_config, judge_models = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
+    judge_config, judge_models = judge_selection.judge_model_and_configuration_selector(judge_config, judge_models)
 else:
     judge_config, judge_models = None, []
 
@@ -102,7 +103,7 @@ st.divider()
 
 ### Send button
 if (not judging_enabled) or (judging_enabled and judge_models and judge_config):
-    widgets.send_prompt_button_with_repetitions(judge_config, judge_models)
+    run_controls.send_prompt_button_with_repetitions(judge_config, judge_models)
 else:
     st.info("Select a valid judge configuration and models or disable LLM judging to continue.")
 
@@ -111,7 +112,7 @@ else:
 interaction_errors = st.session_state.pop("interaction_errors", [])
 succeeded_interaction_count = st.session_state.pop("succeeded_interaction_count", 0)
 if interaction_errors:
-    widgets.display_interaction_errors(
+    error_display.display_interaction_errors(
         succeeded_interactions=succeeded_interaction_count,
         interaction_errors=interaction_errors,
     )

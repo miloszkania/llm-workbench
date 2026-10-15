@@ -5,8 +5,8 @@ from typing import Any, Literal
 
 from openrouter import OpenRouter, components, operations
 
-from src.config import get_env_config
-from src.errors import OpenRouterRequestError, OPENROUTER_ERRORS, ModelResponseError
+from llm_workbench.config import get_env_config
+from llm_workbench.errors import OpenRouterRequestError, OPENROUTER_ERRORS, ModelResponseError
 
 API_TIMEOUT_MS = 30_000 # network timeout for each metadata or model attempt
 CHAT_TIMEOUT_MS = 120_000 # network timeout for each chat attempt

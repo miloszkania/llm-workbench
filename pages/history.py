@@ -1,16 +1,17 @@
 import pandas as pd
 import streamlit as st
 
-from src import database, view_utils, widgets
+from llm_workbench import db, records
+from llm_workbench.ui import page, sidebar
 
-view_utils.page_config("History")
+page.page_config("History")
 
 label_options = ["success", "refusal", "unclear"]
 
 def save_changes(original_data: pd.DataFrame) -> None:
     # delete rows
     for row_idx in changes["deleted_rows"]:
-        database.delete_interaction(int(original_data.iloc[row_idx]["id"]))
+        db.interactions.delete_interaction(int(original_data.iloc[row_idx]["id"]))
 
     # adjust record data
     for row_idx, edit_changes in changes["edited_rows"].items():
@@ -18,11 +19,11 @@ def save_changes(original_data: pd.DataFrame) -> None:
 
         # label (if has been changed):
         if "manual_label" in edit_changes:
-            database.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
+            db.interactions.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
 
         # categories (if has been changed):
         if "categories" in edit_changes:
-            database.set_interaction_categories(interaction_id, edit_changes.get("categories"))
+            db.interactions.set_interaction_categories(interaction_id, edit_changes.get("categories"))
 
 
 
@@ -33,7 +34,7 @@ error_message = st.session_state.pop("error_message", None)
 if error_message:
     st.error(error_message)
 
-history_table = view_utils.get_all_interactions()
+history_table = records.get_all_interactions()
 
 if not history_table.empty:
     edited_history_table = st.data_editor(
@@ -72,7 +73,7 @@ if not history_table.empty:
             ),
             "categories": st.column_config.MultiselectColumn(
                 "categories",
-                options=view_utils.get_all_categories(history_table),
+                options=records.get_all_categories(history_table),
                 accept_new_options=True,
             ),
             "time": st.column_config.DatetimeColumn(
@@ -107,6 +108,6 @@ if not history_table.empty:
 
     st.space("medium")
 
-    widgets.batch_ids_picker(history_table=history_table)
+    sidebar.batch_ids_picker(history_table=history_table)
 else:
     st.info("No data yet!")

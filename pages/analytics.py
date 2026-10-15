@@ -6,7 +6,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import analytics, charts, view_utils, widgets
+from llm_workbench.analytics import charts, stats
+from llm_workbench.ui import page, preset_controls
 
 
 FILTER_KEYS = (
@@ -113,7 +114,7 @@ def display_summary_table(
 
 
 def display_metric_cards(
-        metrics: analytics.OverviewMetrics,
+        metrics: stats.OverviewMetrics,
         label_distribution: pd.DataFrame,
         label_coverage: int,
 ) -> None:
@@ -172,7 +173,7 @@ def display_overview(
         filtered_judge_results: pd.DataFrame,
         label_distribution: pd.DataFrame,
         label_source_caption: str,
-        metrics: analytics.OverviewMetrics,
+        metrics: stats.OverviewMetrics,
 ) -> None:
     st.subheader("Outcomes")
     st.caption(label_source_caption)
@@ -184,8 +185,8 @@ def display_overview(
 
     st.subheader("Activity and cost")
     activity_column, cost_column = st.columns(2)
-    activity = analytics.summarize_activity(filtered_interactions)
-    costs = analytics.summarize_costs(filtered_interactions, filtered_judge_results)
+    activity = stats.summarize_activity(filtered_interactions)
+    costs = stats.summarize_costs(filtered_interactions, filtered_judge_results)
 
     with activity_column:
         st.markdown("**Interactions over time**")
@@ -254,10 +255,10 @@ def display_model_analytics(
         "Interactions count target calls; n on outcome charts counts labels from the "
         "selected source. Costs and duration describe target calls only."
     )
-    model_summary = analytics.summarize_models(interactions, label_records)
+    model_summary = stats.summarize_models(interactions, label_records)
     display_model_table(model_summary)
 
-    comparable_models = analytics.filter_by_sample_size(model_summary, minimum_sample_size)
+    comparable_models = stats.filter_by_sample_size(model_summary, minimum_sample_size)
     st.markdown("**Label distribution by model**")
     if comparable_models.empty:
         st.info("No model has enough labels for the selected minimum sample size.")
@@ -267,8 +268,8 @@ def display_model_analytics(
         )
 
     st.markdown("**Success by model and category**")
-    model_categories = analytics.summarize_model_categories(interactions, label_records)
-    comparable_cells = analytics.filter_by_sample_size(model_categories, minimum_sample_size)
+    model_categories = stats.summarize_model_categories(interactions, label_records)
+    comparable_cells = stats.filter_by_sample_size(model_categories, minimum_sample_size)
     if comparable_cells.empty:
         st.info("No model-category pair has enough labels for the selected minimum sample size.")
     else:
@@ -301,7 +302,7 @@ def display_category_analytics(
         "An interaction assigned to multiple categories contributes once to each of "
         "them, so category totals may exceed the overall interaction count."
     )
-    category_summary = analytics.summarize_categories(interactions, label_records)
+    category_summary = stats.summarize_categories(interactions, label_records)
 
     if category_summary.empty:
         st.info("No categorized interactions match the current filters.")
@@ -311,7 +312,7 @@ def display_category_analytics(
     display_chart(charts.create_category_usage_chart(category_summary), "category_usage")
 
     st.markdown("**Label distribution by category**")
-    comparable_categories = analytics.filter_by_sample_size(category_summary, minimum_sample_size)
+    comparable_categories = stats.filter_by_sample_size(category_summary, minimum_sample_size)
     if comparable_categories.empty:
         st.info("No category has enough labels for the selected minimum sample size.")
     else:
@@ -364,16 +365,16 @@ def display_preset_analytics(
         "prompt, system prompt, and set of categories, so editing a preset updates "
         "these statistics immediately."
     )
-    widgets.preset_table_preview(presets)
+    preset_controls.preset_table_preview(presets)
 
     if presets.empty:
         st.info("No presets are available to compare with the selected interactions.")
         return
 
-    preset_summary = analytics.summarize_presets(presets, interactions, label_records)
+    preset_summary = stats.summarize_presets(presets, interactions, label_records)
     display_preset_table(preset_summary)
 
-    comparable_presets = analytics.filter_by_sample_size(preset_summary, minimum_sample_size)
+    comparable_presets = stats.filter_by_sample_size(preset_summary, minimum_sample_size)
     st.markdown("**Label distribution by preset**")
     if comparable_presets.empty:
         st.info("No preset has enough labels for the selected minimum sample size.")
@@ -392,8 +393,8 @@ def display_preset_analytics(
         display_chart(label_distribution_chart, "preset_label_distribution")
 
     st.markdown("**Success by preset and target model**")
-    preset_models = analytics.summarize_preset_models(presets, interactions, label_records)
-    comparable_cells = analytics.filter_by_sample_size(preset_models, minimum_sample_size)
+    preset_models = stats.summarize_preset_models(presets, interactions, label_records)
+    comparable_cells = stats.filter_by_sample_size(preset_models, minimum_sample_size)
     if comparable_cells.empty:
         st.info("No preset-model pair has enough labels for the selected minimum sample size.")
     else:
@@ -441,7 +442,7 @@ def display_judge_analytics(
         "use the latest valid label per interaction, judge model, and configuration."
     )
 
-    judge_summary = analytics.summarize_judges(judge_results)
+    judge_summary = stats.summarize_judges(judge_results)
 
     if judge_summary.empty:
         st.info("No judge evaluations match the current filters.")
@@ -449,7 +450,7 @@ def display_judge_analytics(
 
     display_judge_table(judge_summary)
 
-    comparable_judges = analytics.filter_by_sample_size(judge_summary, minimum_sample_size)
+    comparable_judges = stats.filter_by_sample_size(judge_summary, minimum_sample_size)
     st.markdown("**Label distribution by judge setup**")
     if comparable_judges.empty:
         st.info("No judge setup has enough labels for the selected minimum sample size.")
@@ -464,8 +465,8 @@ def display_judge_analytics(
     if len(judge_order) < 2:
         st.info("Select at least two judge setups with enough labels to compare agreement.")
     else:
-        agreement = analytics.summarize_judge_agreement(judge_results)
-        agreement = analytics.filter_by_sample_size(agreement, minimum_sample_size, count_column="overlap_count")
+        agreement = stats.summarize_judge_agreement(judge_results)
+        agreement = stats.filter_by_sample_size(agreement, minimum_sample_size, count_column="overlap_count")
         agreement = agreement.loc[agreement["judge_a"].isin(judge_order) & agreement["judge_b"].isin(judge_order)]
         pairwise_agreement = agreement.loc[agreement["judge_a"] != agreement["judge_b"]]
 
@@ -535,16 +536,16 @@ def inject_responsive_styles() -> None:
 
 ##### PAGE
 
-view_utils.page_config("Analytics")
+page.page_config("Analytics")
 st.title("Analytics")
 st.caption("Explore experiment outcomes, activity, cost, and data coverage.")
 
 inject_responsive_styles()
 
 # load analytics data before preparing filter options
-interactions = analytics.load_interactions()
-judge_results = analytics.load_judge_results()
-presets = analytics.load_presets()
+interactions = stats.load_interactions()
+judge_results = stats.load_judge_results()
+presets = stats.load_presets()
 
 if interactions.empty:
     st.info("No interaction data yet. Run an experiment to start building analytics.")
@@ -646,7 +647,7 @@ with st.expander("Filters", expanded=True):
 
 # filter interactions first and use their ids to filter judge results
 start_date, end_date = parse_date_range(selected_dates) if selected_dates else (None, None)
-filtered_interactions = analytics.filter_interactions(
+filtered_interactions = stats.filter_interactions(
     interactions,
     start_date=start_date,
     end_date=end_date,
@@ -658,7 +659,7 @@ if filtered_interactions.empty:
     st.warning("No interactions match the selected filters.")
     st.stop()
 
-filtered_judge_results = analytics.filter_judge_results(
+filtered_judge_results = stats.filter_judge_results(
     judge_results,
     interaction_ids=filtered_interactions["id"].tolist(),
     judge_config_ids=selected_judge_configs or None,
@@ -667,20 +668,20 @@ filtered_judge_results = analytics.filter_judge_results(
 
 # choose labels used by the shared metrics and outcome charts
 if label_source == "Manual":
-    label_records = analytics.get_manual_label_records(filtered_interactions)
+    label_records = stats.get_manual_label_records(filtered_interactions)
     label_source_caption = "Each manually labeled interaction contributes one label."
 else:
     # use the latest label of every judge setup
-    latest_judge_results = analytics.get_latest_judge_results(filtered_judge_results)
-    label_records = analytics.get_judge_label_records(latest_judge_results)
+    latest_judge_results = stats.get_latest_judge_results(filtered_judge_results)
+    label_records = stats.get_judge_label_records(latest_judge_results)
     label_source_caption = (
         "Each judge model and configuration contributes its latest label per interaction. "
         "Judging costs include all evaluations."
     )
 
-label_distribution = analytics.summarize_labels(label_records["label"])
+label_distribution = stats.summarize_labels(label_records["label"])
 label_coverage = label_records["interaction_id"].nunique()
-metrics = analytics.get_overview_metrics(filtered_interactions, filtered_judge_results)
+metrics = stats.get_overview_metrics(filtered_interactions, filtered_judge_results)
 
 display_metric_cards(metrics, label_distribution, label_coverage)
 
