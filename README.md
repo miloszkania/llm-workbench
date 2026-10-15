@@ -43,3 +43,6 @@ python3 -m streamlit run main.py
 ## Environment variables
 - `OPENROUTER_API_KEY` - API key for OpenRouter (required)
 - `DB_PATH` - path to the SQLite database (required). The database is automatically created on first use.
+
+## License
+Released under the [MIT License](LICENSE).
