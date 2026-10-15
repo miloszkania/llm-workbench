@@ -3,8 +3,9 @@ from typing import Any
 import streamlit as st
 from openrouter import components
 
-from src import database, errors, formatting, openrouter_api
+from src import database, formatting, openrouter_api
 from src.errors import OpenRouterRequestError
+from src.ui import error_display
 
 
 @st.cache_data(ttl="1h", show_spinner="Loading available models…")
@@ -74,7 +75,7 @@ def model_filter_and_sort_controls(
             sort=model_sorting,
         )
     except OpenRouterRequestError as error:
-        errors.display_error(error, canvas)
+        error_display.display_error(error, canvas)
         return [], model_filter
 
     if favorites_only:
@@ -148,4 +149,4 @@ def model_picker(
                 canvas.caption("***Price***: varies by model")
 
         except OpenRouterRequestError as error:
-            errors.display_error(error, canvas)
+            error_display.display_error(error, canvas)

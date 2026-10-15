@@ -1,12 +1,11 @@
-from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
-from src import database, errors, experiments, formatting, judge, openrouter_api, records
-from src.ui import model_selection
+from src import database, experiments, formatting, judge, openrouter_api, records
+from src.ui import error_display, model_selection
 from src.errors import OpenRouterRequestError
 
 
@@ -145,7 +144,7 @@ def send_prompt_button_with_repetitions(
 
             except OpenRouterRequestError as error:
                 status.update(label="Run interrupted", state="error")
-                errors.display_error(error)
+                error_display.display_error(error)
 
 
 def save_preset_button(
@@ -221,7 +220,7 @@ def display_run_judging_dialog(interaction_object) -> None:
                 st.rerun()
             except OpenRouterRequestError as error:
                 status.update(label="Judging interrupted", state="error")
-                errors.display_error(error)
+                error_display.display_error(error)
 
 
 def interaction_card(interaction_object) -> None:
@@ -389,14 +388,14 @@ def api_key_details(canvas: Any = st.sidebar) -> None:
         try:
             metadata = openrouter_api.get_key_metadata()
         except OpenRouterRequestError as error:
-            errors.display_error(error, canvas, context="Could not fetch API key information.")
+            error_display.display_error(error, canvas, context="Could not fetch API key information.")
             return
 
         # get credits
         try:
             credits = openrouter_api.get_credits()
         except OpenRouterRequestError as error:
-            errors.display_error(error, canvas, context="Could not fetch credit information.")
+            error_display.display_error(error, canvas, context="Could not fetch credit information.")
             return
 
     # key label
@@ -478,7 +477,7 @@ def judge_model_and_configuration_selector(
                     "Output / 1M tokens": formatting.format_model_price(model_object.data.pricing.completion),
                 })
             except OpenRouterRequestError as error:
-                errors.display_error(error)
+                error_display.display_error(error)
                 price_table_rows.append({
                     "Model": model_id,
                     "Input / 1M tokens": "Pricing unavailable",
@@ -504,31 +503,3 @@ def judge_model_and_configuration_selector(
     )
 
     return selected_configuration, selected_models_ids
-
-
-def display_failed_judgments_information(
-        failed_judgments,
-        canvas: Any = st,
-) -> None:
-    canvas.error(f"{len(failed_judgments)} judge evaluation{'s' if len(failed_judgments) != 1 else ''} could not be completed:")
-    for failed_judgment in failed_judgments:
-        errors.display_error(
-            error=failed_judgment["error"],
-            canvas=canvas,
-            context=f"Interaction `{failed_judgment['interaction_id']}` "
-                    f"· judge `{failed_judgment['judge_model']}`",
-        )
-
-
-def display_interaction_errors(
-        succeeded_interactions: int,
-        interaction_errors: Sequence[Exception],
-        canvas: Any = st,
-) -> None:
-    canvas.warning(f"Only {succeeded_interactions} interaction{'s' if succeeded_interactions != 1 else ''} "
-               f"succeeded. In other interactions, the following errors occurred:")
-    for interaction_error in interaction_errors:
-        errors.display_error(
-            error=interaction_error,
-            canvas=canvas,
-        )

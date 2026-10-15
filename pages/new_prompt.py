@@ -1,7 +1,7 @@
 import streamlit as st
 
 from src import database, records, widgets
-from src.ui import model_selection, page
+from src.ui import error_display, model_selection, page
 
 page.page_config("New prompt")
 
@@ -112,7 +112,7 @@ else:
 interaction_errors = st.session_state.pop("interaction_errors", [])
 succeeded_interaction_count = st.session_state.pop("succeeded_interaction_count", 0)
 if interaction_errors:
-    widgets.display_interaction_errors(
+    error_display.display_interaction_errors(
         succeeded_interactions=succeeded_interaction_count,
         interaction_errors=interaction_errors,
     )

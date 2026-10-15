@@ -1,8 +1,5 @@
-from typing import Any
-
 import httpx
 import openrouter.errors
-import streamlit as st
 
 OPENROUTER_ERRORS = {
     # RETRY ERRORS:
@@ -112,41 +109,6 @@ OPENROUTER_ERRORS = {
     },
 }
 
-ERROR_PRESENTATION = {
-    "auth": {
-        "icon": "🔑",
-        "title": "OpenRouter authentication failed",
-    },
-    "credits": {
-        "icon": "💳",
-        "title": "Insufficient OpenRouter credits",
-    },
-    "rate_limit": {
-        "icon": "⏳",
-        "title": "OpenRouter rate limit reached",
-    },
-    "network": {
-        "icon": "🌐",
-        "title": "Network request failed",
-    },
-    "temporary": {
-        "icon": "🛠️",
-        "title": "Request temporarily failed",
-    },
-    "request": {
-        "icon": "⚠️",
-        "title": "Request rejected",
-    },
-    "not_found": {
-        "icon": "🔎",
-        "title": "Requested resource not found",
-    },
-    "unexpected": {
-        "icon": "❗",
-        "title": "Unexpected request error",
-    },
-}
-
 
 class OpenRouterRequestError(Exception):
     def __init__(self, message: str, kind: str, original_error: Exception) -> None:
@@ -159,33 +121,3 @@ class ModelResponseError(ValueError):
     def __init__(self, message: str, model: str) -> None:
         super().__init__(message)
         self.model = model
-
-
-def display_error(
-        error: Exception,
-        canvas: Any = st,
-        context: str | None = None,
-) -> None:
-    if isinstance(error, OpenRouterRequestError):
-        presentation = ERROR_PRESENTATION.get(
-            error.kind,
-            ERROR_PRESENTATION["unexpected"],
-        )
-        message = str(error)
-    else:
-        presentation = {
-            "icon": "⚠️",
-            "title": "Operation could not be completed",
-        }
-        message = str(error)
-
-    details = canvas.expander(
-        f"**:red[{presentation['title']}]**",
-        icon=presentation["icon"],
-        type="compact",
-    )
-
-    if context:
-        details.markdown(f":grey[{context}]")
-
-    details.caption(message)

@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-from src import formatting, database, errors
+from src import formatting, database
 from src.errors import OpenRouterRequestError
-from src.ui import model_selection, page
+from src.ui import error_display, model_selection, page
 
 page.page_config("Model library")
 
@@ -16,7 +16,7 @@ favorite_models = database.get_favorite_models()
 try:
     all_model_ids = [i.id for i in model_selection.get_models()]
 except OpenRouterRequestError as error:
-    errors.display_error(error)
+    error_display.display_error(error)
     st.stop()
 
 # also include models that are currently not available
