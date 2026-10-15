@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src import view_utils, widgets, database
+from src import database, records, view_utils, widgets
 
 view_utils.page_config("New prompt")
 
@@ -16,7 +16,7 @@ st.divider()
 ##### PRESET
 
 st.header("Prompt")
-all_presets = view_utils.get_all_presets(fill_null=True)
+all_presets = records.get_all_presets(fill_null=True)
 
 st.page_link("pages/presets.py", label="Edit presets")
 
@@ -65,7 +65,7 @@ prompt = st.text_area(
 
 categories = st.multiselect(
     "Categories",
-    options=view_utils.get_all_categories(),
+    options=records.get_all_categories(),
     accept_new_options=True,
     key="categories",
     on_change=reset_preset_selection,

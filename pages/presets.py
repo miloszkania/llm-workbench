@@ -3,7 +3,7 @@ import json
 import pandas as pd
 import streamlit as st
 
-from src import database, view_utils
+from src import database, records, view_utils
 
 view_utils.page_config("Presets")
 
@@ -34,7 +34,7 @@ def save_changes(original_df: pd.DataFrame) -> None:
 
 st.title("Presets")
 
-preset_table = view_utils.get_all_presets()
+preset_table = records.get_all_presets()
 
 if not preset_table.empty:
     edited_preset_table = st.data_editor(
@@ -70,7 +70,7 @@ if not preset_table.empty:
             ),
             "categories": st.column_config.MultiselectColumn(
                 "Categories",
-                options=view_utils.get_all_categories(preset_table),
+                options=records.get_all_categories(preset_table),
                 accept_new_options=True,
             ),
         },

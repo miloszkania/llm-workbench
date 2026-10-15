@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 from openrouter import components
 
-from src import formatting, view_utils, database, openrouter_api, judge, errors
+from src import database, errors, experiments, formatting, judge, openrouter_api, records, view_utils
 from src.errors import OpenRouterRequestError
 
 
@@ -231,7 +231,7 @@ def send_prompt_button_with_repetitions(
                     )
 
             try:
-                interaction_ids, interaction_errors, failed_judgments = view_utils.generate_and_evaluate_interactions(
+                interaction_ids, interaction_errors, failed_judgments = experiments.generate_and_evaluate_interactions(
                     model,
                     system_prompt,
                     prompt,
@@ -281,7 +281,7 @@ def save_preset_button(
         if not prompt:
             st.error("You need to enter the prompt!")
         else:
-            preset_id = view_utils.add_preset(system_prompt, prompt, categories)
+            preset_id = records.add_preset(system_prompt, prompt, categories)
             st.success(f"Saved as preset #{preset_id}")
 
 
@@ -440,7 +440,7 @@ def interaction_card(interaction_object) -> None:
 def preset_table_preview(preset_table: pd.DataFrame | None = None) -> None:
     with st.spinner("Getting preset data…"):
         if preset_table is None:
-            preset_table = view_utils.get_all_presets()
+            preset_table = records.get_all_presets()
 
     with st.expander("All presets"):
         if not preset_table.empty:
@@ -482,7 +482,7 @@ def batch_ids_picker(
         canvas: Any = st,
 ) -> None:
     if history_table is None:
-        history_table = view_utils.get_all_interactions()
+        history_table = records.get_all_interactions()
 
     if history_table.empty:
         return

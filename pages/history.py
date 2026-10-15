@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from src import database, view_utils, widgets
+from src import database, records, view_utils, widgets
 
 view_utils.page_config("History")
 
@@ -33,7 +33,7 @@ error_message = st.session_state.pop("error_message", None)
 if error_message:
     st.error(error_message)
 
-history_table = view_utils.get_all_interactions()
+history_table = records.get_all_interactions()
 
 if not history_table.empty:
     edited_history_table = st.data_editor(
@@ -72,7 +72,7 @@ if not history_table.empty:
             ),
             "categories": st.column_config.MultiselectColumn(
                 "categories",
-                options=view_utils.get_all_categories(history_table),
+                options=records.get_all_categories(history_table),
                 accept_new_options=True,
             ),
             "time": st.column_config.DatetimeColumn(
