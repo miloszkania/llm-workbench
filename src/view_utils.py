@@ -66,12 +66,12 @@ def format_duration(value: str) -> str:
     hours, minutes, seconds = map(int, value.split(":"))
 
     # choose the suitable display option
-    if minutes == 0:
-        return f"{seconds} seconds"
-    elif hours == 0:
-        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
-    else:
+    if hours > 0:
         return value
+    elif minutes == 0:
+        return f"{seconds} seconds"
+    else:
+        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
 
 
 def format_model_price(
