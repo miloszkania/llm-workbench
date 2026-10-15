@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from src import database, records, widgets
-from src.ui import page
+from src import database, records
+from src.ui import page, sidebar
 
 page.page_config("History")
 
@@ -108,6 +108,6 @@ if not history_table.empty:
 
     st.space("medium")
 
-    widgets.batch_ids_picker(history_table=history_table)
+    sidebar.batch_ids_picker(history_table=history_table)
 else:
     st.info("No data yet!")

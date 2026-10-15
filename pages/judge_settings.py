@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from src import database, widgets
-from src.ui import page
+from src import database
+from src.ui import judge_selection, page
 
 page.page_config("Judge settings")
 
@@ -33,7 +33,7 @@ if not all_configs.empty:
         st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")
         st.space()
 
-        selected_config, selected_models = widgets.judge_model_and_configuration_selector(judge_config, judge_models)
+        selected_config, selected_models = judge_selection.judge_model_and_configuration_selector(judge_config, judge_models)
         st.space()
     else:
         selected_models, selected_config = [], None

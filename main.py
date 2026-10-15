@@ -11,8 +11,7 @@ except EnvironmentConfigError as error:
     st.stop()
 
 
-from src import widgets
-from src.ui import page
+from src.ui import page, sidebar
 
 page.page_config()
 
@@ -43,6 +42,6 @@ navigation = st.navigation({
 
 navigation.run()
 
-widgets.batch_ids_picker(canvas=st.sidebar)
+sidebar.batch_ids_picker(canvas=st.sidebar)
 
-widgets.api_key_details()
+sidebar.api_key_details()

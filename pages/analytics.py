@@ -6,8 +6,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import analytics, charts, widgets
-from src.ui import page
+from src import analytics, charts
+from src.ui import page, preset_controls
 
 
 FILTER_KEYS = (
@@ -365,7 +365,7 @@ def display_preset_analytics(
         "prompt, system prompt, and set of categories, so editing a preset updates "
         "these statistics immediately."
     )
-    widgets.preset_table_preview(presets)
+    preset_controls.preset_table_preview(presets)
 
     if presets.empty:
         st.info("No presets are available to compare with the selected interactions.")

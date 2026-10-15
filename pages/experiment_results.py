@@ -2,8 +2,8 @@ from typing import Any
 
 import streamlit as st
 
-from src import database, formatting, records, widgets
-from src.ui import error_display, model_selection, page
+from src import database, formatting, records
+from src.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls
 
 interaction_ids = st.query_params.get("id")
 
@@ -86,13 +86,13 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     )
 
     if judging_enabled:
-        judge_config, judge_models = widgets.judge_model_and_configuration_selector()
+        judge_config, judge_models = judge_selection.judge_model_and_configuration_selector()
     else:
         judge_config, judge_models = None, []
 
     st.divider()
 
-    widgets.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
+    run_controls.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
 
 
 def display_experiment_overview(interactions, canvas):
@@ -179,7 +179,7 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
                 database.set_interaction_categories(i["interaction"]["id"], categories)
             st.success("Categories updated!")
 
-        widgets.save_preset_button(
+        preset_controls.save_preset_button(
             experiment_input["prompt"],
             experiment_input["system_prompt"],
             categories
@@ -245,4 +245,4 @@ st.divider()
 
 # display outcomes and judge results
 for interaction_object in interactions:
-    widgets.interaction_card(interaction_object)
+    interaction_view.interaction_card(interaction_object)
