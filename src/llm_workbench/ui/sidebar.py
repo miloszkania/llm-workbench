@@ -5,7 +5,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
-from llm_workbench import openrouter_api, records
+from llm_workbench import records
+from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
 

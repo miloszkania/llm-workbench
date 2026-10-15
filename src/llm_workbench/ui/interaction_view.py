@@ -1,6 +1,7 @@
 import streamlit as st
 
-from llm_workbench import db, formatting, judge
+from llm_workbench import db, formatting
+from llm_workbench.llm import judge
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display, judge_selection
 

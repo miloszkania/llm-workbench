@@ -3,7 +3,8 @@ from typing import Any
 import streamlit as st
 from openrouter import components
 
-from llm_workbench import db, formatting, openrouter_api
+from llm_workbench import db, formatting
+from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
 

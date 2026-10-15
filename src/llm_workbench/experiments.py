@@ -2,7 +2,8 @@ import json
 import time
 from typing import Any, Callable
 
-from llm_workbench import db, formatting, judge, openrouter_api
+from llm_workbench import db, formatting
+from llm_workbench.llm import judge, openrouter_api
 from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
