@@ -11,9 +11,10 @@ except EnvironmentConfigError as error:
     st.stop()
 
 
-from src import widgets, view_utils
+from src import widgets
+from src.ui import page
 
-view_utils.page_config()
+page.page_config()
 
 
 # Define all subpages

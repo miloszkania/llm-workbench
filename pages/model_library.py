@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 
-from src import formatting, view_utils, widgets, database, errors
+from src import formatting, database, errors
 from src.errors import OpenRouterRequestError
+from src.ui import model_selection, page
 
-view_utils.page_config("Model library")
+page.page_config("Model library")
 
 st.title("Model library")
 
@@ -13,7 +14,7 @@ st.header("Favorite models")
 
 favorite_models = database.get_favorite_models()
 try:
-    all_model_ids = [i.id for i in view_utils.get_models()]
+    all_model_ids = [i.id for i in model_selection.get_models()]
 except OpenRouterRequestError as error:
     errors.display_error(error)
     st.stop()
@@ -39,7 +40,7 @@ st.divider()
 st.header("All models")
 
 # Filtering and sorting
-model_objects, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_", show_library_link=False)
+model_objects, _ = model_selection.model_filter_and_sort_controls(key_prefix="model_library_", show_library_link=False)
 st.space()
 
 # Create model library dataframe

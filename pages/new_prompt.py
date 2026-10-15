@@ -1,15 +1,16 @@
 import streamlit as st
 
-from src import database, records, view_utils, widgets
+from src import database, records, widgets
+from src.ui import model_selection, page
 
-view_utils.page_config("New prompt")
+page.page_config("New prompt")
 
 
 st.title("New Prompt")
 
 ##### MODEL
 st.header("Model")
-widgets.model_picker()
+model_selection.model_picker()
 st.divider()
 
 

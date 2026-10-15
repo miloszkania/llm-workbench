@@ -2,7 +2,8 @@ from typing import Any
 
 import streamlit as st
 
-from src import database, formatting, records, view_utils, widgets
+from src import database, formatting, records, widgets
+from src.ui import model_selection, page
 
 interaction_ids = st.query_params.get("id")
 
@@ -72,7 +73,7 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
     originally_used_models = list(set([i["interaction"]["model"] for i in interactions]))
     default_model = originally_used_models[0] if len(originally_used_models) == 1 else None
 
-    widgets.model_picker(default_model=default_model)
+    model_selection.model_picker(default_model=default_model)
     st.divider()
 
     st.header("LLM-as-a-Judge Evaluation")
@@ -196,7 +197,7 @@ ensure_same_experiment(experiment_input, interactions)
 
 ### Start frontend
 
-view_utils.page_config("Experiment results")
+page.page_config("Experiment results")
 st.title("Experiment Results")
 st.page_link("pages/history.py", label="← Show all interactions")
 

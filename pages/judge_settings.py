@@ -1,9 +1,10 @@
 import pandas as pd
 import streamlit as st
 
-from src import view_utils, database, widgets
+from src import database, widgets
+from src.ui import page
 
-view_utils.page_config("Judge settings")
+page.page_config("Judge settings")
 
 st.title("Judge Settings")
 

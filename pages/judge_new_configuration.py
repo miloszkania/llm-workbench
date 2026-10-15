@@ -1,8 +1,9 @@
 import streamlit as st
 
-from src import view_utils, database
+from src import database
+from src.ui import page
 
-view_utils.page_config("New Judge Configuration")
+page.page_config("New Judge Configuration")
 
 st.title("New Judge Configuration")
 

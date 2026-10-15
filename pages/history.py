@@ -1,9 +1,10 @@
 import pandas as pd
 import streamlit as st
 
-from src import database, records, view_utils, widgets
+from src import database, records, widgets
+from src.ui import page
 
-view_utils.page_config("History")
+page.page_config("History")
 
 label_options = ["success", "refusal", "unclear"]
 

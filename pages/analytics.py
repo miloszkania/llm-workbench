@@ -6,7 +6,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import analytics, charts, view_utils, widgets
+from src import analytics, charts, widgets
+from src.ui import page
 
 
 FILTER_KEYS = (
@@ -535,7 +536,7 @@ def inject_responsive_styles() -> None:
 
 ##### PAGE
 
-view_utils.page_config("Analytics")
+page.page_config("Analytics")
 st.title("Analytics")
 st.caption("Explore experiment outcomes, activity, cost, and data coverage.")
 

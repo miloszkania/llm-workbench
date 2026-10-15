@@ -3,9 +3,10 @@ import json
 import pandas as pd
 import streamlit as st
 
-from src import database, records, view_utils
+from src import database, records
+from src.ui import page
 
-view_utils.page_config("Presets")
+page.page_config("Presets")
 
 
 def save_changes(original_df: pd.DataFrame) -> None:

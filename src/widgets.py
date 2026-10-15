@@ -5,133 +5,9 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
-from openrouter import components
-
-from src import database, errors, experiments, formatting, judge, openrouter_api, records, view_utils
+from src import database, errors, experiments, formatting, judge, openrouter_api, records
+from src.ui import model_selection
 from src.errors import OpenRouterRequestError
-
-
-def model_filter_and_sort_controls(
-        canvas: Any = st,
-        key_prefix: str = "",
-        show_library_link: bool = True,
-) -> tuple[list[components.Model], str]:
-    sorting_options = {
-        "most-popular": "Most popular",
-        "newest": "Newest",
-        "latency-low-to-high": "Lowest latency",
-        "pricing-low-to-high": "Lowest price",
-        "throughput-high-to-low": "Highest throughput",
-        "intelligence-high-to-low": "Highest intelligence",
-        "context-high-to-low": "Largest context window",
-    }
-
-    if show_library_link:
-        canvas.caption("For details of all available models, visit the [Model Library](/model_library).")
-
-    favorites_only = canvas.toggle(
-        "Show only favorite models",
-        key=f"{key_prefix}favorites_only"
-    )
-
-    model_filter = canvas.segmented_control(
-        "Model type",
-        options=["All", "Free", "Paid"],
-        default="All",
-        required=True,
-        key=f"{key_prefix}model_filter",
-    )
-
-    model_sorting = canvas.segmented_control(
-        "Sort by",
-        options=list(sorting_options),
-        format_func=lambda x: sorting_options[x],
-        default="most-popular",
-        required=True,
-        key=f"{key_prefix}model_sorting",
-    )
-
-    try:
-        selected_models = view_utils.get_models(
-            model_filter=model_filter,
-            sort=model_sorting,
-        )
-    except OpenRouterRequestError as error:
-        errors.display_error(error, canvas)
-        return [], model_filter
-
-    if favorites_only:
-        favorite_models = database.get_favorite_models()
-        selected_models = [i for i in selected_models if i.id in favorite_models]
-
-    return selected_models, model_filter
-
-
-def model_picker(
-        default_model: str | None = None,
-        canvas: Any = st,
-        key_prefix: str = "",
-) -> None:
-    models, model_filter = model_filter_and_sort_controls(canvas, key_prefix)
-    model_ids = [model.id for model in models]
-
-    # Starting a new prompt, with no previous data as placeholder
-    if not default_model:
-        selected_model_id = canvas.selectbox(
-            "Select a model",
-            placeholder="Model",
-            options=model_ids,
-            index=None,
-            key=f"{key_prefix}model",
-        )
-
-    # There is placeholder data, and it's present in the up-to-date model list
-    elif default_model in model_ids:
-        selected_model_id = canvas.selectbox(
-            "Select a model",
-            placeholder=default_model,
-            options=model_ids,
-            index=model_ids.index(default_model),
-            key=f"{key_prefix}model",
-        )
-
-    # There is placeholder data, but it's not present in the up-to-date model list
-    else:
-        selected_model_id = canvas.selectbox(
-            "Select a model",
-            placeholder=default_model,
-            options=model_ids,
-            index=None,
-            key=f"{key_prefix}model",
-        )
-
-    def set_random_free_model(): st.session_state[f"{key_prefix}model"] = "openrouter/free"
-
-    # Button for "openrouter/free" - random model will be selected
-    if model_filter == "Free" and "openrouter/free" in model_ids:
-        canvas.button(
-            "Random free model",
-            type="secondary",
-            on_click=set_random_free_model,
-            key=f"{key_prefix}random_model_button",
-        )
-
-    # Model pricing
-    if selected_model_id:
-        try:
-            model_object = view_utils.get_model_object(selected_model_id)
-
-            if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
-                canvas.caption(f"***Price***: starting at "
-                     f"**{formatting.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
-                               f"per 1M input tokens** · "
-                     f"**{formatting.format_model_price(model_object.data.pricing.completion, markdown=True)} "
-                               f"per 1M output tokens**")
-            else:
-                canvas.caption("***Price***: varies by model")
-
-        except OpenRouterRequestError as error:
-            errors.display_error(error, canvas)
 
 
 def send_prompt_button_with_repetitions(
@@ -567,7 +443,7 @@ def judge_model_and_configuration_selector(
     st.write("Select up to three models that will evaluate the interactions following your selected configuration.")
 
     # Not using widgets.model_picker() here since we need a multiselect instead of a selectbox
-    models, _ = model_filter_and_sort_controls(key_prefix="judge_")
+    models, _ = model_selection.model_filter_and_sort_controls(key_prefix="judge_")
     model_ids = [model.id for model in models]
 
     # load the current models and check if they are still available
@@ -595,7 +471,7 @@ def judge_model_and_configuration_selector(
         price_table_rows = []
         for model_id in selected_models_ids:
             try:
-                model_object = view_utils.get_model_object(model_id)
+                model_object = model_selection.get_model_object(model_id)
                 price_table_rows.append({
                     "Model": model_id,
                     "Input / 1M tokens": formatting.format_model_price(model_object.data.pricing.prompt),
