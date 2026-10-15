@@ -2,7 +2,7 @@ import json
 import time
 from typing import Any, Callable
 
-from llm_workbench import database, formatting, judge, openrouter_api
+from llm_workbench import db, formatting, judge, openrouter_api
 from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
@@ -50,7 +50,7 @@ def generate_and_evaluate_interactions(
         token_usage, price = openrouter_api.extract_usage(response)
 
         # add the prompt to database
-        interaction_id = database.insert_interaction({
+        interaction_id = db.interactions.insert_interaction({
             "time": str(start_timestamp),
             "model": used_model,
             "prompt": prompt,

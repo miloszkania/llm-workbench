@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import database
+from llm_workbench import db
 from llm_workbench.ui import page
 
 page.page_config("New Judge Configuration")
@@ -76,7 +76,7 @@ if st.button("Save configuration", type="primary"):
         st.error("You need to enter the configuration name!")
     elif len(config_name) > 64:
         st.error("The configuration name can have at most 64 characters!")
-    elif database.get_judge_configuration_by_id(config_name) is not None:
+    elif db.judges.get_judge_configuration_by_id(config_name) is not None:
         st.error(f"A configuration with name `{config_name}` already exists!")
 
     elif not judge_prompt:
@@ -87,7 +87,7 @@ if st.button("Save configuration", type="primary"):
         st.error("The instructions must contain **`[PROMPT]`** and **`[RESPONSE]`**!")
 
     else:
-        database.insert_judge_configuration(config_name, judge_prompt, require_explanation)
+        db.judges.insert_judge_configuration(config_name, judge_prompt, require_explanation)
         st.success("Saved!")
         st.session_state["created_config"] = config_name
         st.switch_page("pages/judge_settings.py")

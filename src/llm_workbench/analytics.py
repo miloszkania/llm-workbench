@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from llm_workbench import database
+from llm_workbench import db
 
 
 LABELS = ("success", "refusal", "unclear")
@@ -141,15 +141,15 @@ def prepare_presets(
 ##### DATA LOADING
 
 def load_interactions() -> pd.DataFrame:
-    return prepare_interactions(database.get_all_interactions())
+    return prepare_interactions(db.interactions.get_all_interactions())
 
 
 def load_judge_results() -> pd.DataFrame:
-    return prepare_judge_results(database.get_all_judge_results())
+    return prepare_judge_results(db.judges.get_all_judge_results())
 
 
 def load_presets() -> pd.DataFrame:
-    return prepare_presets(database.get_all_presets())
+    return prepare_presets(db.presets.get_all_presets())
 
 
 ##### FILTERS

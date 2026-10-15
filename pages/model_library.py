@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from llm_workbench import formatting, database
+from llm_workbench import db, formatting
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display, model_selection, page
 
@@ -12,7 +12,7 @@ st.title("Model library")
 # Favorite models
 st.header("Favorite models")
 
-favorite_models = database.get_favorite_models()
+favorite_models = db.settings.get_favorite_models()
 try:
     all_model_ids = [i.id for i in model_selection.get_models()]
 except OpenRouterRequestError as error:
@@ -29,7 +29,7 @@ selected_favorite_models = st.multiselect(
 )
 
 if st.button("Save favorites"):
-    database.update_favorite_models(selected_favorite_models)
+    db.settings.update_favorite_models(selected_favorite_models)
     favorite_models = selected_favorite_models
     st.success("Saved!")
 
@@ -108,5 +108,5 @@ for model_id, is_favorite in visible_favorite_dict.items():
 
 # save changes if existent
 if updated_favorite_models != favorite_models:
-    database.update_favorite_models(updated_favorite_models)
+    db.settings.update_favorite_models(updated_favorite_models)
     st.rerun()

@@ -3,7 +3,7 @@ from typing import Any
 import streamlit as st
 from openrouter import components
 
-from llm_workbench import database, formatting, openrouter_api
+from llm_workbench import db, formatting, openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
 
@@ -79,7 +79,7 @@ def model_filter_and_sort_controls(
         return [], model_filter
 
     if favorites_only:
-        favorite_models = database.get_favorite_models()
+        favorite_models = db.settings.get_favorite_models()
         selected_models = [i for i in selected_models if i.id in favorite_models]
 
     return selected_models, model_filter

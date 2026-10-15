@@ -3,7 +3,7 @@ import json
 import pandas as pd
 import streamlit as st
 
-from llm_workbench import database, records
+from llm_workbench import db, records
 from llm_workbench.ui import page
 
 page.page_config("Presets")
@@ -12,7 +12,7 @@ page.page_config("Presets")
 def save_changes(original_df: pd.DataFrame) -> None:
     # Delete rows
     for i in changes["deleted_rows"]:
-        database.delete_preset(int(original_df.iloc[i]["id"]))
+        db.presets.delete_preset(int(original_df.iloc[i]["id"]))
 
     # Adjust preset data
     for row_idx, ch in changes["edited_rows"].items():
@@ -21,11 +21,11 @@ def save_changes(original_df: pd.DataFrame) -> None:
                 new_value = json.dumps(ch.get("categories"), ensure_ascii=False)
 
             preset_id = int(original_df.iloc[row_idx]["id"])
-            database.modify_preset(preset_id, column, new_value)
+            db.presets.modify_preset(preset_id, column, new_value)
 
     # Add new rows
     for ch in changes["added_rows"]:
-        database.insert_preset({
+        db.presets.insert_preset({
             "prompt": ch["prompt"],
             "system_prompt": ch.get("system_prompt"),
             "categories": json.dumps(ch.get("categories"), ensure_ascii=False) if ch.get("categories") else None,

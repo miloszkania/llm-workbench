@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import database, formatting
+from llm_workbench import db, formatting
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display, model_selection
 
@@ -10,7 +10,7 @@ def judge_model_and_configuration_selector(
         default_models: list[str] | None = None,
 ) -> tuple[str | None, list[str]]:
     if not default_config and not default_models:
-        default_config, default_models = database.get_default_judge_settings()
+        default_config, default_models = db.settings.get_default_judge_settings()
 
     # Models
     st.subheader("Models")
@@ -66,7 +66,7 @@ def judge_model_and_configuration_selector(
     st.space()
     st.subheader("Configuration")
 
-    saved_configuration_ids = database.get_saved_configuration_ids()
+    saved_configuration_ids = db.judges.get_saved_configuration_ids()
     previous_selected_configuration = (
         saved_configuration_ids.index(default_config) if default_config in saved_configuration_ids else None
     )

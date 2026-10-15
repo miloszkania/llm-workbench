@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import database, records
+from llm_workbench import db, records
 from llm_workbench.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls
 
 page.page_config("New prompt")
@@ -84,7 +84,7 @@ st.divider()
 st.header("LLM-as-a-Judge Evaluation")
 
 # Fetch the judging configuration
-judge_config, judge_models = database.get_default_judge_settings()
+judge_config, judge_models = db.settings.get_default_judge_settings()
 
 judging_enabled = st.toggle(
     "Evaluate responses with LLM judges",

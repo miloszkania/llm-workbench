@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from llm_workbench import database, records
+from llm_workbench import db, records
 from llm_workbench.ui import page, sidebar
 
 page.page_config("History")
@@ -11,7 +11,7 @@ label_options = ["success", "refusal", "unclear"]
 def save_changes(original_data: pd.DataFrame) -> None:
     # delete rows
     for row_idx in changes["deleted_rows"]:
-        database.delete_interaction(int(original_data.iloc[row_idx]["id"]))
+        db.interactions.delete_interaction(int(original_data.iloc[row_idx]["id"]))
 
     # adjust record data
     for row_idx, edit_changes in changes["edited_rows"].items():
@@ -19,11 +19,11 @@ def save_changes(original_data: pd.DataFrame) -> None:
 
         # label (if has been changed):
         if "manual_label" in edit_changes:
-            database.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
+            db.interactions.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
 
         # categories (if has been changed):
         if "categories" in edit_changes:
-            database.set_interaction_categories(interaction_id, edit_changes.get("categories"))
+            db.interactions.set_interaction_categories(interaction_id, edit_changes.get("categories"))
 
 
 

@@ -3,7 +3,7 @@ from typing import Any
 
 import pandas as pd
 
-from llm_workbench import database, formatting
+from llm_workbench import db, formatting
 
 
 def get_all_categories(
@@ -21,7 +21,7 @@ def get_all_categories(
 
 
 def get_all_interactions(fill_null: bool = False) -> pd.DataFrame:
-    df = pd.DataFrame(database.get_all_interactions())
+    df = pd.DataFrame(db.interactions.get_all_interactions())
 
     if df.empty:
         return df
@@ -41,7 +41,7 @@ def get_all_interactions(fill_null: bool = False) -> pd.DataFrame:
 
 
 def get_interaction_by_id(entry_id: int) -> dict[str, Any] | None:
-    prompt_data = database.get_interaction_by_id(entry_id)
+    prompt_data = db.interactions.get_interaction_by_id(entry_id)
 
     if not prompt_data:
         return None
@@ -57,7 +57,7 @@ def get_interaction_by_id(entry_id: int) -> dict[str, Any] | None:
 
 
 def get_all_presets(fill_null: bool = False) -> pd.DataFrame:
-    df = pd.DataFrame(database.get_all_presets())
+    df = pd.DataFrame(db.presets.get_all_presets())
 
     if df.empty:
         return df
@@ -80,12 +80,12 @@ def add_preset(
     categories = json.dumps(categories, ensure_ascii=False)
     system_prompt = system_prompt or None
 
-    matching_preset = database.get_preset_id_by_content(prompt, system_prompt, categories)
+    matching_preset = db.presets.get_preset_id_by_content(prompt, system_prompt, categories)
 
     if matching_preset:
         return matching_preset
     else:
-        return database.insert_preset({
+        return db.presets.insert_preset({
             "prompt": prompt,
             "system_prompt": system_prompt,
             "categories": categories,

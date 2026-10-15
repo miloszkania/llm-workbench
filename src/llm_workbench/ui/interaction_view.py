@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import database, formatting, judge
+from llm_workbench import db, formatting, judge
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display, judge_selection
 
@@ -95,7 +95,7 @@ def interaction_card(interaction_object) -> None:
         # Manual label field
         def update_manual_label():
             new_label = st.session_state[f"manual_label_{interaction_id}"]
-            database.set_interaction_label(interaction_id, new_label)
+            db.interactions.set_interaction_label(interaction_id, new_label)
             col_manual_label.success("Label saved!")
 
         possible_labels = ["success", "refusal", "unclear", None]
