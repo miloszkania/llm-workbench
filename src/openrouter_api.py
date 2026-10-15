@@ -13,6 +13,7 @@ CHAT_TIMEOUT_MS = 120_000 # network timeout for each chat attempt
 
 RATE_LIMIT_DELAY_S = 4 # default delay when rate-limited and no http retry-after value specified
 RETRY_DELAY_S = 3.2 # default delay when not rate-limited
+REQUEST_DELAY_S = 3.2 # pause between consecutive requests of a batch to avoid rate limits
 
 TARGET_MAX_COMPLETION_TOKENS = 4_096
 JUDGE_MAX_COMPLETION_TOKENS = 1_024
@@ -156,3 +157,16 @@ def extract_response_text(response: components.ChatResult) -> str:
         "The model returned no textual response.",
         response.model
     )
+
+
+# returns (total tokens, cost). both can be missing in the response, e.g. for some providers
+def extract_usage(response: components.ChatResult) -> tuple[int | None, float | None]:
+    usage = response.usage
+
+    if usage is None:
+        return None, None
+
+    # cost may be None or the SDK's `Unset` sentinel, which can't be stored in the database
+    cost = usage.cost if isinstance(usage.cost, (int, float)) else None
+
+    return usage.total_tokens, cost

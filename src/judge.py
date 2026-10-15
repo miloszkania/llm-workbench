@@ -9,14 +9,12 @@ from src.errors import OpenRouterRequestError, ModelResponseError
 def get_configuration_details(
         judge_config_id: str,
 ) -> tuple[str | None, bool]:
-    fetched_object = [dict(i) for i in database.get_judge_configuration_by_id(judge_config_id)]
+    judge_config = database.get_judge_configuration_by_id(judge_config_id)
 
-    if len(fetched_object) > 0: # should only have 0 or 1 element
-        judge_prompt = fetched_object[0].get("judge_prompt")
-        require_explanation = fetched_object[0].get("require_explanation") == 1
-        return judge_prompt, require_explanation
-    else:
+    if judge_config is None:
         return None, False
+
+    return judge_config["judge_prompt"], judge_config["require_explanation"] == 1
 
 
 def compose_judge_prompt(
@@ -59,6 +57,7 @@ def get_judge_result(
     )
     judge_message = openrouter_api.extract_response_text(judge_response)
     used_model = view_utils.remove_timestamp_from_model_id(judge_response.model)
+    _, price = openrouter_api.extract_usage(judge_response)
 
     # parse the judge response
     if require_explanation:
@@ -97,7 +96,7 @@ def get_judge_result(
         "explanation": explanation,
         "time": time,
         "duration": duration,
-        "price": judge_response.usage.cost,
+        "price": price,
     }
 
 
@@ -122,7 +121,7 @@ def evaluate_and_store_interaction(
     failed_judgments = []
 
     for i, judge_model in enumerate(judge_models, start=1):
-        if i > 1: time.sleep(3.2)
+        if i > 1: time.sleep(openrouter_api.REQUEST_DELAY_S)
 
         if on_judgment_start:
             on_judgment_start(i, len(judge_models))

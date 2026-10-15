@@ -106,10 +106,10 @@ def display_experiment_overview(interactions, canvas):
     num_unclear = count_labels("unclear")
 
     judging_price = sum(
-        sum([i["price"] for i in single_interaction["judge_results"]])
+        sum([i["price"] or 0 for i in single_interaction["judge_results"]])
         for single_interaction in interactions
     )
-    interaction_price = sum([i["interaction"]["price"] for i in interactions])
+    interaction_price = sum([i["interaction"]["price"] or 0 for i in interactions])
 
     canvas.markdown(f"##### Tested models: {', '.join(sorted({f"`{i['interaction']['model']}`" for i in interactions}))}")
     canvas.markdown(

@@ -355,7 +355,7 @@ def interaction_card(interaction_object) -> None:
         num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
         num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
         num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
-        judging_price = sum(i["price"] for i in interaction_object["judge_results"])
+        judging_price = sum(i["price"] or 0 for i in interaction_object["judge_results"])
 
         col_overview, col_manual_label = st.columns([3, 1])
 
@@ -367,7 +367,7 @@ def interaction_card(interaction_object) -> None:
                  f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
                  f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
                  f"**{interaction_object['interaction']['token_usage']}** tokens · "
-                 f"interaction: **\\${interaction_object['interaction']['price']:.4f}** · "
+                 f"interaction: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
                  f"judging: **\\${judging_price:.4f}**"
         )
 

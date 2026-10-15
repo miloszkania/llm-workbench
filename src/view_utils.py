@@ -48,8 +48,8 @@ def get_all_categories(
 
 
 def remove_timestamp_from_model_id(model_id: str) -> str:
-    # removes the snapshot of the model
-    return re.sub(r"-\d{8}", "", model_id)
+    # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
+    return re.sub(r"-\d{8}(?=$|:)", "", model_id)
 
 
 def format_timestamp(value: str) -> str:
@@ -66,12 +66,12 @@ def format_duration(value: str) -> str:
     hours, minutes, seconds = map(int, value.split(":"))
 
     # choose the suitable display option
-    if minutes == 0:
-        return f"{seconds} seconds"
-    elif hours == 0:
-        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
-    else:
+    if hours > 0:
         return value
+    elif minutes == 0:
+        return f"{seconds} seconds"
+    else:
+        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
 
 
 def format_model_price(
@@ -186,8 +186,8 @@ def generate_and_evaluate_interactions(
 
     # send the prompt `repetition_count` times
     for i in range(1, repetition_count + 1):
-        # timeout of 3 seconds (if not first prompt of the batch)
-        if i > 1: time.sleep(3.2)
+        # pause between requests (if not first prompt of the batch)
+        if i > 1: time.sleep(openrouter_api.REQUEST_DELAY_S)
 
         # run the callback function to update the progress bar
         if on_interaction_start:
@@ -205,6 +205,7 @@ def generate_and_evaluate_interactions(
 
         # clear the model id (remove the timestamp-snapshot)
         used_model = remove_timestamp_from_model_id(response.model)
+        token_usage, price = openrouter_api.extract_usage(response)
 
         # add the prompt to database
         interaction_id = database.insert_interaction({
@@ -215,8 +216,8 @@ def generate_and_evaluate_interactions(
             "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
             "response": response_content,
             "duration": str(duration),
-            "token_usage": response.usage.total_tokens,
-            "price": response.usage.cost,
+            "token_usage": token_usage,
+            "price": price,
         })
 
         # get llm-as-a-judge classification
