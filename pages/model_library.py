@@ -39,7 +39,7 @@ st.divider()
 st.header("All models")
 
 # Filtering and sorting
-model_objects, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_")
+model_objects, _ = widgets.model_filter_and_sort_controls(key_prefix="model_library_", show_library_link=False)
 st.space()
 
 # Create model library dataframe

@@ -14,6 +14,7 @@ from src.errors import OpenRouterRequestError
 def model_filter_and_sort_controls(
         canvas: Any = st,
         key_prefix: str = "",
+        show_library_link: bool = True,
 ) -> tuple[list[components.Model], str]:
     sorting_options = {
         "most-popular": "Most popular",
@@ -25,7 +26,7 @@ def model_filter_and_sort_controls(
         "context-high-to-low": "Largest context window",
     }
 
-    if not st.context.url.rstrip("/").endswith("/model_library"):
+    if show_library_link:
         canvas.caption("For details of all available models, visit the [Model Library](/model_library).")
 
     favorites_only = canvas.toggle(
