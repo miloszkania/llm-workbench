@@ -6,8 +6,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import analytics, charts
-from src.ui import page, preset_controls
+from llm_workbench import analytics, charts
+from llm_workbench.ui import page, preset_controls
 
 
 FILTER_KEYS = (

@@ -17,7 +17,8 @@ class EnvironmentConfig:
 
 @lru_cache(maxsize=1)
 def get_env_config() -> EnvironmentConfig:
-    project_root = Path(__file__).resolve().parent.parent
+    # the project root is two directories above this package
+    project_root = Path(__file__).resolve().parents[2]
 
     load_dotenv(project_root / ".env")
 

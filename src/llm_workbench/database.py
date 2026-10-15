@@ -5,7 +5,7 @@ from contextlib import closing, contextmanager
 from functools import cache
 from typing import Any, Literal
 
-from src.config import get_env_config
+from llm_workbench.config import get_env_config
 
 SCHEMA = """
     create table if not exists app_settings (

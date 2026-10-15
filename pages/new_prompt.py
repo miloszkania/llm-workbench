@@ -1,7 +1,7 @@
 import streamlit as st
 
-from src import database, records
-from src.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls
+from llm_workbench import database, records
+from llm_workbench.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls
 
 page.page_config("New prompt")
 

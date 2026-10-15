@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from src import database
-from src.ui import judge_selection, page
+from llm_workbench import database
+from llm_workbench.ui import judge_selection, page
 
 page.page_config("Judge settings")
 

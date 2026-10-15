@@ -1,8 +1,8 @@
 import streamlit as st
 
-from src import database, formatting, judge
-from src.errors import OpenRouterRequestError
-from src.ui import error_display, judge_selection
+from llm_workbench import database, formatting, judge
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display, judge_selection
 
 
 @st.dialog("Run judging", width="medium")

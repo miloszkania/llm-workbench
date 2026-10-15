@@ -1,8 +1,8 @@
 import streamlit as st
 
-from src import experiments
-from src.errors import OpenRouterRequestError
-from src.ui import error_display
+from llm_workbench import experiments
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display
 
 
 def send_prompt_button_with_repetitions(

@@ -3,8 +3,8 @@ import json
 import pandas as pd
 import streamlit as st
 
-from src import database, records
-from src.ui import page
+from llm_workbench import database, records
+from llm_workbench.ui import page
 
 page.page_config("Presets")
 

@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from src import analytics, charts
+from llm_workbench import analytics, charts
 
 
 class ChartTests(unittest.TestCase):

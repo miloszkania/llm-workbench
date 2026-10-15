@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from src import database
+from llm_workbench import database
 
 
 LABELS = ("success", "refusal", "unclear")

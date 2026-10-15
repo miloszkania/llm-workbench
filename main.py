@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.config import get_env_config, EnvironmentConfigError
+from llm_workbench.config import get_env_config, EnvironmentConfigError
 
 
 # Check the presence of required environment variables
@@ -11,7 +11,7 @@ except EnvironmentConfigError as error:
     st.stop()
 
 
-from src.ui import page, sidebar
+from llm_workbench.ui import page, sidebar
 
 page.page_config()
 

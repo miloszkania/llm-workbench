@@ -1,7 +1,7 @@
 import streamlit as st
 
-from src import database
-from src.ui import page
+from llm_workbench import database
+from llm_workbench.ui import page
 
 page.page_config("New Judge Configuration")
 

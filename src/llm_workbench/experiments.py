@@ -2,8 +2,8 @@ import json
 import time
 from typing import Any, Callable
 
-from src import database, formatting, judge, openrouter_api
-from src.errors import OpenRouterRequestError, ModelResponseError
+from llm_workbench import database, formatting, judge, openrouter_api
+from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
 def generate_and_evaluate_interactions(

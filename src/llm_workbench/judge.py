@@ -2,8 +2,8 @@ import re
 import time
 from typing import Any, Callable
 
-from src import database, formatting, openrouter_api
-from src.errors import OpenRouterRequestError, ModelResponseError
+from llm_workbench import database, formatting, openrouter_api
+from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
 def get_configuration_details(

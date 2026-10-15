@@ -3,7 +3,7 @@ from typing import Any
 
 import pandas as pd
 
-from src import database, formatting
+from llm_workbench import database, formatting
 
 
 def get_all_categories(

@@ -3,7 +3,7 @@ from datetime import date
 
 import pandas as pd
 
-from src import analytics
+from llm_workbench import analytics
 
 
 class AnalyticsPreparationTests(unittest.TestCase):

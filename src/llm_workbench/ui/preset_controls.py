@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from src import records
+from llm_workbench import records
 
 
 def save_preset_button(

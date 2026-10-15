@@ -3,7 +3,7 @@ from typing import Any
 
 import streamlit as st
 
-from src.errors import OpenRouterRequestError
+from llm_workbench.errors import OpenRouterRequestError
 
 
 ERROR_PRESENTATION = {

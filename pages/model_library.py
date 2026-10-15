@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-from src import formatting, database
-from src.errors import OpenRouterRequestError
-from src.ui import error_display, model_selection, page
+from llm_workbench import formatting, database
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display, model_selection, page
 
 page.page_config("Model library")
 

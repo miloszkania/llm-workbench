@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from src import database, records
-from src.ui import page, sidebar
+from llm_workbench import database, records
+from llm_workbench.ui import page, sidebar
 
 page.page_config("History")
 

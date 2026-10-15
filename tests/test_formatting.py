@@ -1,6 +1,6 @@
 import unittest
 
-from src import formatting
+from llm_workbench import formatting
 
 
 class CategoryParsingTests(unittest.TestCase):

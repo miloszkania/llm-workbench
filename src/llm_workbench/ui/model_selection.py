@@ -3,9 +3,9 @@ from typing import Any
 import streamlit as st
 from openrouter import components
 
-from src import database, formatting, openrouter_api
-from src.errors import OpenRouterRequestError
-from src.ui import error_display
+from llm_workbench import database, formatting, openrouter_api
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display
 
 
 @st.cache_data(ttl="1h", show_spinner="Loading available models…")

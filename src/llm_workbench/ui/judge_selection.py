@@ -1,8 +1,8 @@
 import streamlit as st
 
-from src import database, formatting
-from src.errors import OpenRouterRequestError
-from src.ui import error_display, model_selection
+from llm_workbench import database, formatting
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display, model_selection
 
 
 def judge_model_and_configuration_selector(
