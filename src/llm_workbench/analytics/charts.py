@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from llm_workbench.analytics import LABEL_COUNT_COLUMNS
+from llm_workbench.analytics.stats import LABEL_COUNT_COLUMNS
 
 
 LABEL_COLORS = {
