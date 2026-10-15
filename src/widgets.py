@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 from openrouter import components
 
-from src import view_utils, database, openrouter_api, judge, errors
+from src import formatting, view_utils, database, openrouter_api, judge, errors
 from src.errors import OpenRouterRequestError
 
 
@@ -123,9 +123,9 @@ def model_picker(
 
             if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
                 canvas.caption(f"***Price***: starting at "
-                     f"**{view_utils.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
+                     f"**{formatting.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
                                f"per 1M input tokens** · "
-                     f"**{view_utils.format_model_price(model_object.data.pricing.completion, markdown=True)} "
+                     f"**{formatting.format_model_price(model_object.data.pricing.completion, markdown=True)} "
                                f"per 1M output tokens**")
             else:
                 canvas.caption("***Price***: varies by model")
@@ -365,8 +365,8 @@ def interaction_card(interaction_object) -> None:
         col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
         col_overview.markdown(
                  f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
-                 f"started at **{view_utils.format_timestamp(interaction_object['interaction']['time'])}** · "
-                 f"took **{view_utils.format_duration(interaction_object['interaction']['duration'])}** · "
+                 f"started at **{formatting.format_timestamp(interaction_object['interaction']['time'])}** · "
+                 f"took **{formatting.format_duration(interaction_object['interaction']['duration'])}** · "
                  f"**{interaction_object['interaction']['token_usage']}** tokens · "
                  f"interaction: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
                  f"judging: **\\${judging_price:.4f}**"
@@ -598,8 +598,8 @@ def judge_model_and_configuration_selector(
                 model_object = view_utils.get_model_object(model_id)
                 price_table_rows.append({
                     "Model": model_id,
-                    "Input / 1M tokens": view_utils.format_model_price(model_object.data.pricing.prompt),
-                    "Output / 1M tokens": view_utils.format_model_price(model_object.data.pricing.completion),
+                    "Input / 1M tokens": formatting.format_model_price(model_object.data.pricing.prompt),
+                    "Output / 1M tokens": formatting.format_model_price(model_object.data.pricing.completion),
                 })
             except OpenRouterRequestError as error:
                 errors.display_error(error)

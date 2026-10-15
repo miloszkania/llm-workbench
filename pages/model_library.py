@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from src import view_utils, widgets, database, errors
+from src import formatting, view_utils, widgets, database, errors
 from src.errors import OpenRouterRequestError
 
 view_utils.page_config("Model library")
@@ -51,8 +51,8 @@ model_table = pd.DataFrame(
             "description": model_object.description,
             "context_length": model_object.context_length,
             "knowledge_cutoff": model_object.knowledge_cutoff,
-            "input_price": view_utils.format_model_price(model_object.pricing.prompt),
-            "output_price": view_utils.format_model_price(model_object.pricing.completion),
+            "input_price": formatting.format_model_price(model_object.pricing.prompt),
+            "output_price": formatting.format_model_price(model_object.pricing.completion),
         }
         for model_object in model_objects
     ],

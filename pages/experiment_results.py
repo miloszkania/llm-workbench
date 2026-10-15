@@ -2,7 +2,7 @@ from typing import Any
 
 import streamlit as st
 
-from src import database, view_utils, widgets
+from src import database, formatting, view_utils, widgets
 
 interaction_ids = st.query_params.get("id")
 
@@ -166,7 +166,7 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
     categories = col_select_categories.multiselect(
         "Categories",
         options=view_utils.get_all_categories(),
-        default=view_utils.parse_categories_from_json(experiment_input["categories"]),
+        default=formatting.parse_categories_from_json(experiment_input["categories"]),
         accept_new_options=True,
         key=f"{key_prefix}categories",
     )

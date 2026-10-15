@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 from openrouter import components
 
-from src import database, openrouter_api, judge
+from src import database, formatting, openrouter_api, judge
 from src.errors import OpenRouterRequestError, ModelResponseError
 
 
@@ -19,18 +19,6 @@ def page_config(name: str | None = None) -> None:
         layout="wide",
         page_title=f"{name} | LLM Workbench" if name else "LLM Workbench"
     )
-
-
-def parse_categories_from_json(
-        text: str | float | None,
-) -> list[str] | None:
-    if not isinstance(text, str) or not text or text == "[]":
-        return None
-
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return [text]
 
 
 def get_all_categories(
@@ -47,45 +35,6 @@ def get_all_categories(
     return data_source["categories"].explode().dropna().unique().tolist()
 
 
-def remove_timestamp_from_model_id(model_id: str) -> str:
-    # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
-    return re.sub(r"-\d{8}(?=$|:)", "", model_id)
-
-
-def format_timestamp(value: str) -> str:
-    timestamp = datetime.fromisoformat(value)
-    return timestamp.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def format_duration(value: str) -> str:
-    point_position = value.find(".")
-
-    if point_position >= 0: # if there is no dot in value, point_position = -1
-        value = value[:value.find(".")]
-
-    hours, minutes, seconds = map(int, value.split(":"))
-
-    # choose the suitable display option
-    if hours > 0:
-        return value
-    elif minutes == 0:
-        return f"{seconds} seconds"
-    else:
-        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
-
-
-def format_model_price(
-        raw_price: str,
-        markdown: bool = False,
-) -> str:
-    price = float(raw_price)
-
-    if markdown:
-        return f"\\${(price * 1_000_000):,.2f}" if price >= 0 else "Varies by model"
-    else:
-        return f"{(price * 1_000_000):,.2f} $" if price >= 0 else "Varies by model"
-
-
 ###### HISTORY
 
 def get_all_interactions(fill_null: bool = False) -> pd.DataFrame:
@@ -95,7 +44,7 @@ def get_all_interactions(fill_null: bool = False) -> pd.DataFrame:
         return df
 
     # parse categories from json array format
-    df["categories"] = df["categories"].apply(parse_categories_from_json)
+    df["categories"] = df["categories"].apply(formatting.parse_categories_from_json)
 
     # convert timestamps and duration to `datetime` type
     df["time"] = pd.to_datetime(df["time"])
@@ -120,7 +69,7 @@ def get_interaction_by_id(entry_id: int) -> dict[str, Any] | None:
     if not categories:
         return prompt_data
 
-    prompt_data["categories"] = parse_categories_from_json(categories)
+    prompt_data["categories"] = formatting.parse_categories_from_json(categories)
     return prompt_data
 
 
@@ -132,7 +81,7 @@ def get_all_presets(fill_null: bool = False) -> pd.DataFrame:
     if df.empty:
         return df
 
-    df["categories"] = df["categories"].apply(parse_categories_from_json)
+    df["categories"] = df["categories"].apply(formatting.parse_categories_from_json)
 
     # fill nan values from database (<NULL>) if needed
     if fill_null:
@@ -204,7 +153,7 @@ def generate_and_evaluate_interactions(
             continue
 
         # clear the model id (remove the timestamp-snapshot)
-        used_model = remove_timestamp_from_model_id(response.model)
+        used_model = formatting.remove_timestamp_from_model_id(response.model)
         token_usage, price = openrouter_api.extract_usage(response)
 
         # add the prompt to database
@@ -242,9 +191,6 @@ def generate_and_evaluate_interactions(
 
 ###### MODELS
 
-def is_free_model(model_id: str) -> bool:
-    return model_id == "openrouter/free" or model_id.endswith(":free")
-
 
 @st.cache_data(ttl="1h", show_spinner="Loading available models…")
 def get_models(
@@ -255,9 +201,9 @@ def get_models(
 
     # Get the deserved models
     if model_filter == "Free":
-        models = [i for i in models if is_free_model(i.id)]
+        models = [i for i in models if formatting.is_free_model(i.id)]
     elif model_filter == "Paid":
-        models = [i for i in models if not is_free_model(i.id)]
+        models = [i for i in models if not formatting.is_free_model(i.id)]
 
     return models
 
