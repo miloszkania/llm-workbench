@@ -4,7 +4,7 @@ import streamlit as st
 
 from llm_workbench import db, formatting, records
 from llm_workbench.analytics import stats
-from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls, system_prompt_controls
+from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, run_controls, system_prompt_controls
 
 
 def redirect_to_prompts(error_message: str) -> None:
@@ -184,12 +184,6 @@ def display_categories(prompt_object, key_prefix, save_button):
         if col_save_categories.button("Save categories", type="primary"):
             db.prompts.set_prompt_categories(prompt_object["id"], formatting.categories_to_json(categories))
             st.success("Categories updated!")
-
-        preset_controls.save_preset_button(
-            prompt_object["prompt"],
-            prompt_object["system_prompt"],
-            categories
-        )
 
 
 

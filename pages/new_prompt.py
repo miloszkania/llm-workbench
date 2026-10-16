@@ -1,7 +1,7 @@
 import streamlit as st
 
-from llm_workbench import db, records
-from llm_workbench.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls, system_prompt_controls
+from llm_workbench import db, formatting, records
+from llm_workbench.ui import error_display, judge_selection, model_selection, page, prompt_controls, run_controls, system_prompt_controls
 
 page.page_config("New prompt")
 
@@ -14,61 +14,58 @@ model_selection.model_picker()
 st.divider()
 
 
-##### PRESET
+##### SAVED PROMPT
 
 st.header("Prompt")
-all_presets = records.get_all_presets(fill_null=True)
+# most recently used prompts first
+saved_prompts = {prompt_row["id"]: prompt_row for prompt_row in db.prompts.get_prompt_overview()}
 
-st.page_link("pages/presets.py", label="Edit presets")
+st.page_link("pages/prompts.py", label="Show all prompts")
 
+# After a saved prompt was selected, sets text fields to its data
+def fill_saved_prompt_fields():
+    prompt_row = saved_prompts.get(st.session_state["saved_prompt_id"])
+    if prompt_row:
+        st.session_state["system_prompt"] = prompt_row["system_prompt"]
+        st.session_state["prompt"] = prompt_row["prompt"]
+        st.session_state["categories"] = formatting.parse_categories_from_json(prompt_row["categories"]) or []
 
-# Preset table expander
-preset_controls.preset_table_preview(all_presets)
-
-# After a preset was selected, sets text fields to its data
-def fill_preset_fields():
-    preset_row = all_presets.loc[all_presets["id"] == st.session_state["preset_id"]]
-    if not preset_row.empty:
-        preset_row = preset_row.iloc[0]
-        st.session_state["system_prompt"] = preset_row["system_prompt"]
-        st.session_state["prompt"] = preset_row["prompt"]
-        st.session_state["categories"] = preset_row["categories"] if preset_row["categories"] else []
-
-if not all_presets.empty:
-    preset = st.selectbox(
-        "*Use a preset?*",
-        placeholder="Preset ID",
-        options=all_presets["id"],
+if saved_prompts:
+    st.selectbox(
+        "*Start from a saved prompt?*",
+        placeholder="Select a prompt",
+        options=list(saved_prompts),
+        format_func=lambda prompt_id: prompt_controls.format_prompt_option(saved_prompts[prompt_id]),
         index=None,
-        on_change=fill_preset_fields,
-        key="preset_id",
+        on_change=fill_saved_prompt_fields,
+        key="saved_prompt_id",
     )
 
 
 ##### PROMPT
 
-### Resets the preset ID field
-def reset_preset_selection():
-    st.session_state["preset_id"] = None
+### Resets the saved prompt selection
+def reset_saved_prompt_selection():
+    st.session_state["saved_prompt_id"] = None
 
 prompt = st.text_area(
     "Prompt",
     key="prompt",
-    on_change=reset_preset_selection,
+    on_change=reset_saved_prompt_selection,
 )
 
-system_prompt = system_prompt_controls.system_prompt_input("system_prompt", on_change=reset_preset_selection)
+system_prompt = system_prompt_controls.system_prompt_input("system_prompt", on_change=reset_saved_prompt_selection)
 
 categories = st.multiselect(
     "Categories",
     options=records.get_all_categories(),
     accept_new_options=True,
     key="categories",
-    on_change=reset_preset_selection,
+    on_change=reset_saved_prompt_selection,
 )
 
-### Add preset button
-preset_controls.save_preset_button(prompt, system_prompt, categories)
+### Save prompt button
+prompt_controls.save_prompt_button(prompt, system_prompt, categories)
 
 st.divider()
 

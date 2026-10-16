@@ -45,6 +45,19 @@ class PromptLabelTests(unittest.TestCase):
                 self.assertEqual(formatting.format_prompt_label(3, title), "Prompt #3")
 
 
+class TextPreviewTests(unittest.TestCase):
+    def test_short_text_is_unchanged(self) -> None:
+        self.assertEqual(formatting.format_text_preview("Hello there"), "Hello there")
+
+    def test_whitespace_is_collapsed_to_one_line(self) -> None:
+        self.assertEqual(formatting.format_text_preview("Hello\n\n  there"), "Hello there")
+
+    def test_long_text_is_shortened(self) -> None:
+        preview = formatting.format_text_preview("word " * 20, max_length=12)
+        self.assertEqual(preview, "word word w…")
+        self.assertEqual(len(preview), 12)
+
+
 class ResultsPageUrlTests(unittest.TestCase):
     def test_pattern_extracts_prompt_id(self) -> None:
         url = formatting.format_results_page_url(42)

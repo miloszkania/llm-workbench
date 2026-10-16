@@ -29,6 +29,12 @@ def format_prompt_label(prompt_id: int, title: str | None = None) -> str:
     return f"Prompt #{prompt_id} · {title}" if title else f"Prompt #{prompt_id}"
 
 
+def format_text_preview(text: str, max_length: int = 60) -> str:
+    # the text on one line, shortened to max_length characters
+    single_line = " ".join(text.split())
+    return single_line if len(single_line) <= max_length else single_line[:max_length - 1].rstrip() + "…"
+
+
 # the results page url, and a pattern that extracts its prompt id (e.g. as the display text of a link column)
 RESULTS_PAGE_URL_PROMPT_ID_PATTERN = r"prompt=(\d+)$"
 
