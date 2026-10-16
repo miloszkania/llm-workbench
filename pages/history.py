@@ -49,10 +49,10 @@ if not history_table.empty:
             "manual_label",
             "categories",
             "prompt",
-            "system_prompt",
             "response",
             "time",
             "model",
+            "system_prompt",
         ],
 
         disabled=[
