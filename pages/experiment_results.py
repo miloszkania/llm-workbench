@@ -232,6 +232,8 @@ col_overview, col_rerun = st.columns([2, 1])
 col_overview.subheader(formatting.format_prompt_label(prompt_object["id"], prompt_object["title"]))
 
 with col_rerun.container(horizontal=True, horizontal_alignment="right"):
+    # filled once the filters are applied, since it judges only the displayed responses
+    judge_all_button = st.empty()
     if st.button("Run prompt…", type="primary"):
         display_run_prompt_dialog(interactions, prompt_object)
 
@@ -241,6 +243,16 @@ if interactions:
     display_experiment_overview(filtered_interactions, st)
 else:
     filtered_interactions = []
+
+# only responses with a text from the target can be judged
+judgeable_interactions = [i for i in filtered_interactions if i["interaction"]["response"]]
+if judge_all_button.button(
+        "Judge all displayed…",
+        disabled=not judgeable_interactions,
+        help=f"Run judging on the {formatting.pluralize(len(judgeable_interactions), 'displayed response')}.",
+        key="results_judge_all_button",
+):
+    interaction_view.display_run_judging_dialog(judgeable_interactions, key_prefix="judge_all")
 
 st.divider()
 

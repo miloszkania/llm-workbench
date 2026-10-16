@@ -1,23 +1,27 @@
+import time
+
 import streamlit as st
 
 from llm_workbench import db, formatting
-from llm_workbench.llm import judge
+from llm_workbench.llm import judge, openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display, judge_selection
 
 
 @st.dialog("Run judging", width="medium")
-def display_run_judging_dialog(interaction_object) -> None:
+def display_run_judging_dialog(interaction_objects, key_prefix: str) -> None:
+    if len(interaction_objects) > 1:
+        st.write(f"Every selected judge will evaluate {formatting.pluralize(len(interaction_objects), 'response')}.")
+
     judge_config, judge_models = judge_selection.judge_model_and_configuration_selector()
     st.divider()
 
-    interaction_id = interaction_object["interaction"]["id"]
     run_judging_button = st.empty()
 
     if run_judging_button.button(
             "Run judging",
             type="primary",
-            key=f"{interaction_id}_run_judging_button",
+            key=f"{key_prefix}_run_judging_button",
     ):
         if not judge_models or not judge_config:
             st.error("Select at least one judge model and a judge configuration!")
@@ -27,37 +31,47 @@ def display_run_judging_dialog(interaction_object) -> None:
                 "Judging…",
                 type="primary",
                 disabled=True,
-                key=f"{interaction_id}_run_judging_button_disabled",
+                key=f"{key_prefix}_run_judging_button_disabled",
             )
 
+            total_judgments = len(interaction_objects) * len(judge_models)
             status = st.status("Starting judging…", expanded=True)
             judgment_progress = status.progress(
                 value=0,
-                text=f"Judgments: 0 of {len(judge_models)}",
+                text=f"Judgments: 0 of {total_judgments}",
             )
 
+            completed_judgments = 0
+
             def update_judgment_progress(current: int, total: int) -> None:
-                status.update(label=f"Judgment {current} of {total}…")
+                judgment_number = completed_judgments + current
+                status.update(label=f"Judgment {judgment_number} of {total_judgments}…")
                 judgment_progress.progress(
-                    value=current / total,
-                    text=f"Judgment {current} of {total}",
+                    value=judgment_number / total_judgments,
+                    text=f"Judgment {judgment_number} of {total_judgments}",
                 )
 
             try:
-                failed_judgments = judge.evaluate_and_store_interaction(
-                    interaction_id,
-                    interaction_object["interaction"]["system_prompt"],
-                    interaction_object["interaction"]["prompt"],
-                    interaction_object["interaction"]["response"],
-                    judge_config,
-                    judge_models,
-                    on_judgment_start=update_judgment_progress,
-                )
-                succeeded_judgments = len(judge_models) - len(failed_judgments)
+                failed_judgments = []
+                for i, interaction_object in enumerate(interaction_objects):
+                    if i > 0: time.sleep(openrouter_api.REQUEST_DELAY_S)
+
+                    failed_judgments += judge.evaluate_and_store_interaction(
+                        interaction_object["interaction"]["id"],
+                        interaction_object["interaction"]["system_prompt"],
+                        interaction_object["interaction"]["prompt"],
+                        interaction_object["interaction"]["response"],
+                        judge_config,
+                        judge_models,
+                        on_judgment_start=update_judgment_progress,
+                    )
+                    completed_judgments += len(judge_models)
+
+                succeeded_judgments = total_judgments - len(failed_judgments)
                 status.update(
                     label=(
-                        f"Judging finished · {succeeded_judgments} of {len(judge_models)} "
-                        f"judgment{'s' if len(judge_models) != 1 else ''} succeeded"
+                        f"Judging finished · {succeeded_judgments} of "
+                        f"{formatting.pluralize(total_judgments, 'judgment')} succeeded"
                     ),
                     state="error" if succeeded_judgments == 0 else "complete",
                     expanded=True,
@@ -137,7 +151,7 @@ def interaction_card(interaction_object) -> None:
         if interaction_object["interaction"]["response"]:
             with col_button.container(horizontal=True, horizontal_alignment="right"):
                 if st.button("Run judging…", type="primary", key=f"{interaction_id}_run_judge"):
-                    display_run_judging_dialog(interaction_object)
+                    display_run_judging_dialog([interaction_object], key_prefix=str(interaction_id))
 
         if len(interaction_object["judge_results"]) > 0:
             for judge_result in interaction_object["judge_results"]:
