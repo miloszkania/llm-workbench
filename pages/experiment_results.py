@@ -3,7 +3,7 @@ from typing import Any
 import streamlit as st
 
 from llm_workbench import db, formatting, records
-from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls
+from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls, system_prompt_controls
 
 interaction_ids = st.query_params.get("id")
 
@@ -53,16 +53,15 @@ def ensure_same_experiment(experiment_input, interactions):
 def display_rerun_interaction_dialog(interactions, experiment_input):
     st.header("Review or edit prompts")
     st.text_area(
-        "System prompt",
-        value=experiment_input["system_prompt"],
-        height="content",
-        key="system_prompt",
-    )
-    st.text_area(
         "User prompt",
         value=experiment_input["prompt"],
         height="content",
         key="prompt",
+    )
+    system_prompt_controls.system_prompt_input(
+        "system_prompt",
+        value=experiment_input["system_prompt"],
+        height="content",
     )
     display_categories(experiment_input, interactions, key_prefix="", save_button=False)
     st.divider()
@@ -132,30 +131,23 @@ def display_prompt(experiment_input):
     parse_markdown = st.toggle("Parse Markdown", value=True, key="parse_md_prompt")
 
     if parse_markdown:
-        if experiment_input["system_prompt"]:
-            with st.container(border=True, height="stretch"):
-                st.caption("System prompt")
-                st.markdown(experiment_input["system_prompt"])
-
         with st.container(border=True, height="stretch"):
             st.caption("User prompt")
             st.markdown(experiment_input["prompt"])
 
     else:
-        if experiment_input["system_prompt"]:
-            st.text_area(
-                "System prompt",
-                value=experiment_input["system_prompt"],
-                height="content",
-                key=f"overview_{experiment_input['id']}_system_prompt",
-            )
-
         st.text_area(
             "User prompt",
             value=experiment_input["prompt"],
             height="content",
             key=f"overview_{experiment_input['id']}_prompt",
         )
+
+    system_prompt_controls.system_prompt_view(
+        experiment_input["system_prompt"],
+        key=f"overview_{experiment_input['id']}_system_prompt",
+        parse_markdown=parse_markdown,
+    )
 
 
 def display_categories(experiment_input, interactions, key_prefix, save_button):

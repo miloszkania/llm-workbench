@@ -1,7 +1,7 @@
 import streamlit as st
 
 from llm_workbench import db, records
-from llm_workbench.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls
+from llm_workbench.ui import error_display, judge_selection, model_selection, page, preset_controls, run_controls, system_prompt_controls
 
 page.page_config("New prompt")
 
@@ -44,8 +44,6 @@ if not all_presets.empty:
         key="preset_id",
     )
 
-    st.space("small")
-
 
 ##### PROMPT
 
@@ -53,16 +51,13 @@ if not all_presets.empty:
 def reset_preset_selection():
     st.session_state["preset_id"] = None
 
-system_prompt = st.text_area(
-    "System prompt",
-    key="system_prompt",
-    on_change=reset_preset_selection,
-)
 prompt = st.text_area(
     "Prompt",
     key="prompt",
     on_change=reset_preset_selection,
 )
+
+system_prompt = system_prompt_controls.system_prompt_input("system_prompt", on_change=reset_preset_selection)
 
 categories = st.multiselect(
     "Categories",
@@ -71,8 +66,6 @@ categories = st.multiselect(
     key="categories",
     on_change=reset_preset_selection,
 )
-
-st.space("small")
 
 ### Add preset button
 preset_controls.save_preset_button(prompt, system_prompt, categories)
