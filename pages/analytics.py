@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from llm_workbench.analytics import charts, stats
-from llm_workbench.ui import page, preset_controls
+from llm_workbench.ui import page
 
 
 FILTER_KEYS = (
@@ -322,12 +322,13 @@ def display_category_analytics(
         )
 
 
-def display_preset_table(preset_summary: pd.DataFrame) -> None:
+def display_prompt_table(prompt_summary: pd.DataFrame) -> None:
     display_summary_table(
-        preset_summary,
+        prompt_summary,
         column_titles={
-            "preset_label": "Preset",
+            "prompt_label": "Name",
             "prompt": "Prompt",
+            "system_prompt": "System prompt",
             "categories": "Categories",
             "interaction_count": "Interactions",
             "target_model_count": "Target models",
@@ -343,6 +344,7 @@ def display_preset_table(preset_summary: pd.DataFrame) -> None:
         },
         column_config={
             "Prompt": st.column_config.TextColumn(width="large"),
+            "System prompt": st.column_config.TextColumn(width="medium"),
             "Categories": st.column_config.MultiselectColumn(),
             "Success share": SHARE_FORMAT,
             "Median duration": DURATION_FORMAT,
@@ -353,57 +355,55 @@ def display_preset_table(preset_summary: pd.DataFrame) -> None:
     )
 
 
-def display_preset_analytics(
-        presets: pd.DataFrame,
+def display_prompt_analytics(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
         minimum_sample_size: int,
 ) -> None:
-    st.subheader("Preset comparison")
+    st.subheader("Prompt comparison")
     st.caption(
-        "Presets act as current configuration markers. A match requires the same "
-        "prompt, system prompt, and set of categories, so editing a preset updates "
-        "these statistics immediately."
+        "A prompt is identified by its text and system prompt. Only prompts with "
+        "interactions matching the filters are shown."
     )
-    preset_controls.preset_table_preview(presets)
 
-    if presets.empty:
-        st.info("No presets are available to compare with the selected interactions.")
+    prompt_summary = stats.summarize_prompts(interactions, label_records)
+
+    if prompt_summary.empty:
+        st.info("No prompts match the current filters.")
         return
 
-    preset_summary = stats.summarize_presets(presets, interactions, label_records)
-    display_preset_table(preset_summary)
+    display_prompt_table(prompt_summary)
 
-    comparable_presets = stats.filter_by_sample_size(preset_summary, minimum_sample_size)
-    st.markdown("**Label distribution by preset**")
-    if comparable_presets.empty:
-        st.info("No preset has enough labels for the selected minimum sample size.")
+    comparable_prompts = stats.filter_by_sample_size(prompt_summary, minimum_sample_size)
+    st.markdown("**Label distribution by prompt**")
+    if comparable_prompts.empty:
+        st.info("No prompt has enough labels for the selected minimum sample size.")
     else:
-        preset_order = comparable_presets["preset_label"].tolist()
-        label_distribution_chart = charts.create_group_label_distribution_chart(comparable_presets, "preset_label")
-        # show the id next to every bar instead of letting plotly thin the axis
+        prompt_order = comparable_prompts["prompt_label"].tolist()
+        label_distribution_chart = charts.create_group_label_distribution_chart(comparable_prompts, "prompt_label")
+        # show the label next to every bar instead of letting plotly thin the axis
         label_distribution_chart.update_yaxes(
             categoryorder="array",
-            categoryarray=preset_order,
+            categoryarray=prompt_order,
             autorange="reversed",
             tickmode="array",
-            tickvals=preset_order,
-            ticktext=preset_order,
+            tickvals=prompt_order,
+            ticktext=prompt_order,
         )
-        display_chart(label_distribution_chart, "preset_label_distribution")
+        display_chart(label_distribution_chart, "prompt_label_distribution")
 
-    st.markdown("**Success by preset and target model**")
-    preset_models = stats.summarize_preset_models(presets, interactions, label_records)
-    comparable_cells = stats.filter_by_sample_size(preset_models, minimum_sample_size)
+    st.markdown("**Success by prompt and target model**")
+    prompt_models = stats.summarize_prompt_models(interactions, label_records)
+    comparable_cells = stats.filter_by_sample_size(prompt_models, minimum_sample_size)
     if comparable_cells.empty:
-        st.info("No preset-model pair has enough labels for the selected minimum sample size.")
+        st.info("No prompt-model pair has enough labels for the selected minimum sample size.")
     else:
-        available_presets = set(comparable_cells["preset_label"])
-        preset_order = [preset for preset in preset_summary["preset_label"] if preset in available_presets]
+        available_prompts = set(comparable_cells["prompt_label"])
+        prompt_order = [prompt for prompt in prompt_summary["prompt_label"] if prompt in available_prompts]
         model_order = order_by_interaction_count(comparable_cells, "model")
         display_chart(
-            charts.create_preset_model_heatmap(comparable_cells, preset_order, model_order),
-            "preset_model_success",
+            charts.create_prompt_model_heatmap(comparable_cells, prompt_order, model_order),
+            "prompt_model_success",
         )
 
 
@@ -545,7 +545,6 @@ inject_responsive_styles()
 # load analytics data before preparing filter options
 interactions = stats.load_interactions()
 judge_results = stats.load_judge_results()
-presets = stats.load_presets()
 
 if interactions.empty:
     st.info("No interaction data yet. Run an experiment to start building analytics.")
@@ -690,7 +689,7 @@ st.space(20)
 st.subheader("Results analytics")
 selected_view = st.segmented_control(
     "Analytics view",
-    options=["Overview", "Models", "Categories", "Presets", "Judges"],
+    options=["Overview", "Models", "Categories", "Prompts", "Judges"],
     default="Overview",
     required=True,
     width="stretch",
@@ -717,8 +716,8 @@ else:
         display_model_analytics(filtered_interactions, label_records, minimum_sample_size)
     elif selected_view == "Categories":
         display_category_analytics(filtered_interactions, label_records, minimum_sample_size)
-    elif selected_view == "Presets":
-        display_preset_analytics(presets, filtered_interactions, label_records, minimum_sample_size)
+    elif selected_view == "Prompts":
+        display_prompt_analytics(filtered_interactions, label_records, minimum_sample_size)
     else:
         if label_source == "Manual":
             st.info(

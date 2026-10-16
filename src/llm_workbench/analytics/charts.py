@@ -301,7 +301,7 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
     return figure
 
 
-##### MODELS, CATEGORIES AND PRESETS
+##### MODELS, CATEGORIES AND PROMPTS
 
 def create_category_usage_chart(category_summary: pd.DataFrame) -> go.Figure:
     figure = px.bar(
@@ -357,28 +357,28 @@ def create_model_category_heatmap(
     return figure
 
 
-def create_preset_model_heatmap(
-        preset_model_summary: pd.DataFrame,
-        preset_order: list[str],
+def create_prompt_model_heatmap(
+        prompt_model_summary: pd.DataFrame,
+        prompt_order: list[str],
         model_order: list[str],
 ) -> go.Figure:
     figure = _create_share_heatmap(
-        preset_model_summary,
-        index="preset_label",
+        prompt_model_summary,
+        index="prompt_label",
         columns="model",
-        index_order=preset_order,
+        index_order=prompt_order,
         column_order=model_order,
         share_column="success_share",
         sample_size_column="label_count",
         hover_columns=["label_count", *LABEL_COUNT_COLUMNS],
-        hovertemplate="Preset: %{y}<br>Target model: %{x}<br>Success: %{z:.1f}%" + LABEL_HOVER_LINES,
+        hovertemplate="Prompt: %{y}<br>Target model: %{x}<br>Success: %{z:.1f}%" + LABEL_HOVER_LINES,
         colorbar_title="Success",
     )
     # plotly skips some labels on larger heatmaps unless every tick is explicit
-    figure.update_yaxes(autorange="reversed", tickmode="array", tickvals=preset_order, ticktext=preset_order)
+    figure.update_yaxes(autorange="reversed", tickmode="array", tickvals=prompt_order, ticktext=prompt_order)
     figure.update_xaxes(tickangle=-25)
     figure.update_layout(
-        height=_scaled_height(len(preset_order), row_height=60, padding=150, minimum=380, maximum=850),
+        height=_scaled_height(len(prompt_order), row_height=60, padding=150, minimum=380, maximum=850),
         margin=dict(l=10, r=20, t=10, b=120),
     )
 
