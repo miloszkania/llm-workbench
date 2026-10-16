@@ -71,6 +71,24 @@ def get_all_presets(fill_null: bool = False) -> pd.DataFrame:
     return df
 
 
+def save_prompt(
+        prompt: str | None,
+        system_prompt: str | None,
+        categories: list[str] | None,
+) -> int:
+    # returns the id of the matching prompt, creating it if it doesn't exist yet
+    prompt = formatting.normalize_prompt_text(prompt)
+
+    if not prompt:
+        raise ValueError("The prompt must not be empty.")
+
+    return db.prompts.upsert_prompt(
+        prompt,
+        formatting.normalize_prompt_text(system_prompt),
+        formatting.categories_to_json(categories),
+    )
+
+
 def add_preset(
         system_prompt: str | None,
         prompt: str,

@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from llm_workbench import db, records
+from llm_workbench import db, formatting, records
 from llm_workbench.ui import page, sidebar
 
 page.page_config("History")
@@ -21,9 +21,10 @@ def save_changes(original_data: pd.DataFrame) -> None:
         if "manual_label" in edit_changes:
             db.interactions.set_interaction_label(interaction_id, edit_changes.get("manual_label"))
 
-        # categories (if has been changed):
+        # categories (if has been changed) belong to the prompt, so they apply to all of its interactions
         if "categories" in edit_changes:
-            db.interactions.set_interaction_categories(interaction_id, edit_changes.get("categories"))
+            prompt_id = int(original_data.iloc[row_idx]["prompt_id"])
+            db.prompts.set_prompt_categories(prompt_id, formatting.categories_to_json(edit_changes.get("categories")))
 
 
 

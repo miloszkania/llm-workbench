@@ -167,8 +167,7 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
     if col_save_categories:
         col_save_categories.space()
         if col_save_categories.button("Save categories", type="primary"):
-            for i in interactions:
-                db.interactions.set_interaction_categories(i["interaction"]["id"], categories)
+            db.prompts.set_prompt_categories(experiment_input["prompt_id"], formatting.categories_to_json(categories))
             st.success("Categories updated!")
 
         preset_controls.save_preset_button(

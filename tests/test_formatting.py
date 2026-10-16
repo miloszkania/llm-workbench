@@ -15,6 +15,24 @@ class CategoryParsingTests(unittest.TestCase):
     def test_invalid_json_is_wrapped_in_list(self) -> None:
         self.assertEqual(formatting.parse_categories_from_json("abc"), ["abc"])
 
+    def test_categories_are_serialized_to_json(self) -> None:
+        self.assertEqual(formatting.categories_to_json(["a", "ż"]), '["a", "ż"]')
+
+    def test_no_categories_serialize_to_none(self) -> None:
+        for value in (None, []):
+            with self.subTest(value=value):
+                self.assertIsNone(formatting.categories_to_json(value))
+
+
+class PromptNormalizationTests(unittest.TestCase):
+    def test_surrounding_whitespace_is_removed(self) -> None:
+        self.assertEqual(formatting.normalize_prompt_text("  hello\n world \n"), "hello\n world")
+
+    def test_missing_text_becomes_empty_string(self) -> None:
+        for value in (None, "", "   "):
+            with self.subTest(value=value):
+                self.assertEqual(formatting.normalize_prompt_text(value), "")
+
 
 class ModelIdTests(unittest.TestCase):
     def test_snapshot_date_is_removed(self) -> None:

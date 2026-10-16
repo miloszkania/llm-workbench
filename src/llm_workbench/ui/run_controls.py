@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import experiments
+from llm_workbench import experiments, records
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
 
@@ -102,11 +102,10 @@ def send_prompt_button_with_repetitions(
                     )
 
             try:
-                interaction_ids, interaction_errors, failed_judgments = experiments.generate_and_evaluate_interactions(
+                prompt_id = records.save_prompt(prompt, system_prompt, categories)
+                result = experiments.generate_and_evaluate_interactions(
                     model,
-                    system_prompt,
-                    prompt,
-                    categories,
+                    prompt_id,
                     judge_config,
                     judge_models,
                     repetition_count,
@@ -114,7 +113,7 @@ def send_prompt_button_with_repetitions(
                     on_judgment_start=update_judgment_progress,
                 )
 
-                succeeded_interactions = len(interaction_ids)
+                succeeded_interactions = len(result.interaction_ids)
                 status.update(
                     label=(
                         f"Run finished · {succeeded_interactions} of {repetition_count} "
@@ -124,18 +123,17 @@ def send_prompt_button_with_repetitions(
                     expanded=True,
                 )
 
-                if interaction_errors and not interaction_ids:
+                st.session_state["interaction_errors"] = result.interaction_errors
+                st.session_state["succeeded_interaction_count"] = succeeded_interactions
+
+                if not result.interaction_ids:
                     # no interactions succeeded, rerun to re-enable the button and display the errors
-                    st.session_state["interaction_errors"] = interaction_errors
-                    st.session_state["succeeded_interaction_count"] = 0
                     st.rerun()
                 else:
                     # redirect to the prompt/batch details page
-                    st.session_state["failed_judgments"] = failed_judgments
-                    st.session_state["interaction_errors"] = interaction_errors
-                    st.session_state["succeeded_interaction_count"] = succeeded_interactions
+                    st.session_state["failed_judgments"] = result.failed_judgments
 
-                    param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
+                    param_string = ",".join(map(str, result.interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
                     st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
 
             except OpenRouterRequestError as error:

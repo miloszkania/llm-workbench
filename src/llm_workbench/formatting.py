@@ -15,6 +15,16 @@ def parse_categories_from_json(
         return [text]
 
 
+def categories_to_json(categories: list[str] | None) -> str | None:
+    # no categories are stored as a database null
+    return json.dumps(categories, ensure_ascii=False) if categories else None
+
+
+def normalize_prompt_text(text: str | None) -> str:
+    # surrounding whitespace doesn't make a prompt distinct, a missing text is an empty string
+    return (text or "").strip()
+
+
 def remove_timestamp_from_model_id(model_id: str) -> str:
     # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
     return re.sub(r"-\d{8}(?=$|:)", "", model_id)
