@@ -5,6 +5,7 @@ from functools import cache
 from typing import Any
 
 from llm_workbench.config import get_env_config
+from llm_workbench.db.default_judge_config import DEFAULT_JUDGE_CONFIG_ID, DEFAULT_JUDGE_CONFIG_PROMPT, DEFAULT_JUDGE_CONFIG_REQUIRE_EXPLANATION
 
 SCHEMA = """
     create table if not exists app_settings (
@@ -83,6 +84,13 @@ def init_db() -> None:
 
     with closing(sqlite3.connect(db_path)) as connection:
         connection.executescript(SCHEMA)
+
+        # a ready-to-use judge configuration, so the app can be tried without writing one
+        connection.execute(
+            "insert or ignore into judge_configs (id, judge_prompt, require_explanation) values (?, ?, ?)",
+            (DEFAULT_JUDGE_CONFIG_ID, DEFAULT_JUDGE_CONFIG_PROMPT, DEFAULT_JUDGE_CONFIG_REQUIRE_EXPLANATION),
+        )
+        connection.commit()
 
 
 # opens a connection, commits on success, rolls back on error and always closes it
