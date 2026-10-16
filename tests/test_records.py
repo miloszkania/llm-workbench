@@ -63,6 +63,17 @@ class InteractionFilterTests(unittest.TestCase):
         )
 
 
+class RecentPromptSortingTests(unittest.TestCase):
+    def test_prompts_are_sorted_by_last_run_or_creation(self) -> None:
+        prompt_rows = [
+            {"id": 1, "created_at": "2026-10-01 10:00:00", "last_run_at": "2026-10-03 10:00:00"},
+            {"id": 2, "created_at": "2026-10-04 10:00:00", "last_run_at": None},
+            {"id": 3, "created_at": "2026-10-02 10:00:00", "last_run_at": "2026-10-05 10:00:00.123456"},
+        ]
+
+        self.assertEqual([row["id"] for row in records.sort_prompts_by_recent_use(prompt_rows)], [3, 2, 1])
+
+
 class PromptSearchTests(unittest.TestCase):
     PROMPTS = pd.DataFrame({
         "id": [1, 2, 3],

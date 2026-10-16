@@ -41,6 +41,7 @@ navigation = st.navigation({
 })
 
 # render the sidebar before the page, so a page calling st.stop() doesn't hide it
+sidebar.prompt_picker()
 sidebar.api_key_details()
 
 navigation.run()

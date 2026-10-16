@@ -5,9 +5,33 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from openrouter import operations
 
+from llm_workbench import records
 from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
-from llm_workbench.ui import error_display
+from llm_workbench.ui import error_display, prompt_controls
+
+
+def prompt_picker(canvas: Any = st.sidebar) -> None:
+    saved_prompts = records.get_prompts_by_recent_use()
+
+    if not saved_prompts:
+        return
+
+    canvas.subheader("Show prompt results")
+
+    prompt_id = canvas.selectbox(
+        "Prompt",
+        options=list(saved_prompts),
+        format_func=lambda prompt_id: prompt_controls.format_prompt_option(saved_prompts[prompt_id]),
+        index=None,
+        placeholder="Select a prompt",
+        key="sidebar_prompt_id",
+    )
+
+    if canvas.button("Open", disabled=prompt_id is None, key="sidebar_open_prompt_button"):
+        st.switch_page("pages/experiment_results.py", query_params={"prompt": prompt_id})
+
+    canvas.divider()
 
 
 # short TTL so credits and usage stay reasonably fresh after runs

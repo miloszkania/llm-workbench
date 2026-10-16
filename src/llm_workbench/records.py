@@ -54,6 +54,23 @@ def get_prompt_overview() -> pd.DataFrame:
     return _prepare_prompt_table(db.prompts.get_prompt_overview())
 
 
+def sort_prompts_by_recent_use(prompt_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # most recently run prompts first, prompts that were never run by their creation time
+    return sorted(
+        prompt_rows,
+        key=lambda prompt_row: prompt_row["last_run_at"] or prompt_row["created_at"],
+        reverse=True,
+    )
+
+
+def get_prompts_by_recent_use() -> dict[int, dict[str, Any]]:
+    # prompt overview rows by their id, most recently used first
+    return {
+        prompt_row["id"]: prompt_row
+        for prompt_row in sort_prompts_by_recent_use(db.prompts.get_prompt_overview())
+    }
+
+
 def search_prompts(prompt_table: pd.DataFrame, search: str | None) -> pd.DataFrame:
     # case-insensitive search in the title, prompt and system prompt
     search = (search or "").strip()

@@ -17,15 +17,7 @@ st.divider()
 ##### SAVED PROMPT
 
 st.header("Prompt")
-# most recently used (or created, if never run) prompts first
-saved_prompts = {
-    prompt_row["id"]: prompt_row
-    for prompt_row in sorted(
-        db.prompts.get_prompt_overview(),
-        key=lambda prompt_row: prompt_row["last_run_at"] or prompt_row["created_at"],
-        reverse=True,
-    )
-}
+saved_prompts = records.get_prompts_by_recent_use()
 
 st.page_link("pages/prompts.py", label="Show all prompts")
 
