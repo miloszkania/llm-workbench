@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from llm_workbench.db.connection import fetch_all, fetch_one, run_sqlite_command
@@ -8,16 +9,17 @@ def upsert_prompt(
     system_prompt: str,
     categories: str | None,
 ) -> int:
-    # an existing prompt keeps its categories unless new ones are passed
+    # an existing prompt keeps its categories unless new ones are passed.
+    # created_at is local time like the interaction times (sqlite's current_timestamp is utc)
     result = fetch_one(
         """
-        insert into prompts (prompt, system_prompt, categories)
-            values (?, ?, ?)
+        insert into prompts (prompt, system_prompt, categories, created_at)
+            values (?, ?, ?, ?)
             on conflict (prompt, system_prompt)
                 do update set categories = coalesce(excluded.categories, prompts.categories)
             returning id
         """,
-        (prompt, system_prompt, categories),
+        (prompt, system_prompt, categories, str(datetime.now())),
     )
 
     if result is None:
