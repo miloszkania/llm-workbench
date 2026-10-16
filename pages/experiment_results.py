@@ -99,6 +99,15 @@ def display_experiment_overview(interactions, canvas):
     )
 
 
+def clear_interaction_filters():
+    # drop the preselected run from the url and reset every filter widget to "all"
+    st.query_params.pop("run", None)
+    for key in [key for key in st.session_state if str(key).startswith("results_run_filter_")]:
+        del st.session_state[key]
+    st.session_state["results_model_filter"] = []
+    st.session_state["results_label_filter"] = []
+
+
 def display_interaction_filters(interactions):
     runs = {run["run_id"]: run for run in records.summarize_runs(interactions)}
     models = sorted({i["interaction"]["model"] for i in interactions})
@@ -114,30 +123,51 @@ def display_interaction_filters(interactions):
     run_param = st.query_params.get("run")
     run_options = [None, *runs]
 
-    col_run, col_models, col_labels = st.columns(3)
-    run_id = col_run.selectbox(
-        "Run",
-        options=run_options,
-        index=run_options.index(run_param) if run_param in runs else 0,
-        format_func=format_run,
-        # a new run in the url resets the selection made for the previous one
-        key=f"results_run_filter_{run_param}",
-    )
-    selected_models = col_models.multiselect(
-        "Target models",
-        options=models,
-        placeholder="All models",
-        key="results_model_filter",
-    )
-    selected_labels = col_labels.multiselect(
-        "Manual labels",
-        options=[*stats.LABELS, None],
-        format_func=lambda label: label.capitalize() if label else "No label",
-        placeholder="All labels",
-        key="results_label_filter",
-    )
+    # a bordered box, so the filters stand apart and it's visible when responses are hidden
+    with st.container(border=True):
+        with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
+            title = st.empty()
+            clear_button = st.empty()
 
-    return records.filter_prompt_interactions(interactions, run_id, selected_models, selected_labels)
+        col_run, col_models, col_labels = st.columns(3)
+        run_id = col_run.selectbox(
+            "Run",
+            options=run_options,
+            index=run_options.index(run_param) if run_param in runs else 0,
+            format_func=format_run,
+            # a new run in the url resets the selection made for the previous one
+            key=f"results_run_filter_{run_param}",
+        )
+        selected_models = col_models.multiselect(
+            "Target models",
+            options=models,
+            placeholder="All models",
+            key="results_model_filter",
+        )
+        selected_labels = col_labels.multiselect(
+            "Manual labels",
+            options=[*stats.LABELS, None],
+            format_func=lambda label: label.capitalize() if label else "No label",
+            placeholder="All labels",
+            key="results_label_filter",
+        )
+
+        filtered_interactions = records.filter_prompt_interactions(interactions, run_id, selected_models, selected_labels)
+
+        title.markdown(
+            f"**Filters** · :gray[Showing {len(filtered_interactions)} of "
+            f"{formatting.pluralize(len(interactions), 'response')}]"
+        )
+        clear_button.button(
+            "Clear filters",
+            icon=":material/filter_alt_off:",
+            type="tertiary",
+            disabled=run_id is None and not selected_models and not selected_labels,
+            on_click=clear_interaction_filters,
+            key="results_clear_filters_button",
+        )
+
+    return filtered_interactions
 
 
 def display_prompt(prompt_object):
