@@ -12,15 +12,6 @@ SCHEMA = """
         value       text
     );
 
-    create table if not exists presets (
-        id              integer not null primary key,
-        prompt          text not null,
-        system_prompt   text,
-        categories      text
-                        check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
-        created_at      timestamp default current_timestamp
-    );
-
     -- a prompt is identified by its text and system prompt (an empty string if there is none)
     create table if not exists prompts (
         id              integer not null primary key,
