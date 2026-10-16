@@ -42,6 +42,4 @@ navigation = st.navigation({
 
 navigation.run()
 
-sidebar.batch_ids_picker(canvas=st.sidebar)
-
 sidebar.api_key_details()

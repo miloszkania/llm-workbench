@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from llm_workbench import db, formatting, records
-from llm_workbench.ui import page, sidebar
+from llm_workbench.ui import page
 
 page.page_config("History")
 
@@ -38,6 +38,10 @@ if error_message:
 history_table = records.get_all_interactions()
 
 if not history_table.empty:
+    # link every interaction to the results page of its prompt
+    history_table["prompt_link"] = "/experiment_results?prompt=" + history_table["prompt_id"].astype(str)
+
+if not history_table.empty:
     edited_history_table = st.data_editor(
         history_table,
         key="history_editor",
@@ -47,6 +51,7 @@ if not history_table.empty:
 
         column_order=[
             "id",
+            "prompt_link",
             "manual_label",
             "categories",
             "prompt",
@@ -58,6 +63,7 @@ if not history_table.empty:
 
         disabled=[
             "id",
+            "prompt_link",
             "prompt",
             "system_prompt",
             "response",
@@ -67,6 +73,11 @@ if not history_table.empty:
 
         column_config={
             "id": st.column_config.TextColumn("ID"),
+            "prompt_link": st.column_config.LinkColumn(
+                "Prompt ID",
+                display_text=r"prompt=(\d+)$",
+                help="Open the results of all interactions with this prompt",
+            ),
             "manual_label": st.column_config.SelectboxColumn(
                 "Label",
                 options=label_options,
@@ -106,9 +117,5 @@ if not history_table.empty:
         if st.button("Save data", type="primary"):
             save_changes(history_table)
             st.success("Saved!")
-
-    st.space("medium")
-
-    sidebar.batch_ids_picker(history_table=history_table)
 else:
     st.info("No data yet!")

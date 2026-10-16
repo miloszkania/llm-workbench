@@ -34,6 +34,16 @@ class PromptNormalizationTests(unittest.TestCase):
                 self.assertEqual(formatting.normalize_prompt_text(value), "")
 
 
+class PromptLabelTests(unittest.TestCase):
+    def test_label_includes_title(self) -> None:
+        self.assertEqual(formatting.format_prompt_label(3, "DAN"), "Prompt #3 · DAN")
+
+    def test_label_without_title(self) -> None:
+        for title in (None, ""):
+            with self.subTest(title=title):
+                self.assertEqual(formatting.format_prompt_label(3, title), "Prompt #3")
+
+
 class ModelIdTests(unittest.TestCase):
     def test_snapshot_date_is_removed(self) -> None:
         self.assertEqual(formatting.remove_timestamp_from_model_id("anthropic/claude-x-20250929"), "anthropic/claude-x")

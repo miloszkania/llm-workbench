@@ -76,3 +76,14 @@ def set_interaction_label(
         """,
         (label, int(interaction_id)),
     )
+
+
+def get_interactions_by_prompt(prompt_id: int) -> list[dict[str, Any]]:
+    return fetch_all(
+        f"""
+        {SELECT_INTERACTIONS_WITH_PROMPTS}
+            where interactions.prompt_id = ?
+            order by interactions.time, interactions.id
+        """,
+        (prompt_id,),
+    )

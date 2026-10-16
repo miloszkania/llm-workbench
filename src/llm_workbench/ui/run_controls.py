@@ -130,11 +130,9 @@ def send_prompt_button_with_repetitions(
                     # no interactions succeeded, rerun to re-enable the button and display the errors
                     st.rerun()
                 else:
-                    # redirect to the prompt/batch details page
+                    # redirect to the results page of the prompt
                     st.session_state["failed_judgments"] = result.failed_judgments
-
-                    param_string = ",".join(map(str, result.interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
-                    st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
+                    st.switch_page("pages/experiment_results.py", query_params={"prompt": result.prompt_id})
 
             except OpenRouterRequestError as error:
                 status.update(label="Run interrupted", state="error")

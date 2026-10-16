@@ -2,40 +2,11 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import pandas as pd
 import streamlit as st
 
-from llm_workbench import records
 from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
-
-
-def batch_ids_picker(
-        history_table: pd.DataFrame | None = None,
-        canvas: Any = st,
-) -> None:
-    if history_table is None:
-        history_table = records.get_all_interactions()
-
-    if history_table.empty:
-        return
-
-    canvas.subheader("Show experiment results")
-
-    details_prompt_id = canvas.multiselect(
-        "Prompt IDs",
-        placeholder="Select one or more IDs",
-        options=history_table["id"],
-        accept_new_options=True,
-    )
-
-    if details_prompt_id is not None:
-        if canvas.button("Go"):
-            param_string = ",".join(map(str, details_prompt_id))
-            st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
-
-    canvas.divider()
 
 
 def api_key_details(canvas: Any = st.sidebar) -> None:

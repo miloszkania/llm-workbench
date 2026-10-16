@@ -5,65 +5,44 @@ import streamlit as st
 from llm_workbench import db, formatting, records
 from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls, system_prompt_controls
 
-interaction_ids = st.query_params.get("id")
 
-# interaction ids were not specified in the url -> redirect
-if not interaction_ids:
+def redirect_to_history(error_message: str) -> None:
+    st.session_state["error_message"] = error_message
     st.switch_page("pages/history.py")
 
 
-def load_interactions(interaction_ids: str) -> list[dict[str, Any]]:
-    parsed_interaction_ids = [int(interaction_id) for interaction_id in interaction_ids.split(",")]
-    interactions = []
-
-    for interaction_id in parsed_interaction_ids:
-        interaction_object = db.interactions.get_interaction_by_id(interaction_id)
-
-        # interaction with id interaction_id could not be found -> redirect
-        if len(interaction_object) == 0:
-            st.session_state["error_message"] = f"No interaction with ID={interaction_id} could be found."
-            st.switch_page("pages/history.py")
-
-        judge_results = db.judges.get_judge_results_by_interaction(interaction_id)
-        if judge_results:
-            judge_results = sorted(judge_results, key=lambda x: x["label"])
-        else:
-            judge_results = []
-
-        interactions.append({
-            "interaction": interaction_object[0],
-            "judge_results": judge_results,
-        })
-
-    return interactions
-
-
-def ensure_same_experiment(experiment_input, interactions):
-    if any(
-            (i["interaction"]["prompt"], i["interaction"]["system_prompt"], i["interaction"]["categories"])
-            != (experiment_input["prompt"], experiment_input["system_prompt"], experiment_input["categories"])
-            for i in interactions
-    ):
-        st.session_state["error_message"] = ("The selected interactions do not belong to the same experiment! "
-                                             "They need to have sent identical prompts.")
+def load_prompt(prompt_id_param: str | None) -> dict[str, Any]:
+    # prompt id was not specified in the url -> redirect
+    if not prompt_id_param:
         st.switch_page("pages/history.py")
 
+    if not prompt_id_param.isdigit():
+        redirect_to_history(f"'{prompt_id_param}' is not a valid prompt ID.")
 
-@st.dialog("Rerun interaction", width="medium")
-def display_rerun_interaction_dialog(interactions, experiment_input):
+    prompt_object = db.prompts.get_prompt_by_id(int(prompt_id_param))
+
+    if prompt_object is None:
+        redirect_to_history(f"No prompt with ID={prompt_id_param} could be found.")
+
+    return prompt_object
+
+
+@st.dialog("Run prompt", width="medium")
+def display_run_prompt_dialog(interactions, prompt_object):
     st.header("Review or edit prompts")
+    st.caption("Changing the prompt or system prompt saves and runs it as a new prompt.")
     st.text_area(
         "User prompt",
-        value=experiment_input["prompt"],
+        value=prompt_object["prompt"],
         height="content",
         key="prompt",
     )
     system_prompt_controls.system_prompt_input(
         "system_prompt",
-        value=experiment_input["system_prompt"],
+        value=prompt_object["system_prompt"],
         height="content",
     )
-    display_categories(experiment_input, interactions, key_prefix="", save_button=False)
+    display_categories(prompt_object, interactions, key_prefix="", save_button=False)
     st.divider()
 
     st.header("Select a target model")
@@ -91,7 +70,7 @@ def display_rerun_interaction_dialog(interactions, experiment_input):
 
     st.divider()
 
-    run_controls.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Rerun interaction")
+    run_controls.send_prompt_button_with_repetitions(judge_config, judge_models, button_label="Run prompt")
 
 
 def display_experiment_overview(interactions, canvas):
@@ -119,38 +98,32 @@ def display_experiment_overview(interactions, canvas):
     )
 
 
-def display_prompt(experiment_input):
+def display_prompt(prompt_object):
     st.header("Prompt")
-
-    matching_preset = db.presets.get_preset_id_by_content(
-        experiment_input["prompt"], experiment_input["system_prompt"], experiment_input["categories"]
-    )
-    if matching_preset:
-        st.caption(f"Matches preset #{matching_preset}")
 
     parse_markdown = st.toggle("Parse Markdown", value=True, key="parse_md_prompt")
 
     if parse_markdown:
         with st.container(border=True, height="stretch"):
             st.caption("User prompt")
-            st.markdown(experiment_input["prompt"])
+            st.markdown(prompt_object["prompt"])
 
     else:
         st.text_area(
             "User prompt",
-            value=experiment_input["prompt"],
+            value=prompt_object["prompt"],
             height="content",
-            key=f"overview_{experiment_input['id']}_prompt",
+            key=f"overview_{prompt_object['id']}_prompt",
         )
 
     system_prompt_controls.system_prompt_view(
-        experiment_input["system_prompt"],
-        key=f"overview_{experiment_input['id']}_system_prompt",
+        prompt_object["system_prompt"],
+        key=f"overview_{prompt_object['id']}_system_prompt",
         parse_markdown=parse_markdown,
     )
 
 
-def display_categories(experiment_input, interactions, key_prefix, save_button):
+def display_categories(prompt_object, interactions, key_prefix, save_button):
     if save_button:
         col_select_categories, col_save_categories = st.columns([2, 1])
     else:
@@ -159,7 +132,7 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
     categories = col_select_categories.multiselect(
         "Categories",
         options=records.get_all_categories(),
-        default=formatting.parse_categories_from_json(experiment_input["categories"]),
+        default=formatting.parse_categories_from_json(prompt_object["categories"]),
         accept_new_options=True,
         key=f"{key_prefix}categories",
     )
@@ -167,23 +140,19 @@ def display_categories(experiment_input, interactions, key_prefix, save_button):
     if col_save_categories:
         col_save_categories.space()
         if col_save_categories.button("Save categories", type="primary"):
-            db.prompts.set_prompt_categories(experiment_input["prompt_id"], formatting.categories_to_json(categories))
+            db.prompts.set_prompt_categories(prompt_object["id"], formatting.categories_to_json(categories))
             st.success("Categories updated!")
 
         preset_controls.save_preset_button(
-            experiment_input["prompt"],
-            experiment_input["system_prompt"],
+            prompt_object["prompt"],
+            prompt_object["system_prompt"],
             categories
         )
 
 
 
-# get interaction and judge result objects of all selected prompts
-interactions = load_interactions(interaction_ids)
-experiment_input = interactions[0]["interaction"]
-
-# check if all selected interactions have the same prompt and categories (then, together they can be called an experiment)
-ensure_same_experiment(experiment_input, interactions)
+prompt_object = load_prompt(st.query_params.get("prompt"))
+interactions = records.get_prompt_interactions(prompt_object["id"])
 
 
 ### Start frontend
@@ -194,18 +163,15 @@ st.page_link("pages/history.py", label="← Show all interactions")
 
 col_overview, col_rerun = st.columns([2, 1])
 
-# show ids
-if len(interactions) == 1:
-    col_overview.subheader(f"ID: `{interactions[0]['interaction']['id']}`")
-else:
-    col_overview.subheader(f"IDs: {', '.join(f'`{i["interaction"]["id"]}`' for i in interactions)}")
+col_overview.subheader(formatting.format_prompt_label(prompt_object["id"], prompt_object["title"]))
 
-# display total label counts, total prices and models that were tested, and the "rerun interaction" button
-display_experiment_overview(interactions, col_overview)
+# display total label counts, total prices and models that were tested, and the "run prompt" button
+if interactions:
+    display_experiment_overview(interactions, col_overview)
 
 with col_rerun.container(horizontal=True, horizontal_alignment="right"):
-    if st.button("Rerun interaction…", type="primary"):
-        display_rerun_interaction_dialog(interactions, experiment_input)
+    if st.button("Run prompt…", type="primary"):
+        display_run_prompt_dialog(interactions, prompt_object)
 
 st.divider()
 
@@ -227,13 +193,16 @@ if interaction_errors or failed_judgments:
     st.divider()
 
 # prompt information
-display_prompt(experiment_input)
+display_prompt(prompt_object)
 
 # categories
-display_categories(experiment_input, interactions, key_prefix=f"overview_{experiment_input['id']}_", save_button=True)
+display_categories(prompt_object, interactions, key_prefix=f"overview_{prompt_object['id']}_", save_button=True)
 st.divider()
 
 
 # display outcomes and judge results
+if not interactions:
+    st.info("This prompt hasn't been run yet.")
+
 for interaction_object in interactions:
     interaction_view.interaction_card(interaction_object)

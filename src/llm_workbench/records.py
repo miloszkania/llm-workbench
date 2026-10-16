@@ -56,6 +56,24 @@ def get_interaction_by_id(entry_id: int) -> dict[str, Any] | None:
     return prompt_data
 
 
+def get_prompt_interactions(prompt_id: int) -> list[dict[str, Any]]:
+    # every interaction of the prompt together with its judge results
+    judge_results_by_interaction: dict[int, list[dict[str, Any]]] = {}
+    for judge_result in db.judges.get_judge_results_by_prompt(prompt_id):
+        judge_results_by_interaction.setdefault(judge_result["interaction_id"], []).append(judge_result)
+
+    return [
+        {
+            "interaction": interaction,
+            "judge_results": sorted(
+                judge_results_by_interaction.get(interaction["id"], []),
+                key=lambda judge_result: judge_result["label"] or "",
+            ),
+        }
+        for interaction in db.interactions.get_interactions_by_prompt(prompt_id)
+    ]
+
+
 def get_all_presets(fill_null: bool = False) -> pd.DataFrame:
     df = pd.DataFrame(db.presets.get_all_presets())
 

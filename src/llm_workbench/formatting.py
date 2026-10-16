@@ -25,6 +25,10 @@ def normalize_prompt_text(text: str | None) -> str:
     return (text or "").strip()
 
 
+def format_prompt_label(prompt_id: int, title: str | None = None) -> str:
+    return f"Prompt #{prompt_id} · {title}" if title else f"Prompt #{prompt_id}"
+
+
 def remove_timestamp_from_model_id(model_id: str) -> str:
     # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
     return re.sub(r"-\d{8}(?=$|:)", "", model_id)
