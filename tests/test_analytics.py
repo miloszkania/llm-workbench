@@ -10,14 +10,11 @@ class AnalyticsPreparationTests(unittest.TestCase):
     def test_empty_records_keep_stable_schemas(self) -> None:
         interactions = stats.prepare_interactions([])
         judge_results = stats.prepare_judge_results([])
-        presets = stats.prepare_presets([])
 
         self.assertEqual(list(interactions.columns), list(stats.INTERACTION_COLUMNS))
         self.assertEqual(list(judge_results.columns), list(stats.JUDGE_RESULT_COLUMNS))
-        self.assertEqual(list(presets.columns), list(stats.PRESET_COLUMNS))
         self.assertTrue(interactions.empty)
         self.assertTrue(judge_results.empty)
-        self.assertTrue(presets.empty)
 
     def test_interactions_parse_database_values_without_mutating_input(self) -> None:
         source = pd.DataFrame([
@@ -51,7 +48,7 @@ class AnalyticsPreparationTests(unittest.TestCase):
         self.assertTrue(pd.isna(interactions.loc[1, "time"]))
         self.assertEqual(source.loc[0, "categories"], '["one", "two"]')
 
-    def test_judge_results_and_presets_parse_database_values(self) -> None:
+    def test_judge_results_parse_database_values(self) -> None:
         judge_results = stats.prepare_judge_results([
             {
                 "id": 1,
@@ -60,18 +57,13 @@ class AnalyticsPreparationTests(unittest.TestCase):
                 "price": "0.05",
             },
         ])
-        presets = stats.prepare_presets([
-            {
-                "id": 1,
-                "categories": '["alpha", null, 5]',
-                "created_at": "2026-09-20 09:00:00",
-            },
-        ])
-
         self.assertEqual(judge_results.loc[0, "duration"], pd.Timedelta(seconds=1.25))
         self.assertEqual(judge_results.loc[0, "price"], 0.05)
-        self.assertEqual(presets.loc[0, "categories"], ["alpha"])
-        self.assertEqual(presets.loc[0, "created_at"], pd.Timestamp("2026-09-20 09:00:00"))
+
+    def test_invalid_categories_are_dropped(self) -> None:
+        interactions = stats.prepare_interactions([{"id": 1, "categories": '["alpha", null, 5]'}])
+
+        self.assertEqual(interactions.loc[0, "categories"], ["alpha"])
 
 
 class AnalyticsFilteringTests(unittest.TestCase):
@@ -342,6 +334,43 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(model_a_beta["label_count"], 2)
         self.assertEqual(model_b_beta["interaction_count"], 1)
         self.assertEqual(model_b_beta["label_count"], 0)
+
+    def test_prompt_summaries_group_interactions_by_prompt(self) -> None:
+        interactions = stats.prepare_interactions([
+            {"id": 1, "prompt_id": 2, "prompt_title": "DAN", "prompt": "b", "model": "model/a", "price": 0.10},
+            {"id": 2, "prompt_id": 2, "prompt_title": "DAN", "prompt": "b", "model": "model/b", "price": 0.30},
+            {"id": 3, "prompt_id": 1, "prompt_title": None, "prompt": "a", "model": "model/a", "price": None},
+        ])
+        label_records = pd.DataFrame([
+            {"interaction_id": 1, "label": "success"},
+            {"interaction_id": 1, "label": "refusal"},
+            {"interaction_id": 2, "label": "success"},
+        ])
+
+        prompts = stats.summarize_prompts(interactions, label_records)
+        prompt_models = stats.summarize_prompt_models(interactions, label_records)
+        titled_prompt = prompts.iloc[1]
+
+        self.assertEqual(prompts["prompt_label"].tolist(), ["Prompt #1", "Prompt #2 · DAN"])
+        self.assertEqual(titled_prompt["prompt"], "b")
+        self.assertEqual(titled_prompt["interaction_count"], 2)
+        self.assertEqual(titled_prompt["target_model_count"], 2)
+        self.assertEqual(titled_prompt["label_count"], 3)
+        self.assertAlmostEqual(titled_prompt["success_share"], 200 / 3)
+        self.assertAlmostEqual(titled_prompt["total_cost"], 0.40)
+        self.assertEqual(prompts.iloc[0]["label_count"], 0)
+        self.assertEqual(
+            prompt_models[["prompt_label", "model", "label_count"]].values.tolist(),
+            [["Prompt #1", "model/a", 0], ["Prompt #2 · DAN", "model/a", 2], ["Prompt #2 · DAN", "model/b", 1]],
+        )
+
+    def test_empty_prompt_summaries_keep_stable_schemas(self) -> None:
+        interactions = stats.prepare_interactions([])
+        label_records = pd.DataFrame(columns=["interaction_id", "label"])
+
+        self.assertTrue(stats.summarize_prompts(interactions, label_records).empty)
+        self.assertIn("prompt_label", stats.summarize_prompts(interactions, label_records).columns)
+        self.assertIn("prompt_label", stats.summarize_prompt_models(interactions, label_records).columns)
 
     def test_judge_summary_uses_all_costs_and_latest_outcomes(self) -> None:
         judge_results = stats.prepare_judge_results([

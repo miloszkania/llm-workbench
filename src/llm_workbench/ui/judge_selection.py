@@ -14,7 +14,7 @@ def judge_model_and_configuration_selector(
 
     # Models
     st.subheader("Models")
-    st.write("Select up to three models that will evaluate the interactions following your selected configuration.")
+    st.write("Select up to three models that will evaluate the responses following your selected configuration.")
 
     # Not using model_selection.model_picker() here since we need a multiselect instead of a selectbox
     models, _ = model_selection.model_filter_and_sort_controls(key_prefix="judge_")

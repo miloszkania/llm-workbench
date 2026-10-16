@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from llm_workbench import db
+from llm_workbench import db, formatting
 
 
 LABELS = ("success", "refusal", "unclear")
@@ -17,8 +17,11 @@ JUDGE_SETUP_SEPARATOR = " · "
 
 INTERACTION_COLUMNS = (
     "id",
+    "prompt_id",
+    "run_id",
     "time",
     "model",
+    "prompt_title",
     "prompt",
     "system_prompt",
     "categories",
@@ -40,15 +43,6 @@ JUDGE_RESULT_COLUMNS = (
     "duration",
     "price",
 )
-
-PRESET_COLUMNS = (
-    "id",
-    "prompt",
-    "system_prompt",
-    "categories",
-    "created_at",
-)
-
 
 @dataclass(frozen=True)
 class OverviewMetrics:
@@ -127,17 +121,6 @@ def prepare_judge_results(
     return judge_results
 
 
-def prepare_presets(
-        records: Sequence[Mapping[str, Any]] | pd.DataFrame,
-) -> pd.DataFrame:
-    presets = _create_frame(records, PRESET_COLUMNS)
-
-    presets["categories"] = presets["categories"].apply(_parse_categories)
-    presets["created_at"] = pd.to_datetime(presets["created_at"], errors="coerce")
-
-    return presets
-
-
 ##### DATA LOADING
 
 def load_interactions() -> pd.DataFrame:
@@ -146,10 +129,6 @@ def load_interactions() -> pd.DataFrame:
 
 def load_judge_results() -> pd.DataFrame:
     return prepare_judge_results(db.judges.get_all_judge_results())
-
-
-def load_presets() -> pd.DataFrame:
-    return prepare_presets(db.presets.get_all_presets())
 
 
 ##### FILTERS
@@ -468,90 +447,28 @@ def summarize_model_categories(
     return summary.sort_values(["model", "category"]).reset_index(drop=True)
 
 
-##### PRESET ANALYTICS
+##### PROMPT ANALYTICS
 
-def _add_preset_match_key(frame: pd.DataFrame) -> pd.DataFrame:
-    keyed = frame.copy()
+def _prompt_data(interactions: pd.DataFrame) -> pd.DataFrame:
+    prompt_data = interactions.loc[interactions["prompt_id"].notna()].copy()
+    prompt_data["prompt_id"] = prompt_data["prompt_id"].astype(int)
 
-    # an empty system prompt and a database null describe the same configuration
-    prompts = keyed["prompt"].apply(lambda value: value if isinstance(value, str) else "")
-    system_prompts = keyed["system_prompt"].apply(lambda value: value if isinstance(value, str) else "")
-    # category order doesn't change what a preset represents
-    category_sets = keyed["categories"].apply(
-        lambda values: tuple(sorted(set(values))) if isinstance(values, list) else ()
-    )
-    keyed["_preset_match_key"] = list(zip(prompts, system_prompts, category_sets))
-
-    return keyed
-
-
-def _first_preset_id(frame: pd.DataFrame) -> pd.Series:
-    # sort by the numeric id instead of the displayed text, so #2 comes before #10
-    return frame["preset_ids"].apply(lambda ids: ids[0])
-
-
-def _group_current_presets(presets: pd.DataFrame) -> pd.DataFrame:
-    columns = [
-        "_preset_match_key",
-        "preset_ids",
-        "preset_label",
-        "prompt",
-        "system_prompt",
-        "categories",
+    # name every prompt by its id and its title, if it has one
+    prompt_data["prompt_label"] = [
+        formatting.format_prompt_label(prompt_id, title if isinstance(title, str) else None)
+        for prompt_id, title in zip(prompt_data["prompt_id"], prompt_data["prompt_title"])
     ]
 
-    if presets.empty:
-        return pd.DataFrame(columns=columns)
-
-    keyed_presets = _add_preset_match_key(presets)
-    grouped = (
-        keyed_presets
-        .groupby("_preset_match_key", sort=False, as_index=False)
-        .agg(
-            preset_ids=("id", lambda values: tuple(sorted(int(value) for value in values if pd.notna(value)))),
-            prompt=("prompt", "first"),
-            system_prompt=("system_prompt", "first"),
-            categories=("categories", "first"),
-        )
-    )
-
-    # identical presets share one marker, so matched data isn't counted twice
-    grouped["preset_label"] = grouped["preset_ids"].apply(
-        lambda ids: ", ".join(f"#{preset_id}" for preset_id in ids)
-    )
-
-    return grouped[columns]
+    return prompt_data
 
 
-def match_current_presets(
-        presets: pd.DataFrame,
-        interactions: pd.DataFrame,
-) -> pd.DataFrame:
-    preset_groups = _group_current_presets(presets)
-    result_columns = [*interactions.columns, "preset_ids", "preset_label"]
-
-    if preset_groups.empty or interactions.empty:
-        return pd.DataFrame(columns=result_columns)
-
-    keyed_interactions = _add_preset_match_key(interactions)
-    matches = keyed_interactions.merge(
-        preset_groups[["_preset_match_key", "preset_ids", "preset_label"]],
-        on="_preset_match_key",
-        how="inner",
-        validate="many_to_one",
-    )
-
-    return matches.drop(columns="_preset_match_key").reset_index(drop=True)
-
-
-def summarize_presets(
-        presets: pd.DataFrame,
+def summarize_prompts(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
 ) -> pd.DataFrame:
     columns = [
-        "preset_ids",
-        "preset_label",
+        "prompt_id",
+        "prompt_label",
         "prompt",
         "system_prompt",
         "categories",
@@ -560,69 +477,54 @@ def summarize_presets(
         *LABEL_METRIC_COLUMNS,
         *TARGET_CALL_METRIC_COLUMNS,
     ]
-    preset_groups = _group_current_presets(presets)
+    prompt_data = _prompt_data(interactions)
 
-    if preset_groups.empty:
+    if prompt_data.empty:
         return pd.DataFrame(columns=columns)
 
-    matches = match_current_presets(presets, interactions)
-    summary = preset_groups.drop(columns="_preset_match_key")
-
-    if matches.empty:
-        interaction_summary = pd.DataFrame(
-            columns=["preset_label", "interaction_count", "target_model_count", *TARGET_CALL_METRIC_COLUMNS]
+    prompt_data["duration_seconds"] = prompt_data["duration"].dt.total_seconds()
+    summary = (
+        prompt_data
+        .groupby("prompt_id", as_index=False)
+        .agg(
+            # the prompt columns are the same for every interaction of a prompt
+            prompt_label=("prompt_label", "first"),
+            prompt=("prompt", "first"),
+            system_prompt=("system_prompt", "first"),
+            categories=("categories", "first"),
+            interaction_count=("id", "size"),
+            target_model_count=("model", "nunique"),
+            **_target_call_aggregations(),
         )
-    else:
-        matches["duration_seconds"] = matches["duration"].dt.total_seconds()
-        interaction_summary = (
-            matches
-            .groupby("preset_label", as_index=False)
-            .agg(
-                interaction_count=("id", "size"),
-                target_model_count=("model", "nunique"),
-                **_target_call_aggregations(),
-            )
-        )
-
-    # keep current presets visible even if no filtered interaction matches them
-    summary = summary.merge(interaction_summary, on="preset_label", how="left")
-    summary[["interaction_count", "target_model_count"]] = (
-        summary[["interaction_count", "target_model_count"]]
-        .fillna(0)
-        .astype(int)
     )
-
     # labels are joined separately, so multiple judge labels don't change call metrics
-    labeled_presets = _join_labels(label_records, matches[["id", "preset_label"]])
-    summary = _add_label_metrics(summary, labeled_presets, ["preset_label"])
-    summary["_preset_sort_id"] = _first_preset_id(summary)
+    labeled_prompts = _join_labels(label_records, prompt_data[["id", "prompt_id"]])
+    summary = _add_label_metrics(summary, labeled_prompts, ["prompt_id"])
 
-    return summary.sort_values("_preset_sort_id")[columns].reset_index(drop=True)
+    return summary.sort_values("prompt_id")[columns].reset_index(drop=True)
 
 
-def summarize_preset_models(
-        presets: pd.DataFrame,
+def summarize_prompt_models(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
 ) -> pd.DataFrame:
-    columns = ["preset_label", "model", "interaction_count", *LABEL_METRIC_COLUMNS]
-    matches = match_current_presets(presets, interactions)
-    matches = matches.loc[matches["model"].notna()].copy()
+    columns = ["prompt_id", "prompt_label", "model", "interaction_count", *LABEL_METRIC_COLUMNS]
+    prompt_data = _prompt_data(interactions)
+    prompt_data = prompt_data.loc[prompt_data["model"].notna()]
 
-    if matches.empty:
+    if prompt_data.empty:
         return pd.DataFrame(columns=columns)
 
-    matches["_preset_sort_id"] = _first_preset_id(matches)
     summary = (
-        matches
-        .groupby(["_preset_sort_id", "preset_label", "model"], as_index=False)["id"]
+        prompt_data
+        .groupby(["prompt_id", "prompt_label", "model"], as_index=False)["id"]
         .nunique()
         .rename(columns={"id": "interaction_count"})
     )
-    labeled_groups = _join_labels(label_records, matches[["id", "preset_label", "model"]])
-    summary = _add_label_metrics(summary, labeled_groups, ["preset_label", "model"])
+    labeled_groups = _join_labels(label_records, prompt_data[["id", "prompt_id", "model"]])
+    summary = _add_label_metrics(summary, labeled_groups, ["prompt_id", "model"])
 
-    return summary.sort_values(["_preset_sort_id", "model"])[columns].reset_index(drop=True)
+    return summary.sort_values(["prompt_id", "model"])[columns].reset_index(drop=True)
 
 
 ##### JUDGE ANALYTICS

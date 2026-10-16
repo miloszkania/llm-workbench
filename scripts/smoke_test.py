@@ -17,9 +17,9 @@ def main() -> int:
     for page in sorted((PROJECT_ROOT / "pages").glob("*.py")):
         app = AppTest.from_file(str(PROJECT_ROOT / "main.py"), default_timeout=60).run()
 
-        # the experiment results page needs an interaction id, otherwise it redirects
+        # the experiment results page needs a prompt id, otherwise it redirects
         if page.name == "experiment_results.py":
-            app.query_params["id"] = "1"
+            app.query_params["prompt"] = "1"
 
         app.switch_page(f"pages/{page.name}").run()
         print(f"{page.name:30} exceptions={len(app.exception)} elements={len(app.main.children)}")

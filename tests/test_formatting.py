@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from llm_workbench import formatting
@@ -14,6 +15,71 @@ class CategoryParsingTests(unittest.TestCase):
 
     def test_invalid_json_is_wrapped_in_list(self) -> None:
         self.assertEqual(formatting.parse_categories_from_json("abc"), ["abc"])
+
+    def test_categories_are_serialized_to_json(self) -> None:
+        self.assertEqual(formatting.categories_to_json(["a", "ż"]), '["a", "ż"]')
+
+    def test_no_categories_serialize_to_none(self) -> None:
+        for value in (None, []):
+            with self.subTest(value=value):
+                self.assertIsNone(formatting.categories_to_json(value))
+
+
+class PromptNormalizationTests(unittest.TestCase):
+    def test_surrounding_whitespace_is_removed(self) -> None:
+        self.assertEqual(formatting.normalize_prompt_text("  hello\n world \n"), "hello\n world")
+
+    def test_missing_text_becomes_empty_string(self) -> None:
+        for value in (None, "", "   "):
+            with self.subTest(value=value):
+                self.assertEqual(formatting.normalize_prompt_text(value), "")
+
+
+class PromptLabelTests(unittest.TestCase):
+    def test_label_includes_title(self) -> None:
+        self.assertEqual(formatting.format_prompt_label(3, "DAN"), "Prompt #3 · DAN")
+
+    def test_label_without_title(self) -> None:
+        for title in (None, ""):
+            with self.subTest(title=title):
+                self.assertEqual(formatting.format_prompt_label(3, title), "Prompt #3")
+
+
+class TextPreviewTests(unittest.TestCase):
+    def test_short_text_is_unchanged(self) -> None:
+        self.assertEqual(formatting.format_text_preview("Hello there"), "Hello there")
+
+    def test_whitespace_is_collapsed_to_one_line(self) -> None:
+        self.assertEqual(formatting.format_text_preview("Hello\n\n  there"), "Hello there")
+
+    def test_long_text_is_shortened(self) -> None:
+        preview = formatting.format_text_preview("word " * 20, max_length=12)
+        self.assertEqual(preview, "word word w…")
+        self.assertEqual(len(preview), 12)
+
+
+class ResultsPageUrlTests(unittest.TestCase):
+    def test_pattern_extracts_prompt_id(self) -> None:
+        url = formatting.format_results_page_url(42)
+        self.assertEqual(re.search(formatting.RESULTS_PAGE_URL_PROMPT_ID_PATTERN, url).group(1), "42")
+
+
+class PluralizeTests(unittest.TestCase):
+    def test_pluralize(self) -> None:
+        self.assertEqual(formatting.pluralize(1, "response"), "1 response")
+        self.assertEqual(formatting.pluralize(0, "response"), "0 responses")
+        self.assertEqual(formatting.pluralize(2, "response"), "2 responses")
+
+
+class RunLabelTests(unittest.TestCase):
+    def test_run_label(self) -> None:
+        self.assertEqual(
+            formatting.format_run_label(2, "2026-10-16 14:57:10.123456", 3),
+            "Run 2 · 2026-10-16 14:57:10 · 3 responses",
+        )
+
+    def test_single_interaction_is_not_plural(self) -> None:
+        self.assertTrue(formatting.format_run_label(1, "2026-10-16 14:57:10", 1).endswith("1 response"))
 
 
 class ModelIdTests(unittest.TestCase):

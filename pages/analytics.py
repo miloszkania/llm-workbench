@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from llm_workbench.analytics import charts, stats
-from llm_workbench.ui import page, preset_controls
+from llm_workbench.ui import page
 
 
 FILTER_KEYS = (
@@ -127,13 +127,13 @@ def display_metric_cards(
     # each row contains (label, value, help text) of its metric cards
     metric_rows = [
         [
-            ("Interactions", f"{metrics.interaction_count:,}", None),
+            ("Responses", f"{metrics.interaction_count:,}", None),
             ("Target models", f"{metrics.target_model_count:,}", None),
             ("Categories", f"{metrics.category_count:,}", None),
             (
                 "Label coverage",
                 f"{label_coverage:,} / {metrics.interaction_count:,}",
-                "Number of interactions covered by the selected label source.",
+                "Number of responses covered by the selected label source.",
             ),
         ],
         [
@@ -145,7 +145,7 @@ def display_metric_cards(
             (
                 "Total cost",
                 f"${total_cost:,.4f}",
-                f"Target interactions: \\${metrics.target_cost:,.4f} · Judging: \\${metrics.judging_cost:,.4f}",
+                f"Target model: \\${metrics.target_cost:,.4f} · Judging: \\${metrics.judging_cost:,.4f}",
             ),
             ("Target tokens", f"{metrics.token_usage:,}", None),
             ("Median duration", format_seconds(metrics.median_duration_seconds), None),
@@ -189,9 +189,9 @@ def display_overview(
     costs = stats.summarize_costs(filtered_interactions, filtered_judge_results)
 
     with activity_column:
-        st.markdown("**Interactions over time**")
+        st.markdown("**Responses over time**")
         if activity.empty:
-            st.info("No valid interaction timestamps are available.")
+            st.info("No valid response timestamps are available.")
         else:
             display_chart(charts.create_activity_chart(activity), "interactions_over_time")
 
@@ -209,9 +209,9 @@ def display_overview(
 
     st.subheader("Data coverage")
     coverage = [
-        ("Categorized interactions", metrics.categorized_interaction_count),
-        ("Manually labeled interactions", metrics.manually_labeled_interaction_count),
-        ("Judge-evaluated interactions", metrics.judged_interaction_count),
+        ("Categorized responses", metrics.categorized_interaction_count),
+        ("Manually labeled responses", metrics.manually_labeled_interaction_count),
+        ("Judge-evaluated responses", metrics.judged_interaction_count),
     ]
 
     for column, (label, covered) in zip(st.columns(len(coverage)), coverage):
@@ -224,7 +224,7 @@ def display_model_table(model_summary: pd.DataFrame) -> None:
         model_summary,
         column_titles={
             "model": "Model",
-            "interaction_count": "Interactions",
+            "interaction_count": "Responses",
             "label_count": "Labels",
             "success_count": "Success",
             "refusal_count": "Refusal",
@@ -252,7 +252,7 @@ def display_model_analytics(
 ) -> None:
     st.subheader("Model comparison")
     st.caption(
-        "Interactions count target calls; n on outcome charts counts labels from the "
+        "Responses count target calls; n on outcome charts counts labels from the "
         "selected source. Costs and duration describe target calls only."
     )
     model_summary = stats.summarize_models(interactions, label_records)
@@ -299,16 +299,16 @@ def display_category_analytics(
 ) -> None:
     st.subheader("Category comparison")
     st.caption(
-        "An interaction assigned to multiple categories contributes once to each of "
-        "them, so category totals may exceed the overall interaction count."
+        "A response assigned to multiple categories contributes once to each of "
+        "them, so category totals may exceed the overall response count."
     )
     category_summary = stats.summarize_categories(interactions, label_records)
 
     if category_summary.empty:
-        st.info("No categorized interactions match the current filters.")
+        st.info("No categorized responses match the current filters.")
         return
 
-    st.markdown("**Interactions by category**")
+    st.markdown("**Responses by category**")
     display_chart(charts.create_category_usage_chart(category_summary), "category_usage")
 
     st.markdown("**Label distribution by category**")
@@ -322,14 +322,15 @@ def display_category_analytics(
         )
 
 
-def display_preset_table(preset_summary: pd.DataFrame) -> None:
+def display_prompt_table(prompt_summary: pd.DataFrame) -> None:
     display_summary_table(
-        preset_summary,
+        prompt_summary,
         column_titles={
-            "preset_label": "Preset",
+            "prompt_label": "Name",
             "prompt": "Prompt",
+            "system_prompt": "System prompt",
             "categories": "Categories",
-            "interaction_count": "Interactions",
+            "interaction_count": "Responses",
             "target_model_count": "Target models",
             "label_count": "Labels",
             "success_count": "Success",
@@ -343,6 +344,7 @@ def display_preset_table(preset_summary: pd.DataFrame) -> None:
         },
         column_config={
             "Prompt": st.column_config.TextColumn(width="large"),
+            "System prompt": st.column_config.TextColumn(width="medium"),
             "Categories": st.column_config.MultiselectColumn(),
             "Success share": SHARE_FORMAT,
             "Median duration": DURATION_FORMAT,
@@ -353,57 +355,55 @@ def display_preset_table(preset_summary: pd.DataFrame) -> None:
     )
 
 
-def display_preset_analytics(
-        presets: pd.DataFrame,
+def display_prompt_analytics(
         interactions: pd.DataFrame,
         label_records: pd.DataFrame,
         minimum_sample_size: int,
 ) -> None:
-    st.subheader("Preset comparison")
+    st.subheader("Prompt comparison")
     st.caption(
-        "Presets act as current configuration markers. A match requires the same "
-        "prompt, system prompt, and set of categories, so editing a preset updates "
-        "these statistics immediately."
+        "A prompt is identified by its text and system prompt. Only prompts with "
+        "responses matching the filters are shown."
     )
-    preset_controls.preset_table_preview(presets)
 
-    if presets.empty:
-        st.info("No presets are available to compare with the selected interactions.")
+    prompt_summary = stats.summarize_prompts(interactions, label_records)
+
+    if prompt_summary.empty:
+        st.info("No prompts match the current filters.")
         return
 
-    preset_summary = stats.summarize_presets(presets, interactions, label_records)
-    display_preset_table(preset_summary)
+    display_prompt_table(prompt_summary)
 
-    comparable_presets = stats.filter_by_sample_size(preset_summary, minimum_sample_size)
-    st.markdown("**Label distribution by preset**")
-    if comparable_presets.empty:
-        st.info("No preset has enough labels for the selected minimum sample size.")
+    comparable_prompts = stats.filter_by_sample_size(prompt_summary, minimum_sample_size)
+    st.markdown("**Label distribution by prompt**")
+    if comparable_prompts.empty:
+        st.info("No prompt has enough labels for the selected minimum sample size.")
     else:
-        preset_order = comparable_presets["preset_label"].tolist()
-        label_distribution_chart = charts.create_group_label_distribution_chart(comparable_presets, "preset_label")
-        # show the id next to every bar instead of letting plotly thin the axis
+        prompt_order = comparable_prompts["prompt_label"].tolist()
+        label_distribution_chart = charts.create_group_label_distribution_chart(comparable_prompts, "prompt_label")
+        # show the label next to every bar instead of letting plotly thin the axis
         label_distribution_chart.update_yaxes(
             categoryorder="array",
-            categoryarray=preset_order,
+            categoryarray=prompt_order,
             autorange="reversed",
             tickmode="array",
-            tickvals=preset_order,
-            ticktext=preset_order,
+            tickvals=prompt_order,
+            ticktext=prompt_order,
         )
-        display_chart(label_distribution_chart, "preset_label_distribution")
+        display_chart(label_distribution_chart, "prompt_label_distribution")
 
-    st.markdown("**Success by preset and target model**")
-    preset_models = stats.summarize_preset_models(presets, interactions, label_records)
-    comparable_cells = stats.filter_by_sample_size(preset_models, minimum_sample_size)
+    st.markdown("**Success by prompt and target model**")
+    prompt_models = stats.summarize_prompt_models(interactions, label_records)
+    comparable_cells = stats.filter_by_sample_size(prompt_models, minimum_sample_size)
     if comparable_cells.empty:
-        st.info("No preset-model pair has enough labels for the selected minimum sample size.")
+        st.info("No prompt-model pair has enough labels for the selected minimum sample size.")
     else:
-        available_presets = set(comparable_cells["preset_label"])
-        preset_order = [preset for preset in preset_summary["preset_label"] if preset in available_presets]
+        available_prompts = set(comparable_cells["prompt_label"])
+        prompt_order = [prompt for prompt in prompt_summary["prompt_label"] if prompt in available_prompts]
         model_order = order_by_interaction_count(comparable_cells, "model")
         display_chart(
-            charts.create_preset_model_heatmap(comparable_cells, preset_order, model_order),
-            "preset_model_success",
+            charts.create_prompt_model_heatmap(comparable_cells, prompt_order, model_order),
+            "prompt_model_success",
         )
 
 
@@ -413,7 +413,7 @@ def display_judge_table(judge_summary: pd.DataFrame) -> None:
         column_titles={
             "judge_setup": "Judge setup",
             "evaluation_count": "Evaluations",
-            "interaction_count": "Interactions",
+            "interaction_count": "Responses",
             "label_count": "Latest labels",
             "success_count": "Success",
             "refusal_count": "Refusal",
@@ -439,7 +439,7 @@ def display_judge_analytics(
     st.subheader("Judge comparison")
     st.caption(
         "Costs and duration include every evaluation. Outcome and agreement charts "
-        "use the latest valid label per interaction, judge model, and configuration."
+        "use the latest valid label per response, judge model, and configuration."
     )
 
     judge_summary = stats.summarize_judges(judge_results)
@@ -471,7 +471,7 @@ def display_judge_analytics(
         pairwise_agreement = agreement.loc[agreement["judge_a"] != agreement["judge_b"]]
 
         if pairwise_agreement.empty:
-            st.info("No pair of judge setups has enough shared interactions for the selected minimum sample size.")
+            st.info("No pair of judge setups has enough shared responses for the selected minimum sample size.")
         else:
             display_chart(charts.create_judge_agreement_heatmap(agreement, judge_order), "judge_agreement")
 
@@ -545,10 +545,9 @@ inject_responsive_styles()
 # load analytics data before preparing filter options
 interactions = stats.load_interactions()
 judge_results = stats.load_judge_results()
-presets = stats.load_presets()
 
 if interactions.empty:
-    st.info("No interaction data yet. Run an experiment to start building analytics.")
+    st.info("No responses yet. Run a prompt to start building analytics.")
     st.stop()
 
 # prepare all values available in the filter fields
@@ -590,7 +589,7 @@ with st.expander("Filters", expanded=True):
             value=(valid_times.min().date(), valid_times.max().date()),
             min_value=valid_times.min().date(),
             max_value=valid_times.max().date(),
-            help="Filter interactions by the date on which they were started.",
+            help="Filter responses by the date on which they were requested.",
             format="YYYY-MM-DD",
             key="analytics_date_range",
             width="stretch",
@@ -656,7 +655,7 @@ filtered_interactions = stats.filter_interactions(
 )
 
 if filtered_interactions.empty:
-    st.warning("No interactions match the selected filters.")
+    st.warning("No responses match the selected filters.")
     st.stop()
 
 filtered_judge_results = stats.filter_judge_results(
@@ -669,13 +668,13 @@ filtered_judge_results = stats.filter_judge_results(
 # choose labels used by the shared metrics and outcome charts
 if label_source == "Manual":
     label_records = stats.get_manual_label_records(filtered_interactions)
-    label_source_caption = "Each manually labeled interaction contributes one label."
+    label_source_caption = "Each manually labeled response contributes one label."
 else:
     # use the latest label of every judge setup
     latest_judge_results = stats.get_latest_judge_results(filtered_judge_results)
     label_records = stats.get_judge_label_records(latest_judge_results)
     label_source_caption = (
-        "Each judge model and configuration contributes its latest label per interaction. "
+        "Each judge model and configuration contributes its latest label per response. "
         "Judging costs include all evaluations."
     )
 
@@ -690,7 +689,7 @@ st.space(20)
 st.subheader("Results analytics")
 selected_view = st.segmented_control(
     "Analytics view",
-    options=["Overview", "Models", "Categories", "Presets", "Judges"],
+    options=["Overview", "Models", "Categories", "Prompts", "Judges"],
     default="Overview",
     required=True,
     width="stretch",
@@ -717,8 +716,8 @@ else:
         display_model_analytics(filtered_interactions, label_records, minimum_sample_size)
     elif selected_view == "Categories":
         display_category_analytics(filtered_interactions, label_records, minimum_sample_size)
-    elif selected_view == "Presets":
-        display_preset_analytics(presets, filtered_interactions, label_records, minimum_sample_size)
+    elif selected_view == "Prompts":
+        display_prompt_analytics(filtered_interactions, label_records, minimum_sample_size)
     else:
         if label_source == "Manual":
             st.info(

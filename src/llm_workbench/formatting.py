@@ -15,6 +15,43 @@ def parse_categories_from_json(
         return [text]
 
 
+def categories_to_json(categories: list[str] | None) -> str | None:
+    # no categories are stored as a database null
+    return json.dumps(categories, ensure_ascii=False) if categories else None
+
+
+def normalize_prompt_text(text: str | None) -> str:
+    # surrounding whitespace doesn't make a prompt distinct, a missing text is an empty string
+    return (text or "").strip()
+
+
+def format_prompt_label(prompt_id: int, title: str | None = None) -> str:
+    return f"Prompt #{prompt_id} · {title}" if title else f"Prompt #{prompt_id}"
+
+
+def format_text_preview(text: str, max_length: int = 60) -> str:
+    # the text on one line, shortened to max_length characters
+    single_line = " ".join(text.split())
+    return single_line if len(single_line) <= max_length else single_line[:max_length - 1].rstrip() + "…"
+
+
+# the results page url, and a pattern that extracts its prompt id (e.g. as the display text of a link column)
+RESULTS_PAGE_URL_PROMPT_ID_PATTERN = r"prompt=(\d+)$"
+
+
+def format_results_page_url(prompt_id: int) -> str:
+    return f"/experiment_results?prompt={prompt_id}"
+
+
+def pluralize(count: int, word: str) -> str:
+    # e.g. "1 response", "2 responses"
+    return f"{count} {word}{'s' if count != 1 else ''}"
+
+
+def format_run_label(number: int, started_at: str, response_count: int) -> str:
+    return f"Run {number} · {format_timestamp(started_at)} · {pluralize(response_count, 'response')}"
+
+
 def remove_timestamp_from_model_id(model_id: str) -> str:
     # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
     return re.sub(r"-\d{8}(?=$|:)", "", model_id)

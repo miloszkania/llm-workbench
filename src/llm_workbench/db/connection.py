@@ -12,23 +12,26 @@ SCHEMA = """
         value       text
     );
 
-    create table if not exists presets (
+    -- a prompt is identified by its text and system prompt (an empty string if there is none)
+    create table if not exists prompts (
         id              integer not null primary key,
-        prompt          text not null,
-        system_prompt   text,
+        title           text,
+        prompt          text not null
+                        check (length(prompt) > 0),
+        system_prompt   text not null default '',
         categories      text
                         check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
-        created_at      timestamp default current_timestamp
+        created_at      timestamp default current_timestamp,
+
+        unique (prompt, system_prompt)
     );
 
     create table if not exists interactions (
         id              integer not null primary key,
+        prompt_id       integer not null,
+        run_id          text not null,
         time            datetime not null,
         model           varchar(255) not null,
-        prompt          text not null,
-        system_prompt   text,
-        categories      text
-                        check (categories is null or (json_valid(categories) and json_type(categories) = 'array')),
         response        text,
         manual_label    text
                         check (manual_label in ('success', 'refusal', 'unclear')),
@@ -36,8 +39,12 @@ SCHEMA = """
         token_usage     integer
                         check (token_usage is null or token_usage >= 0),
         price           real
-                        check (price is null or price >= 0)
+                        check (price is null or price >= 0),
+
+        foreign key (prompt_id) references prompts(id) on delete cascade
     );
+
+    create index if not exists interactions_prompt_id on interactions(prompt_id);
 
     create table if not exists judge_configs (
         id                  varchar(64) not null unique primary key

@@ -2,40 +2,47 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import pandas as pd
 import streamlit as st
+from openrouter import operations
 
 from llm_workbench import records
 from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
-from llm_workbench.ui import error_display
+from llm_workbench.ui import error_display, prompt_controls
 
 
-def batch_ids_picker(
-        history_table: pd.DataFrame | None = None,
-        canvas: Any = st,
-) -> None:
-    if history_table is None:
-        history_table = records.get_all_interactions()
+def prompt_picker(canvas: Any = st.sidebar) -> None:
+    saved_prompts = records.get_prompts_by_recent_use()
 
-    if history_table.empty:
+    if not saved_prompts:
         return
 
-    canvas.subheader("Show experiment results")
+    canvas.subheader("Show prompt results")
 
-    details_prompt_id = canvas.multiselect(
-        "Prompt IDs",
-        placeholder="Select one or more IDs",
-        options=history_table["id"],
-        accept_new_options=True,
+    prompt_id = canvas.selectbox(
+        "Prompt",
+        options=list(saved_prompts),
+        format_func=lambda prompt_id: prompt_controls.format_prompt_option(saved_prompts[prompt_id]),
+        index=None,
+        placeholder="Select a prompt",
+        key="sidebar_prompt_id",
     )
 
-    if details_prompt_id is not None:
-        if canvas.button("Go"):
-            param_string = ",".join(map(str, details_prompt_id))
-            st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
+    if canvas.button("Open", disabled=prompt_id is None, key="sidebar_open_prompt_button"):
+        st.switch_page("pages/experiment_results.py", query_params={"prompt": prompt_id})
 
     canvas.divider()
+
+
+# short TTL so credits and usage stay reasonably fresh after runs
+@st.cache_data(ttl="1m", show_spinner=False)
+def get_key_metadata() -> operations.GetCurrentKeyData:
+    return openrouter_api.get_key_metadata()
+
+
+@st.cache_data(ttl="1m", show_spinner=False)
+def get_credits() -> operations.GetCreditsData:
+    return openrouter_api.get_credits()
 
 
 def api_key_details(canvas: Any = st.sidebar) -> None:
@@ -45,14 +52,14 @@ def api_key_details(canvas: Any = st.sidebar) -> None:
     with canvas.spinner(text="Fetching account information…"):
         # get key metadata
         try:
-            metadata = openrouter_api.get_key_metadata()
+            metadata = get_key_metadata()
         except OpenRouterRequestError as error:
             error_display.display_error(error, canvas, context="Could not fetch API key information.")
             return
 
         # get credits
         try:
-            credits = openrouter_api.get_credits()
+            credits = get_credits()
         except OpenRouterRequestError as error:
             error_display.display_error(error, canvas, context="Could not fetch credit information.")
             return

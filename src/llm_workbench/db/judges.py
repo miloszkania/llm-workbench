@@ -63,13 +63,14 @@ def get_all_judge_results() -> list[dict[str, Any]]:
     """)
 
 
-def get_judge_results_by_interaction(
-    interaction_id: int,
+def get_judge_results_by_prompt(
+    prompt_id: int,
 ) -> list[dict[str, Any]]:
     return fetch_all(
         """
-        select * from judge_results
-            where interaction_id = ?
+        select judge_results.* from judge_results
+            join interactions on interactions.id = judge_results.interaction_id
+            where interactions.prompt_id = ?
         """,
-        (interaction_id,),
+        (prompt_id,),
     )

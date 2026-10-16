@@ -35,7 +35,7 @@ st.divider()
 
 ### Instruction
 st.subheader("Evaluation instructions")
-st.write("Enter the prompt with the rules that the judge should follow when evaluating the interactions. "
+st.write("Enter the prompt with the rules that the judge should follow when evaluating the responses. "
          "**Note that the judge-given labels directly depend on prompt you enter!**")
 
 with st.expander("Expected prompt format", expanded=True):

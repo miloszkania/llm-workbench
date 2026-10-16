@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import experiments
+from llm_workbench import experiments, formatting, records
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
 
@@ -17,12 +17,12 @@ def send_prompt_button_with_repetitions(
 
     col_btn_run, col_repetitions = st.columns([1, 6])
     repetition_count = col_repetitions.number_input(
-        "Number of target interactions to run",
+        "Number of responses to request",
         min_value=1,
         max_value=50,
         value=1,
-        help="Each interaction independently sends the prompt to the target model and will be separately evaluated "
-             "by each selected judge.",
+        help="Each request independently sends the prompt to the target model, and every response will be "
+             "separately evaluated by each selected judge.",
         key="repetition_count",
     )
 
@@ -70,14 +70,14 @@ def send_prompt_button_with_repetitions(
 
                 # update the label
                 status.update(
-                    label=f"Interaction {current} of {total} · Waiting for target response…",
+                    label=f"Response {current} of {total} · Waiting for the target model…",
                     expanded=True,
                 )
 
                 # update the progress bar
                 interaction_progress.progress(
                     value=current / total,
-                    text=f"Interaction {current} of {total}",
+                    text=f"Response {current} of {total}",
                 )
 
                 # clear the judgment progress (if judging is also included)
@@ -88,7 +88,7 @@ def send_prompt_button_with_repetitions(
                 # update the label
                 status.update(
                     label=(
-                        f"Interaction {current_interaction} of {repetition_count} "
+                        f"Response {current_interaction} of {repetition_count} "
                         f"· Judgment {current} of {total}…"
                     ),
                     expanded=True,
@@ -102,11 +102,10 @@ def send_prompt_button_with_repetitions(
                     )
 
             try:
-                interaction_ids, interaction_errors, failed_judgments = experiments.generate_and_evaluate_interactions(
+                prompt_id = records.save_prompt(prompt, system_prompt, categories)
+                result = experiments.generate_and_evaluate_interactions(
                     model,
-                    system_prompt,
-                    prompt,
-                    categories,
+                    prompt_id,
                     judge_config,
                     judge_models,
                     repetition_count,
@@ -114,29 +113,26 @@ def send_prompt_button_with_repetitions(
                     on_judgment_start=update_judgment_progress,
                 )
 
-                succeeded_interactions = len(interaction_ids)
+                succeeded_interactions = len(result.interaction_ids)
                 status.update(
                     label=(
-                        f"Run finished · {succeeded_interactions} of {repetition_count} "
-                        f"interaction{'s' if repetition_count != 1 else ''} succeeded"
+                        f"Run finished · {succeeded_interactions} of "
+                        f"{formatting.pluralize(repetition_count, 'response')} received"
                     ),
                     state="error" if succeeded_interactions == 0 else "complete",
                     expanded=True,
                 )
 
-                if interaction_errors and not interaction_ids:
+                st.session_state["interaction_errors"] = result.interaction_errors
+                st.session_state["succeeded_interaction_count"] = succeeded_interactions
+
+                if not result.interaction_ids:
                     # no interactions succeeded, rerun to re-enable the button and display the errors
-                    st.session_state["interaction_errors"] = interaction_errors
-                    st.session_state["succeeded_interaction_count"] = 0
                     st.rerun()
                 else:
-                    # redirect to the prompt/batch details page
-                    st.session_state["failed_judgments"] = failed_judgments
-                    st.session_state["interaction_errors"] = interaction_errors
-                    st.session_state["succeeded_interaction_count"] = succeeded_interactions
-
-                    param_string = ",".join(map(str, interaction_ids))  # parse [1, 2, 3, 4] into 1,2,3,4
-                    st.switch_page("pages/experiment_results.py", query_params={"id": param_string})
+                    # redirect to the results page of the prompt, filtered to this run
+                    st.session_state["failed_judgments"] = result.failed_judgments
+                    st.switch_page("pages/experiment_results.py", query_params={"prompt": result.prompt_id, "run": result.run_id})
 
             except OpenRouterRequestError as error:
                 status.update(label="Run interrupted", state="error")

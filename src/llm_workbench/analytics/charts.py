@@ -248,11 +248,11 @@ def create_activity_chart(activity: pd.DataFrame) -> go.Figure:
         activity,
         x="date",
         y="interaction_count",
-        labels={"date": "Date", "interaction_count": "Interactions"},
+        labels={"date": "Date", "interaction_count": "Responses"},
     )
     figure.update_traces(
         marker_color=TARGET_COLOR,
-        hovertemplate="%{x|%Y-%m-%d}<br>%{y:,} interactions<extra></extra>",
+        hovertemplate="%{x|%Y-%m-%d}<br>%{y:,} responses<extra></extra>",
     )
     _configure_daily_bar_chart(figure, activity["date"])
     figure.update_yaxes(rangemode="tozero")
@@ -274,7 +274,7 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
         value_name="cost",
     )
     chart_data["source"] = chart_data["source"].map({
-        "target_cost": "Target interactions",
+        "target_cost": "Target model",
         "judging_cost": "Judging",
     })
 
@@ -285,7 +285,7 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
         color="source",
         barmode="stack",
         labels={"date": "Date", "cost": "Cost", "source": "Source"},
-        color_discrete_map={"Target interactions": TARGET_COLOR, "Judging": JUDGING_COLOR},
+        color_discrete_map={"Target model": TARGET_COLOR, "Judging": JUDGING_COLOR},
     )
     figure.update_traces(hovertemplate="%{x|%Y-%m-%d}<br>%{fullData.name}: $%{y:.6f}<extra></extra>")
     _configure_daily_bar_chart(figure, costs["date"])
@@ -301,7 +301,7 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
     return figure
 
 
-##### MODELS, CATEGORIES AND PRESETS
+##### MODELS, CATEGORIES AND PROMPTS
 
 def create_category_usage_chart(category_summary: pd.DataFrame) -> go.Figure:
     figure = px.bar(
@@ -310,13 +310,13 @@ def create_category_usage_chart(category_summary: pd.DataFrame) -> go.Figure:
         y="category",
         orientation="h",
         text="interaction_count",
-        labels={"interaction_count": "Interactions", "category": ""},
+        labels={"interaction_count": "Responses", "category": ""},
     )
     figure.update_traces(
         marker_color=TARGET_COLOR,
         textposition="outside",
         cliponaxis=False,
-        hovertemplate="%{y}<br>%{x:,} interactions<extra></extra>",
+        hovertemplate="%{y}<br>%{x:,} responses<extra></extra>",
     )
     figure.update_yaxes(
         categoryorder="array",
@@ -357,28 +357,28 @@ def create_model_category_heatmap(
     return figure
 
 
-def create_preset_model_heatmap(
-        preset_model_summary: pd.DataFrame,
-        preset_order: list[str],
+def create_prompt_model_heatmap(
+        prompt_model_summary: pd.DataFrame,
+        prompt_order: list[str],
         model_order: list[str],
 ) -> go.Figure:
     figure = _create_share_heatmap(
-        preset_model_summary,
-        index="preset_label",
+        prompt_model_summary,
+        index="prompt_label",
         columns="model",
-        index_order=preset_order,
+        index_order=prompt_order,
         column_order=model_order,
         share_column="success_share",
         sample_size_column="label_count",
         hover_columns=["label_count", *LABEL_COUNT_COLUMNS],
-        hovertemplate="Preset: %{y}<br>Target model: %{x}<br>Success: %{z:.1f}%" + LABEL_HOVER_LINES,
+        hovertemplate="Prompt: %{y}<br>Target model: %{x}<br>Success: %{z:.1f}%" + LABEL_HOVER_LINES,
         colorbar_title="Success",
     )
     # plotly skips some labels on larger heatmaps unless every tick is explicit
-    figure.update_yaxes(autorange="reversed", tickmode="array", tickvals=preset_order, ticktext=preset_order)
+    figure.update_yaxes(autorange="reversed", tickmode="array", tickvals=prompt_order, ticktext=prompt_order)
     figure.update_xaxes(tickangle=-25)
     figure.update_layout(
-        height=_scaled_height(len(preset_order), row_height=60, padding=150, minimum=380, maximum=850),
+        height=_scaled_height(len(prompt_order), row_height=60, padding=150, minimum=380, maximum=850),
         margin=dict(l=10, r=20, t=10, b=120),
     )
 
@@ -417,7 +417,7 @@ def create_model_cost_scatter(model_summary: pd.DataFrame) -> go.Figure:
             "<br>Success: %{customdata[2]:,}"
             "<br>Refusal: %{customdata[3]:,}"
             "<br>Unclear: %{customdata[4]:,}"
-            "<br>Interactions: %{customdata[5]:,}<extra></extra>"
+            "<br>Responses: %{customdata[5]:,}<extra></extra>"
         ),
     )
     figure.update_xaxes(tickprefix="$", tickformat=".6f", rangemode="tozero")
@@ -445,7 +445,7 @@ def create_judge_agreement_heatmap(
         hovertemplate=(
             "Judge A: %{y}<br>Judge B: %{x}<br>Agreement: %{z:.1f}%"
             "<br>Matching labels: %{customdata[1]:.0f}"
-            "<br>Shared interactions: %{customdata[0]:.0f}<extra></extra>"
+            "<br>Shared responses: %{customdata[0]:.0f}<extra></extra>"
         ),
         colorbar_title="Agreement",
     )
@@ -490,7 +490,7 @@ def create_judge_efficiency_scatter(judge_summary: pd.DataFrame) -> go.Figure:
             "%{customdata[0]}<br>Average cost: $%{x:.6f}"
             "<br>Median duration: %{y:.2f} s"
             "<br>Evaluations: %{customdata[1]:,}"
-            "<br>Interactions: %{customdata[2]:,}"
+            "<br>Responses: %{customdata[2]:,}"
             "<br>Latest labels: %{customdata[3]:,}"
             "<br>Total cost: $%{customdata[4]:.6f}<extra></extra>"
         ),
