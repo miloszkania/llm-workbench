@@ -40,6 +40,7 @@ navigation = st.navigation({
     ],
 })
 
-navigation.run()
-
+# render the sidebar before the page, so a page calling st.stop() doesn't hide it
 sidebar.api_key_details()
+
+navigation.run()

@@ -3,10 +3,22 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import streamlit as st
+from openrouter import operations
 
 from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
+
+
+# short TTL so credits and usage stay reasonably fresh after runs
+@st.cache_data(ttl="1m", show_spinner=False)
+def get_key_metadata() -> operations.GetCurrentKeyData:
+    return openrouter_api.get_key_metadata()
+
+
+@st.cache_data(ttl="1m", show_spinner=False)
+def get_credits() -> operations.GetCreditsData:
+    return openrouter_api.get_credits()
 
 
 def api_key_details(canvas: Any = st.sidebar) -> None:
@@ -16,14 +28,14 @@ def api_key_details(canvas: Any = st.sidebar) -> None:
     with canvas.spinner(text="Fetching account information…"):
         # get key metadata
         try:
-            metadata = openrouter_api.get_key_metadata()
+            metadata = get_key_metadata()
         except OpenRouterRequestError as error:
             error_display.display_error(error, canvas, context="Could not fetch API key information.")
             return
 
         # get credits
         try:
-            credits = openrouter_api.get_credits()
+            credits = get_credits()
         except OpenRouterRequestError as error:
             error_display.display_error(error, canvas, context="Could not fetch credit information.")
             return
