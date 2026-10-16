@@ -1,4 +1,5 @@
 import json
+from collections.abc import Collection
 from typing import Any
 
 import pandas as pd
@@ -71,6 +72,39 @@ def get_prompt_interactions(prompt_id: int) -> list[dict[str, Any]]:
             ),
         }
         for interaction in db.interactions.get_interactions_by_prompt(prompt_id)
+    ]
+
+
+def summarize_runs(prompt_interactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # runs in the order of their first interaction, numbered from 1 within the prompt
+    runs: dict[str, dict[str, Any]] = {}
+
+    for interaction_object in sorted(prompt_interactions, key=lambda i: i["interaction"]["time"]):
+        interaction = interaction_object["interaction"]
+        run = runs.setdefault(interaction["run_id"], {
+            "run_id": interaction["run_id"],
+            "number": len(runs) + 1,
+            "started_at": interaction["time"],
+            "interaction_count": 0,
+        })
+        run["interaction_count"] += 1
+
+    return list(runs.values())
+
+
+def filter_prompt_interactions(
+        prompt_interactions: list[dict[str, Any]],
+        run_id: str | None = None,
+        models: Collection[str] = (),
+        manual_labels: Collection[str | None] = (),
+) -> list[dict[str, Any]]:
+    # an empty filter keeps all interactions, a None manual label selects unlabeled ones
+    return [
+        interaction_object
+        for interaction_object in prompt_interactions
+        if (run_id is None or interaction_object["interaction"]["run_id"] == run_id)
+        and (not models or interaction_object["interaction"]["model"] in models)
+        and (not manual_labels or interaction_object["interaction"]["manual_label"] in manual_labels)
     ]
 
 

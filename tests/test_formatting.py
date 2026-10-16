@@ -44,6 +44,17 @@ class PromptLabelTests(unittest.TestCase):
                 self.assertEqual(formatting.format_prompt_label(3, title), "Prompt #3")
 
 
+class RunLabelTests(unittest.TestCase):
+    def test_run_label(self) -> None:
+        self.assertEqual(
+            formatting.format_run_label(2, "2026-10-16 14:57:10.123456", 3),
+            "Run 2 · 2026-10-16 14:57:10 · 3 interactions",
+        )
+
+    def test_single_interaction_is_not_plural(self) -> None:
+        self.assertTrue(formatting.format_run_label(1, "2026-10-16 14:57:10", 1).endswith("1 interaction"))
+
+
 class ModelIdTests(unittest.TestCase):
     def test_snapshot_date_is_removed(self) -> None:
         self.assertEqual(formatting.remove_timestamp_from_model_id("anthropic/claude-x-20250929"), "anthropic/claude-x")

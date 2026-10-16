@@ -29,6 +29,13 @@ def format_prompt_label(prompt_id: int, title: str | None = None) -> str:
     return f"Prompt #{prompt_id} · {title}" if title else f"Prompt #{prompt_id}"
 
 
+def format_run_label(number: int, started_at: str, interaction_count: int) -> str:
+    return (
+        f"Run {number} · {format_timestamp(started_at)} · "
+        f"{interaction_count} interaction{'s' if interaction_count != 1 else ''}"
+    )
+
+
 def remove_timestamp_from_model_id(model_id: str) -> str:
     # removes the snapshot date of the model, e.g. "-20250929" at the end or before a ":variant" suffix
     return re.sub(r"-\d{8}(?=$|:)", "", model_id)
