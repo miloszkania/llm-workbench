@@ -75,7 +75,7 @@ def delete_prompt(prompt_id: int) -> None:
 
 
 def get_prompt_overview() -> list[dict[str, Any]]:
-    # every prompt with run, interaction and manual label counts, most recently used first
+    # every prompt with run, interaction and manual label counts
     return fetch_all("""
         select
             prompts.*,
@@ -88,5 +88,5 @@ def get_prompt_overview() -> list[dict[str, Any]]:
         from prompts
             left join interactions on interactions.prompt_id = prompts.id
         group by prompts.id
-        order by coalesce(max(interactions.time), prompts.created_at) desc;
+        order by prompts.id;
     """)
