@@ -19,6 +19,7 @@ page.page_config()
 # Define all subpages
 new_prompt = st.Page("pages/new_prompt.py", title="New Prompt")
 analytics_page = st.Page("pages/analytics.py", title="Analytics")
+prompts = st.Page("pages/prompts.py", title="Prompts")
 history = st.Page("pages/history.py", title="History")
 presets = st.Page("pages/presets.py", title="Presets")
 experiment_results = st.Page("pages/experiment_results.py", title="Experiment Results", visibility="hidden")
@@ -34,6 +35,7 @@ navigation = st.navigation({
         judge_settings,
         model_library,
         new_judge_configuration,
+        prompts,
         history,
         presets,
         experiment_results,

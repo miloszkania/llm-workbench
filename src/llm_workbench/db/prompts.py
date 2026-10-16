@@ -72,3 +72,21 @@ def delete_prompt(prompt_id: int) -> None:
         """,
         (prompt_id,),
     )
+
+
+def get_prompt_overview() -> list[dict[str, Any]]:
+    # every prompt with run, interaction and manual label counts, most recently used first
+    return fetch_all("""
+        select
+            prompts.*,
+            count(distinct interactions.run_id)                 as run_count,
+            count(interactions.id)                              as interaction_count,
+            count(*) filter (where manual_label = 'success')    as success_count,
+            count(*) filter (where manual_label = 'refusal')    as refusal_count,
+            count(*) filter (where manual_label = 'unclear')    as unclear_count,
+            max(interactions.time)                              as last_run_at
+        from prompts
+            left join interactions on interactions.prompt_id = prompts.id
+        group by prompts.id
+        order by coalesce(max(interactions.time), prompts.created_at) desc;
+    """)

@@ -8,12 +8,11 @@ from llm_workbench import db, formatting
 
 
 def get_all_categories(
-        history_entries: pd.DataFrame | None = None,
+        data_source: pd.DataFrame | None = None,
 ) -> list[str]:
-    data_source = history_entries
-
+    # categories belong to prompts, so all of them are used by default
     if data_source is None:
-        data_source = get_all_interactions()
+        data_source = _prepare_prompt_table(db.prompts.get_all_prompts())
 
     if data_source.empty:
         return []
@@ -39,6 +38,43 @@ def get_all_interactions(fill_null: bool = False) -> pd.DataFrame:
         df["system_prompt"] = df["system_prompt"].fillna("")
 
     return df
+
+
+def _prepare_prompt_table(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+        return df
+
+    df["categories"] = df["categories"].apply(formatting.parse_categories_from_json)
+    df["created_at"] = pd.to_datetime(df["created_at"])
+
+    if "last_run_at" in df:
+        df["last_run_at"] = pd.to_datetime(df["last_run_at"])
+
+    return df
+
+
+def get_prompt_overview() -> pd.DataFrame:
+    return _prepare_prompt_table(db.prompts.get_prompt_overview())
+
+
+def search_prompts(prompt_table: pd.DataFrame, search: str | None) -> pd.DataFrame:
+    # case-insensitive search in the title, prompt and system prompt
+    search = (search or "").strip()
+
+    if not search or prompt_table.empty:
+        return prompt_table
+
+    searched_text = (
+        prompt_table[["title", "prompt", "system_prompt"]]
+        .fillna("")
+        .astype(str)
+        .agg("\n".join, axis=1)
+    )
+    matches = searched_text.str.contains(search, case=False, regex=False)
+
+    return prompt_table.loc[matches].reset_index(drop=True)
 
 
 def get_interaction_by_id(entry_id: int) -> dict[str, Any] | None:

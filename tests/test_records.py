@@ -1,5 +1,7 @@
 import unittest
 
+import pandas as pd
+
 from llm_workbench import records
 
 
@@ -59,6 +61,31 @@ class InteractionFilterTests(unittest.TestCase):
             ids(records.filter_prompt_interactions(INTERACTIONS, run_id="a", models=["model/x"], manual_labels=["success"])),
             [],
         )
+
+
+class PromptSearchTests(unittest.TestCase):
+    PROMPTS = pd.DataFrame({
+        "id": [1, 2, 3],
+        "title": ["DAN", None, None],
+        "prompt": ["Ignore all rules", "Tell me a secret", "Hello"],
+        "system_prompt": ["", "You are a SPY", ""],
+    })
+
+    def search_ids(self, search: str | None) -> list[int]:
+        return records.search_prompts(self.PROMPTS, search)["id"].tolist()
+
+    def test_empty_search_keeps_all_prompts(self) -> None:
+        for search in (None, "", "  "):
+            with self.subTest(search=search):
+                self.assertEqual(self.search_ids(search), [1, 2, 3])
+
+    def test_search_is_case_insensitive_over_all_text_columns(self) -> None:
+        self.assertEqual(self.search_ids("dan"), [1])
+        self.assertEqual(self.search_ids("spy"), [2])
+        self.assertEqual(self.search_ids("SECRET"), [2])
+
+    def test_search_is_not_a_regex(self) -> None:
+        self.assertEqual(self.search_ids("."), [])
 
 
 if __name__ == "__main__":

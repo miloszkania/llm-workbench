@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from llm_workbench import formatting
@@ -42,6 +43,12 @@ class PromptLabelTests(unittest.TestCase):
         for title in (None, ""):
             with self.subTest(title=title):
                 self.assertEqual(formatting.format_prompt_label(3, title), "Prompt #3")
+
+
+class ResultsPageUrlTests(unittest.TestCase):
+    def test_pattern_extracts_prompt_id(self) -> None:
+        url = formatting.format_results_page_url(42)
+        self.assertEqual(re.search(formatting.RESULTS_PAGE_URL_PROMPT_ID_PATTERN, url).group(1), "42")
 
 
 class RunLabelTests(unittest.TestCase):

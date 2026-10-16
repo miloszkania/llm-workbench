@@ -7,23 +7,23 @@ from llm_workbench.analytics import stats
 from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, preset_controls, run_controls, system_prompt_controls
 
 
-def redirect_to_history(error_message: str) -> None:
+def redirect_to_prompts(error_message: str) -> None:
     st.session_state["error_message"] = error_message
-    st.switch_page("pages/history.py")
+    st.switch_page("pages/prompts.py")
 
 
 def load_prompt(prompt_id_param: str | None) -> dict[str, Any]:
     # prompt id was not specified in the url -> redirect
     if not prompt_id_param:
-        st.switch_page("pages/history.py")
+        st.switch_page("pages/prompts.py")
 
     if not prompt_id_param.isdigit():
-        redirect_to_history(f"'{prompt_id_param}' is not a valid prompt ID.")
+        redirect_to_prompts(f"'{prompt_id_param}' is not a valid prompt ID.")
 
     prompt_object = db.prompts.get_prompt_by_id(int(prompt_id_param))
 
     if prompt_object is None:
-        redirect_to_history(f"No prompt with ID={prompt_id_param} could be found.")
+        redirect_to_prompts(f"No prompt with ID={prompt_id_param} could be found.")
 
     return prompt_object
 
@@ -201,7 +201,7 @@ interactions = records.get_prompt_interactions(prompt_object["id"])
 
 page.page_config("Experiment results")
 st.title("Experiment Results")
-st.page_link("pages/history.py", label="← Show all interactions")
+st.page_link("pages/prompts.py", label="← Show all prompts")
 
 col_overview, col_rerun = st.columns([2, 1])
 

@@ -29,6 +29,14 @@ def format_prompt_label(prompt_id: int, title: str | None = None) -> str:
     return f"Prompt #{prompt_id} · {title}" if title else f"Prompt #{prompt_id}"
 
 
+# the results page url, and a pattern that extracts its prompt id (e.g. as the display text of a link column)
+RESULTS_PAGE_URL_PROMPT_ID_PATTERN = r"prompt=(\d+)$"
+
+
+def format_results_page_url(prompt_id: int) -> str:
+    return f"/experiment_results?prompt={prompt_id}"
+
+
 def format_run_label(number: int, started_at: str, interaction_count: int) -> str:
     return (
         f"Run {number} · {format_timestamp(started_at)} · "
