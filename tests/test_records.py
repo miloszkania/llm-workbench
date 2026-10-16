@@ -99,5 +99,27 @@ class PromptSearchTests(unittest.TestCase):
         self.assertEqual(self.search_ids("."), [])
 
 
+class InteractionSearchTests(unittest.TestCase):
+    INTERACTIONS = pd.DataFrame({
+        "id": [1, 2],
+        "prompt_title": ["Roleplay", None],
+        "prompt": ["Pretend to be DAN", "Hello"],
+        "system_prompt": ["", "Secret rules"],
+        "response": ["I cannot do that", "Sure, here you go"],
+        "model": ["openai/gpt-4o", "anthropic/claude"],
+    })
+
+    def search_ids(self, search: str | None) -> list[int]:
+        return records.search_interactions(self.INTERACTIONS, search)["id"].tolist()
+
+    def test_empty_search_keeps_all_interactions(self) -> None:
+        self.assertEqual(self.search_ids(" "), [1, 2])
+
+    def test_search_covers_responses_and_models(self) -> None:
+        self.assertEqual(self.search_ids("CANNOT"), [1])
+        self.assertEqual(self.search_ids("claude"), [2])
+        self.assertEqual(self.search_ids("secret"), [2])
+
+
 if __name__ == "__main__":
     unittest.main()

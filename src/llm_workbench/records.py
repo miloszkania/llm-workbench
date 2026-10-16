@@ -71,22 +71,27 @@ def get_prompts_by_recent_use() -> dict[int, dict[str, Any]]:
     }
 
 
-def search_prompts(prompt_table: pd.DataFrame, search: str | None) -> pd.DataFrame:
-    # case-insensitive search in the title, prompt and system prompt
+def _search_table(table: pd.DataFrame, search: str | None, columns: list[str]) -> pd.DataFrame:
+    # case-insensitive, non-regex search in the given text columns
     search = (search or "").strip()
 
-    if not search or prompt_table.empty:
-        return prompt_table
+    if not search or table.empty:
+        return table
 
-    searched_text = (
-        prompt_table[["title", "prompt", "system_prompt"]]
-        .fillna("")
-        .astype(str)
-        .agg("\n".join, axis=1)
-    )
+    searched_text = table[columns].fillna("").astype(str).agg("\n".join, axis=1)
     matches = searched_text.str.contains(search, case=False, regex=False)
 
-    return prompt_table.loc[matches].reset_index(drop=True)
+    return table.loc[matches].reset_index(drop=True)
+
+
+def search_prompts(prompt_table: pd.DataFrame, search: str | None) -> pd.DataFrame:
+    return _search_table(prompt_table, search, ["title", "prompt", "system_prompt"])
+
+
+def search_interactions(interaction_table: pd.DataFrame, search: str | None) -> pd.DataFrame:
+    return _search_table(
+        interaction_table, search, ["prompt_title", "prompt", "system_prompt", "response", "model"]
+    )
 
 
 def get_prompt_interactions(prompt_id: int) -> list[dict[str, Any]]:

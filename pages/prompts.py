@@ -42,7 +42,10 @@ else:
     if prompt_table.empty:
         st.info("No prompts match the search.")
     else:
-        st.caption("Deleting a prompt also deletes all of its responses and their judge results.")
+        st.caption(
+            "This page displays every saved prompt with its run and label counts. Only titles and categories can be edited. "
+            "Deleting a prompt also deletes all of its responses and their judge results."
+        )
 
         # link every prompt to its results page
         prompt_table["results_link"] = prompt_table["id"].map(formatting.format_results_page_url)
