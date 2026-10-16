@@ -43,11 +43,13 @@ def format_results_page_url(prompt_id: int) -> str:
     return f"/experiment_results?prompt={prompt_id}"
 
 
-def format_run_label(number: int, started_at: str, interaction_count: int) -> str:
-    return (
-        f"Run {number} · {format_timestamp(started_at)} · "
-        f"{interaction_count} interaction{'s' if interaction_count != 1 else ''}"
-    )
+def pluralize(count: int, word: str) -> str:
+    # e.g. "1 response", "2 responses"
+    return f"{count} {word}{'s' if count != 1 else ''}"
+
+
+def format_run_label(number: int, started_at: str, response_count: int) -> str:
+    return f"Run {number} · {format_timestamp(started_at)} · {pluralize(response_count, 'response')}"
 
 
 def remove_timestamp_from_model_id(model_id: str) -> str:

@@ -94,7 +94,7 @@ def display_experiment_overview(interactions, canvas):
     canvas.markdown(f"##### Tested models: {', '.join(sorted({f"`{i['interaction']['model']}`" for i in interactions}))}")
     canvas.markdown(
         f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
-        f"interaction: **\\${interaction_price:.4f}** · "
+        f"target: **\\${interaction_price:.4f}** · "
         f"judging: **\\${judging_price:.4f}**"
     )
 
@@ -243,7 +243,7 @@ st.divider()
 if not interactions:
     st.info("This prompt hasn't been run yet.")
 elif not filtered_interactions:
-    st.info("No interactions match the selected filters.")
+    st.info("No responses match the selected filters.")
 
 for interaction_object in filtered_interactions:
     interaction_view.interaction_card(interaction_object)

@@ -72,7 +72,7 @@ def display_run_judging_dialog(interaction_object) -> None:
 def interaction_card(interaction_object) -> None:
     interaction_id = interaction_object["interaction"]["id"]
 
-    with st.expander(f"Interaction #{interaction_id}", expanded=True):
+    with st.expander(f"Response #{interaction_id}", expanded=True):
         # count judge labels
         num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
         num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
@@ -81,15 +81,14 @@ def interaction_card(interaction_object) -> None:
 
         col_overview, col_manual_label = st.columns([3, 1])
 
-        # Overview
-        col_overview.header(f"Interaction #{interaction_id}")
+        # Overview (the response number is already shown by the expander)
         col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
         col_overview.markdown(
                  f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
                  f"started at **{formatting.format_timestamp(interaction_object['interaction']['time'])}** · "
                  f"took **{formatting.format_duration(interaction_object['interaction']['duration'])}** · "
                  f"**{interaction_object['interaction']['token_usage']}** tokens · "
-                 f"interaction: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
+                 f"target: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
                  f"judging: **\\${judging_price:.4f}**"
         )
 
@@ -155,4 +154,4 @@ def interaction_card(interaction_object) -> None:
                     body=explanation,
                 )
         else:
-            col_judge.info("No LLM-as-a-Judge evaluations were performed for this interaction.")
+            col_judge.info("No LLM-as-a-Judge evaluations were performed for this response.")

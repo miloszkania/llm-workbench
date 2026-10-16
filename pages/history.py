@@ -66,7 +66,7 @@ if not history_table.empty:
             "prompt_link": st.column_config.LinkColumn(
                 "Prompt ID",
                 display_text=formatting.RESULTS_PAGE_URL_PROMPT_ID_PATTERN,
-                help="Open the results of all interactions with this prompt",
+                help="Open the results of all responses to this prompt",
             ),
             "manual_label": st.column_config.SelectboxColumn(
                 "Label",

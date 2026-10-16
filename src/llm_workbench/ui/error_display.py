@@ -3,6 +3,7 @@ from typing import Any
 
 import streamlit as st
 
+from llm_workbench import formatting
 from llm_workbench.errors import OpenRouterRequestError
 
 
@@ -77,8 +78,8 @@ def display_interaction_errors(
         interaction_errors: Sequence[Exception],
         canvas: Any = st,
 ) -> None:
-    canvas.warning(f"Only {succeeded_interactions} interaction{'s' if succeeded_interactions != 1 else ''} "
-               f"succeeded. In other interactions, the following errors occurred:")
+    canvas.warning(f"Only {formatting.pluralize(succeeded_interactions, 'response')} received. "
+                   f"The other requests failed with the following errors:")
     for interaction_error in interaction_errors:
         display_error(
             error=interaction_error,
@@ -95,6 +96,6 @@ def display_failed_judgments_information(
         display_error(
             error=failed_judgment["error"],
             canvas=canvas,
-            context=f"Interaction `{failed_judgment['interaction_id']}` "
+            context=f"Response `{failed_judgment['interaction_id']}` "
                     f"· judge `{failed_judgment['judge_model']}`",
         )

@@ -42,7 +42,7 @@ else:
     if prompt_table.empty:
         st.info("No prompts match the search.")
     else:
-        st.caption("Deleting a prompt also deletes all of its interactions and their judge results.")
+        st.caption("Deleting a prompt also deletes all of its responses and their judge results.")
 
         # link every prompt to its results page
         prompt_table["results_link"] = prompt_table["id"].map(formatting.format_results_page_url)
@@ -86,7 +86,7 @@ else:
                 "results_link": st.column_config.LinkColumn(
                     "ID",
                     display_text=formatting.RESULTS_PAGE_URL_PROMPT_ID_PATTERN,
-                    help="Open the results of all interactions with this prompt",
+                    help="Open the results of all responses to this prompt",
                 ),
                 "title": st.column_config.TextColumn("Title"),
                 "categories": st.column_config.MultiselectColumn(
@@ -96,7 +96,7 @@ else:
                 ),
                 "prompt": st.column_config.TextColumn("Prompt", width="large"),
                 "run_count": st.column_config.NumberColumn("Runs"),
-                "interaction_count": st.column_config.NumberColumn("Interactions"),
+                "interaction_count": st.column_config.NumberColumn("Responses"),
                 "success_count": st.column_config.NumberColumn("Successes", help="Manually labeled as success"),
                 "refusal_count": st.column_config.NumberColumn("Refusals", help="Manually labeled as refusal"),
                 "unclear_count": st.column_config.NumberColumn("Unclear", help="Manually labeled as unclear"),

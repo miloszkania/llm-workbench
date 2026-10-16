@@ -127,13 +127,13 @@ def display_metric_cards(
     # each row contains (label, value, help text) of its metric cards
     metric_rows = [
         [
-            ("Interactions", f"{metrics.interaction_count:,}", None),
+            ("Responses", f"{metrics.interaction_count:,}", None),
             ("Target models", f"{metrics.target_model_count:,}", None),
             ("Categories", f"{metrics.category_count:,}", None),
             (
                 "Label coverage",
                 f"{label_coverage:,} / {metrics.interaction_count:,}",
-                "Number of interactions covered by the selected label source.",
+                "Number of responses covered by the selected label source.",
             ),
         ],
         [
@@ -145,7 +145,7 @@ def display_metric_cards(
             (
                 "Total cost",
                 f"${total_cost:,.4f}",
-                f"Target interactions: \\${metrics.target_cost:,.4f} · Judging: \\${metrics.judging_cost:,.4f}",
+                f"Target model: \\${metrics.target_cost:,.4f} · Judging: \\${metrics.judging_cost:,.4f}",
             ),
             ("Target tokens", f"{metrics.token_usage:,}", None),
             ("Median duration", format_seconds(metrics.median_duration_seconds), None),
@@ -189,9 +189,9 @@ def display_overview(
     costs = stats.summarize_costs(filtered_interactions, filtered_judge_results)
 
     with activity_column:
-        st.markdown("**Interactions over time**")
+        st.markdown("**Responses over time**")
         if activity.empty:
-            st.info("No valid interaction timestamps are available.")
+            st.info("No valid response timestamps are available.")
         else:
             display_chart(charts.create_activity_chart(activity), "interactions_over_time")
 
@@ -209,9 +209,9 @@ def display_overview(
 
     st.subheader("Data coverage")
     coverage = [
-        ("Categorized interactions", metrics.categorized_interaction_count),
-        ("Manually labeled interactions", metrics.manually_labeled_interaction_count),
-        ("Judge-evaluated interactions", metrics.judged_interaction_count),
+        ("Categorized responses", metrics.categorized_interaction_count),
+        ("Manually labeled responses", metrics.manually_labeled_interaction_count),
+        ("Judge-evaluated responses", metrics.judged_interaction_count),
     ]
 
     for column, (label, covered) in zip(st.columns(len(coverage)), coverage):
@@ -224,7 +224,7 @@ def display_model_table(model_summary: pd.DataFrame) -> None:
         model_summary,
         column_titles={
             "model": "Model",
-            "interaction_count": "Interactions",
+            "interaction_count": "Responses",
             "label_count": "Labels",
             "success_count": "Success",
             "refusal_count": "Refusal",
@@ -252,7 +252,7 @@ def display_model_analytics(
 ) -> None:
     st.subheader("Model comparison")
     st.caption(
-        "Interactions count target calls; n on outcome charts counts labels from the "
+        "Responses count target calls; n on outcome charts counts labels from the "
         "selected source. Costs and duration describe target calls only."
     )
     model_summary = stats.summarize_models(interactions, label_records)
@@ -299,16 +299,16 @@ def display_category_analytics(
 ) -> None:
     st.subheader("Category comparison")
     st.caption(
-        "An interaction assigned to multiple categories contributes once to each of "
-        "them, so category totals may exceed the overall interaction count."
+        "A response assigned to multiple categories contributes once to each of "
+        "them, so category totals may exceed the overall response count."
     )
     category_summary = stats.summarize_categories(interactions, label_records)
 
     if category_summary.empty:
-        st.info("No categorized interactions match the current filters.")
+        st.info("No categorized responses match the current filters.")
         return
 
-    st.markdown("**Interactions by category**")
+    st.markdown("**Responses by category**")
     display_chart(charts.create_category_usage_chart(category_summary), "category_usage")
 
     st.markdown("**Label distribution by category**")
@@ -330,7 +330,7 @@ def display_prompt_table(prompt_summary: pd.DataFrame) -> None:
             "prompt": "Prompt",
             "system_prompt": "System prompt",
             "categories": "Categories",
-            "interaction_count": "Interactions",
+            "interaction_count": "Responses",
             "target_model_count": "Target models",
             "label_count": "Labels",
             "success_count": "Success",
@@ -363,7 +363,7 @@ def display_prompt_analytics(
     st.subheader("Prompt comparison")
     st.caption(
         "A prompt is identified by its text and system prompt. Only prompts with "
-        "interactions matching the filters are shown."
+        "responses matching the filters are shown."
     )
 
     prompt_summary = stats.summarize_prompts(interactions, label_records)
@@ -413,7 +413,7 @@ def display_judge_table(judge_summary: pd.DataFrame) -> None:
         column_titles={
             "judge_setup": "Judge setup",
             "evaluation_count": "Evaluations",
-            "interaction_count": "Interactions",
+            "interaction_count": "Responses",
             "label_count": "Latest labels",
             "success_count": "Success",
             "refusal_count": "Refusal",
@@ -439,7 +439,7 @@ def display_judge_analytics(
     st.subheader("Judge comparison")
     st.caption(
         "Costs and duration include every evaluation. Outcome and agreement charts "
-        "use the latest valid label per interaction, judge model, and configuration."
+        "use the latest valid label per response, judge model, and configuration."
     )
 
     judge_summary = stats.summarize_judges(judge_results)
@@ -471,7 +471,7 @@ def display_judge_analytics(
         pairwise_agreement = agreement.loc[agreement["judge_a"] != agreement["judge_b"]]
 
         if pairwise_agreement.empty:
-            st.info("No pair of judge setups has enough shared interactions for the selected minimum sample size.")
+            st.info("No pair of judge setups has enough shared responses for the selected minimum sample size.")
         else:
             display_chart(charts.create_judge_agreement_heatmap(agreement, judge_order), "judge_agreement")
 
@@ -547,7 +547,7 @@ interactions = stats.load_interactions()
 judge_results = stats.load_judge_results()
 
 if interactions.empty:
-    st.info("No interaction data yet. Run an experiment to start building analytics.")
+    st.info("No responses yet. Run a prompt to start building analytics.")
     st.stop()
 
 # prepare all values available in the filter fields
@@ -589,7 +589,7 @@ with st.expander("Filters", expanded=True):
             value=(valid_times.min().date(), valid_times.max().date()),
             min_value=valid_times.min().date(),
             max_value=valid_times.max().date(),
-            help="Filter interactions by the date on which they were started.",
+            help="Filter responses by the date on which they were requested.",
             format="YYYY-MM-DD",
             key="analytics_date_range",
             width="stretch",
@@ -655,7 +655,7 @@ filtered_interactions = stats.filter_interactions(
 )
 
 if filtered_interactions.empty:
-    st.warning("No interactions match the selected filters.")
+    st.warning("No responses match the selected filters.")
     st.stop()
 
 filtered_judge_results = stats.filter_judge_results(
@@ -668,13 +668,13 @@ filtered_judge_results = stats.filter_judge_results(
 # choose labels used by the shared metrics and outcome charts
 if label_source == "Manual":
     label_records = stats.get_manual_label_records(filtered_interactions)
-    label_source_caption = "Each manually labeled interaction contributes one label."
+    label_source_caption = "Each manually labeled response contributes one label."
 else:
     # use the latest label of every judge setup
     latest_judge_results = stats.get_latest_judge_results(filtered_judge_results)
     label_records = stats.get_judge_label_records(latest_judge_results)
     label_source_caption = (
-        "Each judge model and configuration contributes its latest label per interaction. "
+        "Each judge model and configuration contributes its latest label per response. "
         "Judging costs include all evaluations."
     )
 

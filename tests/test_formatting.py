@@ -64,15 +64,22 @@ class ResultsPageUrlTests(unittest.TestCase):
         self.assertEqual(re.search(formatting.RESULTS_PAGE_URL_PROMPT_ID_PATTERN, url).group(1), "42")
 
 
+class PluralizeTests(unittest.TestCase):
+    def test_pluralize(self) -> None:
+        self.assertEqual(formatting.pluralize(1, "response"), "1 response")
+        self.assertEqual(formatting.pluralize(0, "response"), "0 responses")
+        self.assertEqual(formatting.pluralize(2, "response"), "2 responses")
+
+
 class RunLabelTests(unittest.TestCase):
     def test_run_label(self) -> None:
         self.assertEqual(
             formatting.format_run_label(2, "2026-10-16 14:57:10.123456", 3),
-            "Run 2 · 2026-10-16 14:57:10 · 3 interactions",
+            "Run 2 · 2026-10-16 14:57:10 · 3 responses",
         )
 
     def test_single_interaction_is_not_plural(self) -> None:
-        self.assertTrue(formatting.format_run_label(1, "2026-10-16 14:57:10", 1).endswith("1 interaction"))
+        self.assertTrue(formatting.format_run_label(1, "2026-10-16 14:57:10", 1).endswith("1 response"))
 
 
 class ModelIdTests(unittest.TestCase):

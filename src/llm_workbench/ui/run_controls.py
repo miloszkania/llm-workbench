@@ -1,6 +1,6 @@
 import streamlit as st
 
-from llm_workbench import experiments, records
+from llm_workbench import experiments, formatting, records
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.ui import error_display
 
@@ -17,12 +17,12 @@ def send_prompt_button_with_repetitions(
 
     col_btn_run, col_repetitions = st.columns([1, 6])
     repetition_count = col_repetitions.number_input(
-        "Number of target interactions to run",
+        "Number of responses to request",
         min_value=1,
         max_value=50,
         value=1,
-        help="Each interaction independently sends the prompt to the target model and will be separately evaluated "
-             "by each selected judge.",
+        help="Each request independently sends the prompt to the target model, and every response will be "
+             "separately evaluated by each selected judge.",
         key="repetition_count",
     )
 
@@ -70,14 +70,14 @@ def send_prompt_button_with_repetitions(
 
                 # update the label
                 status.update(
-                    label=f"Interaction {current} of {total} · Waiting for target response…",
+                    label=f"Response {current} of {total} · Waiting for the target model…",
                     expanded=True,
                 )
 
                 # update the progress bar
                 interaction_progress.progress(
                     value=current / total,
-                    text=f"Interaction {current} of {total}",
+                    text=f"Response {current} of {total}",
                 )
 
                 # clear the judgment progress (if judging is also included)
@@ -88,7 +88,7 @@ def send_prompt_button_with_repetitions(
                 # update the label
                 status.update(
                     label=(
-                        f"Interaction {current_interaction} of {repetition_count} "
+                        f"Response {current_interaction} of {repetition_count} "
                         f"· Judgment {current} of {total}…"
                     ),
                     expanded=True,
@@ -116,8 +116,8 @@ def send_prompt_button_with_repetitions(
                 succeeded_interactions = len(result.interaction_ids)
                 status.update(
                     label=(
-                        f"Run finished · {succeeded_interactions} of {repetition_count} "
-                        f"interaction{'s' if repetition_count != 1 else ''} succeeded"
+                        f"Run finished · {succeeded_interactions} of "
+                        f"{formatting.pluralize(repetition_count, 'response')} received"
                     ),
                     state="error" if succeeded_interactions == 0 else "complete",
                     expanded=True,
