@@ -70,6 +70,10 @@ class PluralizeTests(unittest.TestCase):
         self.assertEqual(formatting.pluralize(0, "response"), "0 responses")
         self.assertEqual(formatting.pluralize(2, "response"), "2 responses")
 
+    def test_irregular_plural(self) -> None:
+        self.assertEqual(formatting.pluralize(1, "success", "successes"), "1 success")
+        self.assertEqual(formatting.pluralize(0, "success", "successes"), "0 successes")
+
 
 class RunLabelTests(unittest.TestCase):
     def test_run_label(self) -> None:

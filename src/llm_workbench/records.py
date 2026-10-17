@@ -129,6 +129,32 @@ def summarize_runs(prompt_interactions: list[dict[str, Any]]) -> list[dict[str, 
     return list(runs.values())
 
 
+def summarize_recent_runs(interactions: list[dict[str, Any]], limit: int = 5) -> list[dict[str, Any]]:
+    # the latest runs across all prompts, newest first, with their manual success count
+    runs: dict[str, dict[str, Any]] = {}
+
+    for interaction in sorted(interactions, key=lambda i: i["time"]):
+        run = runs.setdefault(interaction["run_id"], {
+            "run_id": interaction["run_id"],
+            "prompt_id": interaction["prompt_id"],
+            "prompt_title": interaction["prompt_title"],
+            "started_at": interaction["time"],
+            "models": [],
+            "interaction_count": 0,
+            "success_count": 0,
+        })
+        if interaction["model"] not in run["models"]:
+            run["models"].append(interaction["model"])
+        run["interaction_count"] += 1
+        run["success_count"] += interaction["manual_label"] == "success"
+
+    return sorted(runs.values(), key=lambda run: run["started_at"], reverse=True)[:limit]
+
+
+def get_recent_runs(limit: int = 5) -> list[dict[str, Any]]:
+    return summarize_recent_runs(db.interactions.get_all_interactions(), limit)
+
+
 def filter_prompt_interactions(
         prompt_interactions: list[dict[str, Any]],
         run_id: str | None = None,

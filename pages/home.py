@@ -56,3 +56,26 @@ for row_start in range(0, len(WORKFLOW_STEPS), 3):
         with column.container(border=True, height="stretch"):
             st.page_link(page_path, label=label, icon=icon)
             st.caption(description)
+
+
+##### RECENT RUNS
+st.subheader("Recent runs")
+
+recent_runs = records.get_recent_runs()
+
+if not recent_runs:
+    st.page_link("pages/new_prompt.py", label="Run your first prompt", icon=":material/play_arrow:")
+
+for run in recent_runs:
+    with st.container(border=True, horizontal=True, vertical_alignment="center"):
+        st.page_link(
+            "pages/experiment_results.py",
+            label=formatting.format_prompt_label(run["prompt_id"], run["prompt_title"]),
+            query_params={"prompt": run["prompt_id"], "run": run["run_id"]},
+        )
+        st.caption(" · ".join([
+            ", ".join(run["models"]),
+            formatting.pluralize(run["interaction_count"], "response"),
+            formatting.pluralize(run["success_count"], "success", "successes"),
+            formatting.format_timestamp(run["started_at"]),
+        ]))
