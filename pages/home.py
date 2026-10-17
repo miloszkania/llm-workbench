@@ -1,6 +1,8 @@
 import streamlit as st
 
-from llm_workbench.ui import page
+from llm_workbench import db, formatting, records
+from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.ui import error_display, page, sidebar
 
 page.page_config()
 
@@ -17,6 +19,31 @@ WORKFLOW_STEPS = [
 
 st.title("LLM Workbench")
 st.caption("Run jailbreak experiments against LLMs, grade the responses with judges, and compare the results.")
+
+
+##### STATUS
+api_key_column, judge_column, data_column = st.columns(3)
+
+# the loaders are cached, so this shares its requests with the sidebar
+with api_key_column.container(border=True, height="stretch"):
+    try:
+        credits = sidebar.get_credits()
+        remaining_credits = credits.total_credits - credits.total_usage
+        st.markdown(":green[:material/check: **API key valid**]")
+        st.caption(f"${remaining_credits:.2f} credits left")
+    except OpenRouterRequestError as error:
+        error_display.display_error(error, context="Could not check the API key.")
+
+judge_config_count = len(db.judges.get_all_judge_configurations())
+with judge_column.container(border=True, height="stretch"):
+    st.markdown(f"**{formatting.pluralize(judge_config_count, 'judge configuration')}**")
+    st.page_link("pages/judge_settings.py", label="Manage judges")
+
+prompt_overview = records.get_prompt_overview()
+response_count = int(prompt_overview["interaction_count"].sum()) if not prompt_overview.empty else 0
+with data_column.container(border=True, height="stretch"):
+    st.markdown(f"**{formatting.pluralize(len(prompt_overview), 'prompt')}**")
+    st.caption(formatting.pluralize(response_count, "response"))
 
 
 ##### WORKFLOW
