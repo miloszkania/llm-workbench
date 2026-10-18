@@ -1,5 +1,5 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
 from llm_workbench import db, formatting
 from llm_workbench.errors import OpenRouterRequestError
@@ -58,8 +58,14 @@ model_table = pd.DataFrame(
         for model_object in model_objects
     ],
     columns=[
-        "favorite", "id", "description", "context_length", "knowledge_cutoff", "input_price", "output_price",
-    ]
+        "favorite",
+        "id",
+        "description",
+        "context_length",
+        "knowledge_cutoff",
+        "input_price",
+        "output_price",
+    ],
 )
 
 # use model id as a stable row index for the dataframe
@@ -71,24 +77,28 @@ edited_table = st.data_editor(
     hide_index=True,
     disabled=["id", "description", "context_length", "knowledge_cutoff", "input_price", "output_price"],
     column_config={
-        "favorite": st.column_config.CheckboxColumn(
-            "Favorite", help="Add this model to favorites"
-        ),
+        "favorite": st.column_config.CheckboxColumn("Favorite", help="Add this model to favorites"),
         "id": st.column_config.TextColumn("ID"),
         "description": st.column_config.TextColumn("Description"),
         "context_length": st.column_config.NumberColumn(
-            "Context", help="Maximal context length",
+            "Context",
+            help="Maximal context length",
         ),
         "knowledge_cutoff": st.column_config.DatetimeColumn(
-            "Knowledge cutoff", format="YYYY-MM-DD",
+            "Knowledge cutoff",
+            format="YYYY-MM-DD",
         ),
         "input_price": st.column_config.TextColumn(
-            "Input", help="Price per 1M input tokens", alignment="right",
+            "Input",
+            help="Price per 1M input tokens",
+            alignment="right",
         ),
         "output_price": st.column_config.TextColumn(
-            "Output", help="Price per 1M output tokens", alignment="right",
+            "Output",
+            help="Price per 1M output tokens",
+            alignment="right",
         ),
-    }
+    },
 )
 
 # get favorite state of models currently visible in the table

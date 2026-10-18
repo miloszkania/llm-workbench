@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 
 from llm_workbench.analytics.stats import LABEL_COUNT_COLUMNS
 
-
 LABEL_COLORS = {
     "success": "#1BC46F",
     "refusal": "#F54927",
@@ -46,6 +45,7 @@ LABEL_HOVER_LINES = (
 
 ##### EXPORT
 
+
 def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
     # copy the figure, so export changes don't affect the dashboard
     export_figure = go.Figure(figure)
@@ -79,29 +79,28 @@ def export_chart_html(figure: go.Figure) -> bytes:
 
 ##### HELPERS
 
+
 def _scaled_height(row_count: int, row_height: int, padding: int, minimum: int, maximum: int) -> int:
     # grow the chart with the number of rows, within readable limits
     return min(max(minimum, row_count * row_height + padding), maximum)
 
 
 def _create_share_heatmap(
-        summary: pd.DataFrame,
-        index: str,
-        columns: str,
-        index_order: list[str],
-        column_order: list[str],
-        share_column: str,
-        sample_size_column: str,
-        hover_columns: Sequence[str],
-        hovertemplate: str,
-        colorbar_title: str,
+    summary: pd.DataFrame,
+    index: str,
+    columns: str,
+    index_order: list[str],
+    column_order: list[str],
+    share_column: str,
+    sample_size_column: str,
+    hover_columns: Sequence[str],
+    hovertemplate: str,
+    colorbar_title: str,
 ) -> go.Figure:
     def to_matrix(values: str) -> pd.DataFrame:
         # keep every matrix in the same row and column order
-        return (
-            summary
-            .pivot(index=index, columns=columns, values=values)
-            .reindex(index=index_order, columns=column_order)
+        return summary.pivot(index=index, columns=columns, values=values).reindex(
+            index=index_order, columns=column_order
         )
 
     shares = to_matrix(share_column)
@@ -109,8 +108,7 @@ def _create_share_heatmap(
     hover_matrices = [to_matrix(column) for column in hover_columns]
 
     custom_data = [
-        [[matrix.loc[row, column] for matrix in hover_matrices] for column in column_order]
-        for row in index_order
+        [[matrix.loc[row, column] for matrix in hover_matrices] for column in column_order] for row in index_order
     ]
     cell_text = [
         [
@@ -124,20 +122,22 @@ def _create_share_heatmap(
         for row in index_order
     ]
 
-    return go.Figure(go.Heatmap(
-        z=shares.values,
-        x=column_order,
-        y=index_order,
-        customdata=custom_data,
-        zmin=0,
-        zmax=100,
-        colorscale=SHARE_COLOR_SCALE,
-        colorbar=dict(title=colorbar_title, ticksuffix="%"),
-        text=cell_text,
-        texttemplate="%{text}",
-        hoverongaps=False,
-        hovertemplate=hovertemplate,
-    ))
+    return go.Figure(
+        go.Heatmap(
+            z=shares.values,
+            x=column_order,
+            y=index_order,
+            customdata=custom_data,
+            zmin=0,
+            zmax=100,
+            colorscale=SHARE_COLOR_SCALE,
+            colorbar=dict(title=colorbar_title, ticksuffix="%"),
+            text=cell_text,
+            texttemplate="%{text}",
+            hoverongaps=False,
+            hovertemplate=hovertemplate,
+        )
+    )
 
 
 def _configure_daily_bar_chart(figure: go.Figure, dates: pd.Series) -> None:
@@ -162,6 +162,7 @@ def _configure_daily_bar_chart(figure: go.Figure, dates: pd.Series) -> None:
 
 
 ##### OUTCOMES
+
 
 def create_label_distribution_chart(label_distribution: pd.DataFrame) -> go.Figure:
     chart_data = label_distribution.copy()
@@ -191,8 +192,8 @@ def create_label_distribution_chart(label_distribution: pd.DataFrame) -> go.Figu
 
 
 def create_group_label_distribution_chart(
-        summary: pd.DataFrame,
-        group_column: str,
+    summary: pd.DataFrame,
+    group_column: str,
 ) -> go.Figure:
     chart_data = summary.melt(
         id_vars=[group_column, "label_count"],
@@ -224,8 +225,7 @@ def create_group_label_distribution_chart(
     figure.update_traces(
         textposition="inside",
         hovertemplate=(
-            "%{y}<br>%{fullData.name}: %{customdata[0]:,}"
-            "<br>%{x:.1f}% of %{customdata[1]:,} labels<extra></extra>"
+            "%{y}<br>%{fullData.name}: %{customdata[0]:,}<br>%{x:.1f}% of %{customdata[1]:,} labels<extra></extra>"
         ),
     )
     figure.update_xaxes(range=[0, 100], ticksuffix="%")
@@ -242,6 +242,7 @@ def create_group_label_distribution_chart(
 
 
 ##### ACTIVITY AND COST
+
 
 def create_activity_chart(activity: pd.DataFrame) -> go.Figure:
     figure = px.bar(
@@ -273,10 +274,12 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
         var_name="source",
         value_name="cost",
     )
-    chart_data["source"] = chart_data["source"].map({
-        "target_cost": "Target model",
-        "judging_cost": "Judging",
-    })
+    chart_data["source"] = chart_data["source"].map(
+        {
+            "target_cost": "Target model",
+            "judging_cost": "Judging",
+        }
+    )
 
     figure = px.bar(
         chart_data,
@@ -302,6 +305,7 @@ def create_cost_chart(costs: pd.DataFrame) -> go.Figure:
 
 
 ##### MODELS, CATEGORIES AND PROMPTS
+
 
 def create_category_usage_chart(category_summary: pd.DataFrame) -> go.Figure:
     figure = px.bar(
@@ -331,9 +335,9 @@ def create_category_usage_chart(category_summary: pd.DataFrame) -> go.Figure:
 
 
 def create_model_category_heatmap(
-        model_category_summary: pd.DataFrame,
-        model_order: list[str],
-        category_order: list[str],
+    model_category_summary: pd.DataFrame,
+    model_order: list[str],
+    category_order: list[str],
 ) -> go.Figure:
     figure = _create_share_heatmap(
         model_category_summary,
@@ -358,9 +362,9 @@ def create_model_category_heatmap(
 
 
 def create_prompt_model_heatmap(
-        prompt_model_summary: pd.DataFrame,
-        prompt_order: list[str],
-        model_order: list[str],
+    prompt_model_summary: pd.DataFrame,
+    prompt_order: list[str],
+    model_order: list[str],
 ) -> go.Figure:
     figure = _create_share_heatmap(
         prompt_model_summary,
@@ -429,9 +433,10 @@ def create_model_cost_scatter(model_summary: pd.DataFrame) -> go.Figure:
 
 ##### JUDGES
 
+
 def create_judge_agreement_heatmap(
-        agreement: pd.DataFrame,
-        judge_order: list[str],
+    agreement: pd.DataFrame,
+    judge_order: list[str],
 ) -> go.Figure:
     figure = _create_share_heatmap(
         agreement,
@@ -463,9 +468,11 @@ def create_judge_efficiency_scatter(judge_summary: pd.DataFrame) -> go.Figure:
     cost_midpoint = (judge_summary["average_cost"].min() + judge_summary["average_cost"].max()) / 2
 
     # place labels toward the center of the chart
-    text_positions = judge_summary["average_cost"].apply(
-        lambda cost: "middle right" if cost <= cost_midpoint else "middle left"
-    ).tolist()
+    text_positions = (
+        judge_summary["average_cost"]
+        .apply(lambda cost: "middle right" if cost <= cost_midpoint else "middle left")
+        .tolist()
+    )
 
     figure = px.scatter(
         judge_summary,

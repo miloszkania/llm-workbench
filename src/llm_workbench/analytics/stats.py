@@ -8,7 +8,6 @@ import pandas as pd
 
 from llm_workbench import db, formatting
 
-
 LABELS = ("success", "refusal", "unclear")
 LABEL_COUNT_COLUMNS = tuple(f"{label}_count" for label in LABELS)
 LABEL_METRIC_COLUMNS = (*LABEL_COUNT_COLUMNS, "label_count", "success_share")
@@ -44,6 +43,7 @@ JUDGE_RESULT_COLUMNS = (
     "price",
 )
 
+
 @dataclass(frozen=True)
 class OverviewMetrics:
     interaction_count: int
@@ -61,9 +61,10 @@ class OverviewMetrics:
 
 ##### DATA PREPARATION
 
+
 def _create_frame(
-        records: Sequence[Mapping[str, Any]] | pd.DataFrame,
-        columns: Sequence[str],
+    records: Sequence[Mapping[str, Any]] | pd.DataFrame,
+    columns: Sequence[str],
 ) -> pd.DataFrame:
     if isinstance(records, pd.DataFrame):
         frame = records.copy()
@@ -95,7 +96,7 @@ def _parse_categories(value: object) -> list[str]:
 
 
 def prepare_interactions(
-        records: Sequence[Mapping[str, Any]] | pd.DataFrame,
+    records: Sequence[Mapping[str, Any]] | pd.DataFrame,
 ) -> pd.DataFrame:
     interactions = _create_frame(records, INTERACTION_COLUMNS)
 
@@ -110,7 +111,7 @@ def prepare_interactions(
 
 
 def prepare_judge_results(
-        records: Sequence[Mapping[str, Any]] | pd.DataFrame,
+    records: Sequence[Mapping[str, Any]] | pd.DataFrame,
 ) -> pd.DataFrame:
     judge_results = _create_frame(records, JUDGE_RESULT_COLUMNS)
 
@@ -123,6 +124,7 @@ def prepare_judge_results(
 
 ##### DATA LOADING
 
+
 def load_interactions() -> pd.DataFrame:
     return prepare_interactions(db.interactions.get_all_interactions())
 
@@ -133,12 +135,13 @@ def load_judge_results() -> pd.DataFrame:
 
 ##### FILTERS
 
+
 def filter_interactions(
-        interactions: pd.DataFrame,
-        start_date: date | None = None,
-        end_date: date | None = None,
-        models: Sequence[str] | None = None,
-        categories: Sequence[str] | None = None,
+    interactions: pd.DataFrame,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    models: Sequence[str] | None = None,
+    categories: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     if start_date and end_date and start_date > end_date:
         raise ValueError("The start date cannot be later than the end date.")
@@ -158,19 +161,17 @@ def filter_interactions(
         selected_categories = set(categories)
         # include interactions that have at least one selected category
         filtered = filtered.loc[
-            filtered["categories"].apply(
-                lambda assigned: bool(selected_categories.intersection(assigned))
-            )
+            filtered["categories"].apply(lambda assigned: bool(selected_categories.intersection(assigned)))
         ]
 
     return filtered.reset_index(drop=True)
 
 
 def filter_judge_results(
-        judge_results: pd.DataFrame,
-        interaction_ids: Sequence[int] | None = None,
-        judge_config_ids: Sequence[str] | None = None,
-        judge_models: Sequence[str] | None = None,
+    judge_results: pd.DataFrame,
+    interaction_ids: Sequence[int] | None = None,
+    judge_config_ids: Sequence[str] | None = None,
+    judge_models: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     filtered = judge_results.copy()
 
@@ -188,6 +189,7 @@ def filter_judge_results(
 
 ##### SHARED SUMMARIES
 
+
 def get_latest_judge_results(judge_results: pd.DataFrame) -> pd.DataFrame:
     if judge_results.empty:
         return judge_results.copy()
@@ -199,8 +201,7 @@ def get_latest_judge_results(judge_results: pd.DataFrame) -> pd.DataFrame:
     )
 
     return (
-        sorted_results
-        .drop_duplicates(
+        sorted_results.drop_duplicates(
             subset=["interaction_id", "judge_config_id", "judge_model"],
             keep="last",
         )
@@ -223,9 +224,7 @@ def summarize_labels(labels: pd.Series) -> pd.DataFrame:
     total = int(counts.sum())
 
     distribution = counts.rename_axis("label").reset_index(name="count")
-    distribution["percentage"] = (
-        distribution["count"] / total * 100 if total > 0 else 0.0
-    )
+    distribution["percentage"] = distribution["count"] / total * 100 if total > 0 else 0.0
 
     return distribution
 
@@ -239,8 +238,7 @@ def summarize_activity(interactions: pd.DataFrame) -> pd.DataFrame:
     dated_interactions["date"] = dated_interactions["time"].dt.normalize()
 
     return (
-        dated_interactions
-        .groupby("date")
+        dated_interactions.groupby("date")
         .size()
         .rename("interaction_count")
         .reset_index()
@@ -250,25 +248,17 @@ def summarize_activity(interactions: pd.DataFrame) -> pd.DataFrame:
 
 
 def summarize_costs(
-        interactions: pd.DataFrame,
-        judge_results: pd.DataFrame,
+    interactions: pd.DataFrame,
+    judge_results: pd.DataFrame,
 ) -> pd.DataFrame:
     target_costs = interactions.loc[interactions["time"].notna()].copy()
     target_costs["date"] = target_costs["time"].dt.normalize()
-    target_costs = (
-        target_costs
-        .groupby("date", as_index=False)["price"]
-        .sum()
-        .rename(columns={"price": "target_cost"})
-    )
+    target_costs = target_costs.groupby("date", as_index=False)["price"].sum().rename(columns={"price": "target_cost"})
 
     judging_costs = judge_results.loc[judge_results["time"].notna()].copy()
     judging_costs["date"] = judging_costs["time"].dt.normalize()
     judging_costs = (
-        judging_costs
-        .groupby("date", as_index=False)["price"]
-        .sum()
-        .rename(columns={"price": "judging_cost"})
+        judging_costs.groupby("date", as_index=False)["price"].sum().rename(columns={"price": "judging_cost"})
     )
 
     # include dates that have target interactions or judge evaluations
@@ -289,21 +279,14 @@ def get_manual_label_records(interactions: pd.DataFrame) -> pd.DataFrame:
         ["id", "manual_label"],
     ]
 
-    return (
-        label_records
-        .rename(columns={"id": "interaction_id", "manual_label": "label"})
-        .reset_index(drop=True)
-    )
+    return label_records.rename(columns={"id": "interaction_id", "manual_label": "label"}).reset_index(drop=True)
 
 
 def get_judge_label_records(judge_results: pd.DataFrame) -> pd.DataFrame:
-    return (
-        judge_results.loc[
-            judge_results["label"].isin(LABELS),
-            ["interaction_id", "label"],
-        ]
-        .reset_index(drop=True)
-    )
+    return judge_results.loc[
+        judge_results["label"].isin(LABELS),
+        ["interaction_id", "label"],
+    ].reset_index(drop=True)
 
 
 def _sum_if_any(values: pd.Series) -> float:
@@ -322,17 +305,17 @@ def _target_call_aggregations() -> dict[str, tuple[str, Any]]:
 
 
 def _join_labels(
-        label_records: pd.DataFrame,
-        groups: pd.DataFrame,
+    label_records: pd.DataFrame,
+    groups: pd.DataFrame,
 ) -> pd.DataFrame:
     # attach the group columns of each interaction to its labels
     return label_records.merge(groups, left_on="interaction_id", right_on="id", how="inner")
 
 
 def _add_label_metrics(
-        summary: pd.DataFrame,
-        labeled_groups: pd.DataFrame,
-        group_columns: Sequence[str],
+    summary: pd.DataFrame,
+    labeled_groups: pd.DataFrame,
+    group_columns: Sequence[str],
 ) -> pd.DataFrame:
     group_columns = list(group_columns)
 
@@ -344,8 +327,7 @@ def _add_label_metrics(
     else:
         # count every supported label separately for each group
         label_counts = (
-            labeled_groups
-            .groupby([*group_columns, "label"])
+            labeled_groups.groupby([*group_columns, "label"])
             .size()
             .unstack(fill_value=0)
             .reindex(columns=LABELS, fill_value=0)
@@ -353,19 +335,12 @@ def _add_label_metrics(
             .reset_index()
         )
         result = summary.merge(label_counts, on=group_columns, how="left")
-        result[list(LABEL_COUNT_COLUMNS)] = (
-            result[list(LABEL_COUNT_COLUMNS)]
-            .fillna(0)
-            .astype(int)
-        )
+        result[list(LABEL_COUNT_COLUMNS)] = result[list(LABEL_COUNT_COLUMNS)].fillna(0).astype(int)
 
     result["label_count"] = result[list(LABEL_COUNT_COLUMNS)].sum(axis=1)
     # leave the success share empty for groups without labels
     result["success_share"] = (
-        result["success_count"]
-        .div(result["label_count"])
-        .mul(100)
-        .where(result["label_count"].gt(0))
+        result["success_count"].div(result["label_count"]).mul(100).where(result["label_count"].gt(0))
     )
 
     return result
@@ -373,9 +348,10 @@ def _add_label_metrics(
 
 ##### MODEL AND CATEGORY ANALYTICS
 
+
 def summarize_models(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
 ) -> pd.DataFrame:
     model_data = interactions.loc[interactions["model"].notna()].copy()
 
@@ -383,25 +359,19 @@ def summarize_models(
         return pd.DataFrame(columns=["model", "interaction_count", *LABEL_METRIC_COLUMNS, *TARGET_CALL_METRIC_COLUMNS])
 
     model_data["duration_seconds"] = model_data["duration"].dt.total_seconds()
-    summary = (
-        model_data
-        .groupby("model", as_index=False)
-        .agg(interaction_count=("id", "size"), **_target_call_aggregations())
+    summary = model_data.groupby("model", as_index=False).agg(
+        interaction_count=("id", "size"), **_target_call_aggregations()
     )
     # join labels separately, so repeated judge labels don't change interaction metrics
     labeled_models = _join_labels(label_records, model_data[["id", "model"]])
     summary = _add_label_metrics(summary, labeled_models, ["model"])
 
-    return (
-        summary
-        .sort_values(["interaction_count", "model"], ascending=[False, True])
-        .reset_index(drop=True)
-    )
+    return summary.sort_values(["interaction_count", "model"], ascending=[False, True]).reset_index(drop=True)
 
 
 def summarize_categories(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
 ) -> pd.DataFrame:
     # one interaction can contribute once to each assigned category
     categorized = explode_categories(interactions)
@@ -410,24 +380,17 @@ def summarize_categories(
         return pd.DataFrame(columns=["category", "interaction_count", *LABEL_METRIC_COLUMNS])
 
     summary = (
-        categorized
-        .groupby("category", as_index=False)["id"]
-        .nunique()
-        .rename(columns={"id": "interaction_count"})
+        categorized.groupby("category", as_index=False)["id"].nunique().rename(columns={"id": "interaction_count"})
     )
     labeled_categories = _join_labels(label_records, categorized[["id", "category"]])
     summary = _add_label_metrics(summary, labeled_categories, ["category"])
 
-    return (
-        summary
-        .sort_values(["interaction_count", "category"], ascending=[False, True])
-        .reset_index(drop=True)
-    )
+    return summary.sort_values(["interaction_count", "category"], ascending=[False, True]).reset_index(drop=True)
 
 
 def summarize_model_categories(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
 ) -> pd.DataFrame:
     # use one row for every model and assigned category pair
     categorized = explode_categories(interactions)
@@ -436,8 +399,7 @@ def summarize_model_categories(
         return pd.DataFrame(columns=["model", "category", "interaction_count", *LABEL_METRIC_COLUMNS])
 
     summary = (
-        categorized
-        .groupby(["model", "category"], as_index=False)["id"]
+        categorized.groupby(["model", "category"], as_index=False)["id"]
         .nunique()
         .rename(columns={"id": "interaction_count"})
     )
@@ -449,6 +411,7 @@ def summarize_model_categories(
 
 ##### PROMPT ANALYTICS
 
+
 def _prompt_data(interactions: pd.DataFrame) -> pd.DataFrame:
     prompt_data = interactions.loc[interactions["prompt_id"].notna()].copy()
     prompt_data["prompt_id"] = prompt_data["prompt_id"].astype(int)
@@ -456,15 +419,15 @@ def _prompt_data(interactions: pd.DataFrame) -> pd.DataFrame:
     # name every prompt by its id and its title, if it has one
     prompt_data["prompt_label"] = [
         formatting.format_prompt_label(prompt_id, title if isinstance(title, str) else None)
-        for prompt_id, title in zip(prompt_data["prompt_id"], prompt_data["prompt_title"])
+        for prompt_id, title in zip(prompt_data["prompt_id"], prompt_data["prompt_title"], strict=True)
     ]
 
     return prompt_data
 
 
 def summarize_prompts(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
 ) -> pd.DataFrame:
     columns = [
         "prompt_id",
@@ -483,19 +446,15 @@ def summarize_prompts(
         return pd.DataFrame(columns=columns)
 
     prompt_data["duration_seconds"] = prompt_data["duration"].dt.total_seconds()
-    summary = (
-        prompt_data
-        .groupby("prompt_id", as_index=False)
-        .agg(
-            # the prompt columns are the same for every interaction of a prompt
-            prompt_label=("prompt_label", "first"),
-            prompt=("prompt", "first"),
-            system_prompt=("system_prompt", "first"),
-            categories=("categories", "first"),
-            interaction_count=("id", "size"),
-            target_model_count=("model", "nunique"),
-            **_target_call_aggregations(),
-        )
+    summary = prompt_data.groupby("prompt_id", as_index=False).agg(
+        # the prompt columns are the same for every interaction of a prompt
+        prompt_label=("prompt_label", "first"),
+        prompt=("prompt", "first"),
+        system_prompt=("system_prompt", "first"),
+        categories=("categories", "first"),
+        interaction_count=("id", "size"),
+        target_model_count=("model", "nunique"),
+        **_target_call_aggregations(),
     )
     # labels are joined separately, so multiple judge labels don't change call metrics
     labeled_prompts = _join_labels(label_records, prompt_data[["id", "prompt_id"]])
@@ -505,8 +464,8 @@ def summarize_prompts(
 
 
 def summarize_prompt_models(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
 ) -> pd.DataFrame:
     columns = ["prompt_id", "prompt_label", "model", "interaction_count", *LABEL_METRIC_COLUMNS]
     prompt_data = _prompt_data(interactions)
@@ -516,8 +475,7 @@ def summarize_prompt_models(
         return pd.DataFrame(columns=columns)
 
     summary = (
-        prompt_data
-        .groupby(["prompt_id", "prompt_label", "model"], as_index=False)["id"]
+        prompt_data.groupby(["prompt_id", "prompt_label", "model"], as_index=False)["id"]
         .nunique()
         .rename(columns={"id": "interaction_count"})
     )
@@ -529,16 +487,14 @@ def summarize_prompt_models(
 
 ##### JUDGE ANALYTICS
 
+
 def _judge_setup_names(frame: pd.DataFrame) -> pd.Series:
     # each model and configuration pair is a separate judge setup
     return frame["judge_model"].astype(str) + JUDGE_SETUP_SEPARATOR + frame["judge_config_id"].astype(str)
 
 
 def _add_judge_setup(judge_results: pd.DataFrame) -> pd.DataFrame:
-    results = judge_results.loc[
-        judge_results["judge_model"].notna()
-        & judge_results["judge_config_id"].notna()
-    ].copy()
+    results = judge_results.loc[judge_results["judge_model"].notna() & judge_results["judge_config_id"].notna()].copy()
     results["judge_setup"] = _judge_setup_names(results)
 
     return results
@@ -548,29 +504,27 @@ def summarize_judges(judge_results: pd.DataFrame) -> pd.DataFrame:
     judge_data = _add_judge_setup(judge_results)
 
     if judge_data.empty:
-        return pd.DataFrame(columns=[
-            "judge_model",
-            "judge_config_id",
-            "judge_setup",
-            "evaluation_count",
-            "interaction_count",
-            *LABEL_METRIC_COLUMNS,
-            "median_duration_seconds",
-            "total_cost",
-            "average_cost",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "judge_model",
+                "judge_config_id",
+                "judge_setup",
+                "evaluation_count",
+                "interaction_count",
+                *LABEL_METRIC_COLUMNS,
+                "median_duration_seconds",
+                "total_cost",
+                "average_cost",
+            ]
+        )
 
     judge_data["duration_seconds"] = judge_data["duration"].dt.total_seconds()
-    summary = (
-        judge_data
-        .groupby(["judge_model", "judge_config_id"], as_index=False)
-        .agg(
-            evaluation_count=("id", "size"),
-            interaction_count=("interaction_id", "nunique"),
-            median_duration_seconds=("duration_seconds", "median"),
-            total_cost=("price", _sum_if_any),
-            average_cost=("price", "mean"),
-        )
+    summary = judge_data.groupby(["judge_model", "judge_config_id"], as_index=False).agg(
+        evaluation_count=("id", "size"),
+        interaction_count=("interaction_id", "nunique"),
+        median_duration_seconds=("duration_seconds", "median"),
+        total_cost=("price", _sum_if_any),
+        average_cost=("price", "mean"),
     )
 
     # use every evaluation for costs, but only the latest label for outcomes
@@ -579,14 +533,10 @@ def summarize_judges(judge_results: pd.DataFrame) -> pd.DataFrame:
     summary = _add_label_metrics(summary, valid_latest_results, ["judge_model", "judge_config_id"])
     summary["judge_setup"] = _judge_setup_names(summary)
 
-    return (
-        summary
-        .sort_values(
-            ["evaluation_count", "judge_model", "judge_config_id"],
-            ascending=[False, True, True],
-        )
-        .reset_index(drop=True)
-    )
+    return summary.sort_values(
+        ["evaluation_count", "judge_model", "judge_config_id"],
+        ascending=[False, True, True],
+    ).reset_index(drop=True)
 
 
 def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
@@ -610,34 +560,33 @@ def summarize_judge_agreement(judge_results: pd.DataFrame) -> pd.DataFrame:
             overlap_count = len(paired_labels)
             agreement_count = int(paired_labels["label_a"].eq(paired_labels["label_b"]).sum())
             agreement_share = agreement_count / overlap_count * 100 if overlap_count > 0 else None
-            agreement_rows.append({
-                "judge_a": judge_a,
-                "judge_b": judge_b,
-                "overlap_count": overlap_count,
-                "agreement_count": agreement_count,
-                "agreement_share": agreement_share,
-            })
+            agreement_rows.append(
+                {
+                    "judge_a": judge_a,
+                    "judge_b": judge_b,
+                    "overlap_count": overlap_count,
+                    "agreement_count": agreement_count,
+                    "agreement_share": agreement_share,
+                }
+            )
 
     return pd.DataFrame(agreement_rows)
 
 
 ##### OVERVIEW
 
+
 def get_overview_metrics(
-        interactions: pd.DataFrame,
-        judge_results: pd.DataFrame,
+    interactions: pd.DataFrame,
+    judge_results: pd.DataFrame,
 ) -> OverviewMetrics:
     # count each category once across all filtered interactions
     category_values = {
-        category
-        for assigned_categories in interactions["categories"]
-        for category in assigned_categories
+        category for assigned_categories in interactions["categories"] for category in assigned_categories
     }
 
     duration_median = interactions["duration"].median()
-    median_duration_seconds = (
-        None if pd.isna(duration_median) else duration_median.total_seconds()
-    )
+    median_duration_seconds = None if pd.isna(duration_median) else duration_median.total_seconds()
 
     return OverviewMetrics(
         interaction_count=len(interactions),
@@ -655,9 +604,9 @@ def get_overview_metrics(
 
 
 def filter_by_sample_size(
-        summary: pd.DataFrame,
-        minimum_sample_size: int,
-        count_column: str = "label_count",
+    summary: pd.DataFrame,
+    minimum_sample_size: int,
+    count_column: str = "label_count",
 ) -> pd.DataFrame:
     # hide groups that are too small to compare in outcome charts
     return summary.loc[summary[count_column] >= minimum_sample_size].copy()

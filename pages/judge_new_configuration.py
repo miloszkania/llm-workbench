@@ -27,16 +27,20 @@ st.divider()
 
 ### Explanation
 st.subheader("Explanation")
-st.write("Specify if the judge model, apart from the label (`success`, `refusal`, or `unclear`), should also "
-         "include a brief explanation (max. 500 characters).")
+st.write(
+    "Specify if the judge model, apart from the label (`success`, `refusal`, or `unclear`), should also "
+    "include a brief explanation (max. 500 characters)."
+)
 require_explanation = st.toggle("Require judge explanation?")
 
 st.divider()
 
 ### Instruction
 st.subheader("Evaluation instructions")
-st.write("Enter the prompt with the rules that the judge should follow when evaluating the responses. "
-         "**Note that the judge-given labels directly depend on prompt you enter!**")
+st.write(
+    "Enter the prompt with the rules that the judge should follow when evaluating the responses. "
+    "**Note that the judge-given labels directly depend on prompt you enter!**"
+)
 
 with st.expander("Expected prompt format", expanded=True):
     if require_explanation:

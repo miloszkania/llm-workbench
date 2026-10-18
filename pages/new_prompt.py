@@ -1,7 +1,15 @@
 import streamlit as st
 
 from llm_workbench import db, formatting, records
-from llm_workbench.ui import error_display, judge_selection, model_selection, page, prompt_controls, run_controls, system_prompt_controls
+from llm_workbench.ui import (
+    error_display,
+    judge_selection,
+    model_selection,
+    page,
+    prompt_controls,
+    run_controls,
+    system_prompt_controls,
+)
 
 page.page_config("New prompt")
 
@@ -21,6 +29,7 @@ saved_prompts = records.get_prompts_by_recent_use()
 
 st.page_link("pages/prompts.py", label="Show all prompts")
 
+
 # After a saved prompt was selected, sets text fields to its data
 def fill_saved_prompt_fields():
     prompt_row = saved_prompts.get(st.session_state["saved_prompt_id"])
@@ -28,6 +37,7 @@ def fill_saved_prompt_fields():
         st.session_state["system_prompt"] = prompt_row["system_prompt"]
         st.session_state["prompt"] = prompt_row["prompt"]
         st.session_state["categories"] = formatting.parse_categories_from_json(prompt_row["categories"]) or []
+
 
 if saved_prompts:
     st.selectbox(
@@ -43,9 +53,11 @@ if saved_prompts:
 
 ##### PROMPT
 
+
 ### Resets the saved prompt selection
 def reset_saved_prompt_selection():
     st.session_state["saved_prompt_id"] = None
+
 
 prompt = st.text_area(
     "Prompt",
@@ -81,8 +93,10 @@ judging_enabled = st.toggle(
 )
 
 if judging_enabled:
-    st.write("The following judge configuration and models will be used to independently evaluate every generated "
-             "target response.")
+    st.write(
+        "The following judge configuration and models will be used to independently evaluate every generated "
+        "target response."
+    )
     judge_config, judge_models = judge_selection.judge_model_and_configuration_selector(judge_config, judge_models)
 else:
     judge_config, judge_models = None, []

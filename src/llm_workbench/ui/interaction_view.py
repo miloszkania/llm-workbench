@@ -3,8 +3,8 @@ import time
 import streamlit as st
 
 from llm_workbench import db, formatting
-from llm_workbench.llm import judge, openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.llm import judge, openrouter_api
 from llm_workbench.ui import error_display, judge_selection
 
 
@@ -19,9 +19,9 @@ def display_run_judging_dialog(interaction_objects, key_prefix: str) -> None:
     run_judging_button = st.empty()
 
     if run_judging_button.button(
-            "Run judging",
-            type="primary",
-            key=f"{key_prefix}_run_judging_button",
+        "Run judging",
+        type="primary",
+        key=f"{key_prefix}_run_judging_button",
     ):
         if not judge_models or not judge_config:
             st.error("Select at least one judge model and a judge configuration!")
@@ -54,7 +54,8 @@ def display_run_judging_dialog(interaction_objects, key_prefix: str) -> None:
             try:
                 failed_judgments = []
                 for i, interaction_object in enumerate(interaction_objects):
-                    if i > 0: time.sleep(openrouter_api.REQUEST_DELAY_S)
+                    if i > 0:
+                        time.sleep(openrouter_api.REQUEST_DELAY_S)
 
                     failed_judgments += judge.evaluate_and_store_interaction(
                         interaction_object["interaction"]["id"],
@@ -98,12 +99,12 @@ def interaction_card(interaction_object) -> None:
         # Overview (the response number is already shown by the expander)
         col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
         col_overview.markdown(
-                 f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
-                 f"started at **{formatting.format_timestamp(interaction_object['interaction']['time'])}** · "
-                 f"took **{formatting.format_duration(interaction_object['interaction']['duration'])}** · "
-                 f"**{interaction_object['interaction']['token_usage']}** tokens · "
-                 f"target: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
-                 f"judging: **\\${judging_price:.4f}**"
+            f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+            f"started at **{formatting.format_timestamp(interaction_object['interaction']['time'])}** · "
+            f"took **{formatting.format_duration(interaction_object['interaction']['duration'])}** · "
+            f"**{interaction_object['interaction']['token_usage']}** tokens · "
+            f"target: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
+            f"judging: **\\${judging_price:.4f}**"
         )
 
         # Manual label field
@@ -158,13 +159,17 @@ def interaction_card(interaction_object) -> None:
                 label = judge_result["label"]
                 explanation = judge_result["explanation"] or ""
 
-                if label == "success": display_fct = col_judge.success
-                elif label == "refusal": display_fct = col_judge.error
-                elif label == "unclear": display_fct = col_judge.warning
-                else: continue
+                if label == "success":
+                    display_fct = col_judge.success
+                elif label == "refusal":
+                    display_fct = col_judge.error
+                elif label == "unclear":
+                    display_fct = col_judge.warning
+                else:
+                    continue
 
                 display_fct(
-                    title=f"{label} · {judge_result['judge_model']} · {judge_result["judge_config_id"]}",
+                    title=f"{label} · {judge_result['judge_model']} · {judge_result['judge_config_id']}",
                     body=explanation,
                 )
         else:

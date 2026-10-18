@@ -6,8 +6,8 @@ import streamlit as st
 from openrouter import operations
 
 from llm_workbench import records
-from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.llm import openrouter_api
 from llm_workbench.ui import error_display, prompt_controls
 
 

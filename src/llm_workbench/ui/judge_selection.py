@@ -6,8 +6,8 @@ from llm_workbench.ui import error_display, model_selection
 
 
 def judge_model_and_configuration_selector(
-        default_config: str | None = None,
-        default_models: list[str] | None = None,
+    default_config: str | None = None,
+    default_models: list[str] | None = None,
 ) -> tuple[str | None, list[str]]:
     if not default_config and not default_models:
         default_config, default_models = db.settings.get_default_judge_settings()
@@ -26,7 +26,7 @@ def judge_model_and_configuration_selector(
     # to prevent already picked options from getting removed when changing model filters,
     # include them as possible options even if they don't match the filter.
     currently_selected_models = st.session_state.get("selected_judge_models", previous_selected_models)
-    model_options = model_ids + [m for m in currently_selected_models if not m in model_ids]
+    model_options = model_ids + [m for m in currently_selected_models if m not in model_ids]
 
     selected_models_ids = st.multiselect(
         "Select up to three judge models",
@@ -46,21 +46,24 @@ def judge_model_and_configuration_selector(
         for model_id in selected_models_ids:
             try:
                 model_object = model_selection.get_model_object(model_id)
-                price_table_rows.append({
-                    "Model": model_id,
-                    "Input / 1M tokens": formatting.format_model_price(model_object.data.pricing.prompt),
-                    "Output / 1M tokens": formatting.format_model_price(model_object.data.pricing.completion),
-                })
+                price_table_rows.append(
+                    {
+                        "Model": model_id,
+                        "Input / 1M tokens": formatting.format_model_price(model_object.data.pricing.prompt),
+                        "Output / 1M tokens": formatting.format_model_price(model_object.data.pricing.completion),
+                    }
+                )
             except OpenRouterRequestError as error:
                 error_display.display_error(error)
-                price_table_rows.append({
-                    "Model": model_id,
-                    "Input / 1M tokens": "Pricing unavailable",
-                    "Output / 1M tokens": "Pricing unavailable",
-                })
+                price_table_rows.append(
+                    {
+                        "Model": model_id,
+                        "Input / 1M tokens": "Pricing unavailable",
+                        "Output / 1M tokens": "Pricing unavailable",
+                    }
+                )
 
         st.dataframe(price_table_rows, hide_index=True)
-
 
     # Configuration
     st.space()

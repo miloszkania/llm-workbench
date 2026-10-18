@@ -43,7 +43,8 @@ else:
         st.info("No prompts match the search.")
     else:
         st.caption(
-            "This page displays every saved prompt with its run and label counts. Only titles and categories can be edited. "
+            "This page displays every saved prompt with its run and label counts. "
+            "Only titles and categories can be edited. "
             "Deleting a prompt also deletes all of its responses and their judge results."
         )
 
@@ -58,7 +59,6 @@ else:
             height="content" if len(prompt_table) <= 20 else 750,
             hide_index=True,
             num_rows="delete",
-
             column_order=[
                 "results_link",
                 "title",
@@ -72,7 +72,6 @@ else:
                 "last_run_at",
                 "system_prompt",
             ],
-
             disabled=[
                 "results_link",
                 "prompt",
@@ -84,7 +83,6 @@ else:
                 "unclear_count",
                 "last_run_at",
             ],
-
             column_config={
                 "results_link": st.column_config.LinkColumn(
                     "ID",

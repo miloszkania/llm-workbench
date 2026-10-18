@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 def parse_categories_from_json(
-        text: str | float | None,
+    text: str | float | None,
 ) -> list[str] | None:
     if not isinstance(text, str) or not text or text == "[]":
         return None
@@ -32,7 +32,7 @@ def format_prompt_label(prompt_id: int, title: str | None = None) -> str:
 def format_text_preview(text: str, max_length: int = 60) -> str:
     # the text on one line, shortened to max_length characters
     single_line = " ".join(text.split())
-    return single_line if len(single_line) <= max_length else single_line[:max_length - 1].rstrip() + "…"
+    return single_line if len(single_line) <= max_length else single_line[: max_length - 1].rstrip() + "…"
 
 
 # the results page url, and a pattern that extracts its prompt id (e.g. as the display text of a link column)
@@ -65,8 +65,8 @@ def format_timestamp(value: str) -> str:
 def format_duration(value: str) -> str:
     point_position = value.find(".")
 
-    if point_position >= 0: # if there is no dot in value, point_position = -1
-        value = value[:value.find(".")]
+    if point_position >= 0:  # if there is no dot in value, point_position = -1
+        value = value[: value.find(".")]
 
     hours, minutes, seconds = map(int, value.split(":"))
 
@@ -80,8 +80,8 @@ def format_duration(value: str) -> str:
 
 
 def format_model_price(
-        raw_price: str,
-        markdown: bool = False,
+    raw_price: str,
+    markdown: bool = False,
 ) -> str:
     price = float(raw_price)
 

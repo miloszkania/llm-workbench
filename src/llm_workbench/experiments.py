@@ -1,11 +1,12 @@
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from llm_workbench import db, formatting
+from llm_workbench.errors import ModelResponseError, OpenRouterRequestError
 from llm_workbench.llm import judge, openrouter_api
-from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
 @dataclass
@@ -18,13 +19,13 @@ class RunResult:
 
 
 def generate_and_evaluate_interactions(
-        model: str,
-        prompt_id: int,
-        judge_config: str | None,
-        judge_models: list[str] | None,
-        repetition_count: int = 1,
-        on_interaction_start: Callable[[int, int], None] | None = None,
-        on_judgment_start: Callable[[int, int], None] | None = None,
+    model: str,
+    prompt_id: int,
+    judge_config: str | None,
+    judge_models: list[str] | None,
+    repetition_count: int = 1,
+    on_interaction_start: Callable[[int, int], None] | None = None,
+    on_judgment_start: Callable[[int, int], None] | None = None,
 ) -> RunResult:
     prompt_object = db.prompts.get_prompt_by_id(prompt_id)
 
@@ -40,7 +41,8 @@ def generate_and_evaluate_interactions(
     # send the prompt `repetition_count` times
     for i in range(1, repetition_count + 1):
         # pause between requests (if not first prompt of the batch)
-        if i > 1: time.sleep(openrouter_api.REQUEST_DELAY_S)
+        if i > 1:
+            time.sleep(openrouter_api.REQUEST_DELAY_S)
 
         # run the callback function to update the progress bar
         if on_interaction_start:
@@ -61,16 +63,18 @@ def generate_and_evaluate_interactions(
         token_usage, price = openrouter_api.extract_usage(response)
 
         # add the interaction to database
-        interaction_id = db.interactions.insert_interaction({
-            "prompt_id": prompt_id,
-            "run_id": result.run_id,
-            "time": str(start_timestamp),
-            "model": used_model,
-            "response": response_content,
-            "duration": str(duration),
-            "token_usage": token_usage,
-            "price": price,
-        })
+        interaction_id = db.interactions.insert_interaction(
+            {
+                "prompt_id": prompt_id,
+                "run_id": result.run_id,
+                "time": str(start_timestamp),
+                "model": used_model,
+                "response": response_content,
+                "duration": str(duration),
+                "token_usage": token_usage,
+                "price": price,
+            }
+        )
 
         # get llm-as-a-judge classification
         current_failed_judgments = judge.evaluate_and_store_interaction(

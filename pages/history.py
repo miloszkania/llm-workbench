@@ -8,6 +8,7 @@ page.page_config("History")
 
 label_options = ["success", "refusal", "unclear"]
 
+
 def save_changes(original_data: pd.DataFrame) -> None:
     for interaction_id in editor_changes.deleted_ids(changes, original_data):
         db.interactions.delete_interaction(interaction_id)
@@ -57,7 +58,6 @@ else:
             height="content" if len(history_table) <= 20 else 750,
             hide_index=True,
             num_rows="delete",
-
             column_order=[
                 "id",
                 "prompt_link",
@@ -69,7 +69,6 @@ else:
                 "model",
                 "system_prompt",
             ],
-
             disabled=[
                 "id",
                 "prompt_link",
@@ -80,7 +79,6 @@ else:
                 "time",
                 "model",
             ],
-
             column_config={
                 "id": st.column_config.TextColumn("ID"),
                 "prompt_link": st.column_config.LinkColumn(

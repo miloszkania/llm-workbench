@@ -4,15 +4,15 @@ import streamlit as st
 from openrouter import components
 
 from llm_workbench import db, formatting
-from llm_workbench.llm import openrouter_api
 from llm_workbench.errors import OpenRouterRequestError
+from llm_workbench.llm import openrouter_api
 from llm_workbench.ui import error_display
 
 
 @st.cache_data(ttl="1h", show_spinner="Loading available models…")
 def get_models(
-        sort: str = "most-popular",
-        model_filter: str = "All",
+    sort: str = "most-popular",
+    model_filter: str = "All",
 ) -> list[components.Model]:
     models = openrouter_api.get_model_list(sort)
 
@@ -31,9 +31,9 @@ def get_model_object(model_id: str) -> components.ModelResponse:
 
 
 def model_filter_and_sort_controls(
-        canvas: Any = st,
-        key_prefix: str = "",
-        show_library_link: bool = True,
+    canvas: Any = st,
+    key_prefix: str = "",
+    show_library_link: bool = True,
 ) -> tuple[list[components.Model], str]:
     sorting_options = {
         "most-popular": "Most popular",
@@ -48,10 +48,7 @@ def model_filter_and_sort_controls(
     if show_library_link:
         canvas.caption("For details of all available models, visit the [Model Library](/model_library).")
 
-    favorites_only = canvas.toggle(
-        "Show only favorite models",
-        key=f"{key_prefix}favorites_only"
-    )
+    favorites_only = canvas.toggle("Show only favorite models", key=f"{key_prefix}favorites_only")
 
     model_filter = canvas.segmented_control(
         "Model type",
@@ -87,9 +84,9 @@ def model_filter_and_sort_controls(
 
 
 def model_picker(
-        default_model: str | None = None,
-        canvas: Any = st,
-        key_prefix: str = "",
+    default_model: str | None = None,
+    canvas: Any = st,
+    key_prefix: str = "",
 ) -> None:
     models, model_filter = model_filter_and_sort_controls(canvas, key_prefix)
     model_ids = [model.id for model in models]
@@ -124,7 +121,8 @@ def model_picker(
             key=f"{key_prefix}model",
         )
 
-    def set_random_free_model(): st.session_state[f"{key_prefix}model"] = "openrouter/free"
+    def set_random_free_model():
+        st.session_state[f"{key_prefix}model"] = "openrouter/free"
 
     # Button for "openrouter/free" - random model will be selected
     if model_filter == "Free" and "openrouter/free" in model_ids:
@@ -141,11 +139,13 @@ def model_picker(
             model_object = get_model_object(selected_model_id)
 
             if float(model_object.data.pricing.prompt) >= 0 and float(model_object.data.pricing.completion) >= 0:
-                canvas.caption(f"***Price***: starting at "
-                     f"**{formatting.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
-                               f"per 1M input tokens** · "
-                     f"**{formatting.format_model_price(model_object.data.pricing.completion, markdown=True)} "
-                               f"per 1M output tokens**")
+                canvas.caption(
+                    f"***Price***: starting at "
+                    f"**{formatting.format_model_price(model_object.data.pricing.prompt, markdown=True)} "
+                    f"per 1M input tokens** · "
+                    f"**{formatting.format_model_price(model_object.data.pricing.completion, markdown=True)} "
+                    f"per 1M output tokens**"
+                )
             else:
                 canvas.caption("***Price***: varies by model")
 

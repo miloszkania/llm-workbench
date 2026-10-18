@@ -4,7 +4,15 @@ import streamlit as st
 
 from llm_workbench import db, formatting, records
 from llm_workbench.analytics import stats
-from llm_workbench.ui import error_display, interaction_view, judge_selection, model_selection, page, run_controls, system_prompt_controls
+from llm_workbench.ui import (
+    error_display,
+    interaction_view,
+    judge_selection,
+    model_selection,
+    page,
+    run_controls,
+    system_prompt_controls,
+)
 
 
 def redirect_to_prompts(error_message: str) -> None:
@@ -57,7 +65,6 @@ def display_run_prompt_dialog(interactions, prompt_object):
 
     st.header("LLM-as-a-Judge Evaluation")
 
-
     # enable judging by default if any interaction has been judged before
     judging_enabled = st.toggle(
         "Evaluate responses with LLM judges",
@@ -86,12 +93,13 @@ def display_experiment_overview(interactions, canvas):
     num_unclear = count_labels("unclear")
 
     judging_price = sum(
-        sum([i["price"] or 0 for i in single_interaction["judge_results"]])
-        for single_interaction in interactions
+        sum([i["price"] or 0 for i in single_interaction["judge_results"]]) for single_interaction in interactions
     )
     interaction_price = sum([i["interaction"]["price"] or 0 for i in interactions])
 
-    canvas.markdown(f"##### Tested models: {', '.join(sorted({f"`{i['interaction']['model']}`" for i in interactions}))}")
+    canvas.markdown(
+        f"##### Tested models: {', '.join(sorted({f'`{i["interaction"]["model"]}`' for i in interactions}))}"
+    )
     canvas.markdown(
         f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
         f"target: **\\${interaction_price:.4f}** · "
@@ -152,7 +160,9 @@ def display_interaction_filters(interactions):
             key="results_label_filter",
         )
 
-        filtered_interactions = records.filter_prompt_interactions(interactions, run_id, selected_models, selected_labels)
+        filtered_interactions = records.filter_prompt_interactions(
+            interactions, run_id, selected_models, selected_labels
+        )
 
         title.markdown(
             f"**Filters** · :gray[Showing {len(filtered_interactions)} of "
@@ -216,7 +226,6 @@ def display_categories(prompt_object, key_prefix, save_button):
             st.success("Categories updated!")
 
 
-
 prompt_object = load_prompt(st.query_params.get("prompt"))
 interactions = records.get_prompt_interactions(prompt_object["id"])
 
@@ -247,10 +256,10 @@ else:
 # only responses with a text from the target can be judged
 judgeable_interactions = [i for i in filtered_interactions if i["interaction"]["response"]]
 if judge_all_button.button(
-        "Judge all displayed…",
-        disabled=not judgeable_interactions,
-        help=f"Run judging on the {formatting.pluralize(len(judgeable_interactions), 'displayed response')}.",
-        key="results_judge_all_button",
+    "Judge all displayed…",
+    disabled=not judgeable_interactions,
+    help=f"Run judging on the {formatting.pluralize(len(judgeable_interactions), 'displayed response')}.",
+    key="results_judge_all_button",
 ):
     interaction_view.display_run_judging_dialog(judgeable_interactions, key_prefix="judge_all")
 

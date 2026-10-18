@@ -41,7 +41,8 @@ def get_judge_configuration_by_id(config_id: str) -> dict[str, Any] | None:
 def insert_judge_result(data: dict[str, Any]) -> None:
     run_sqlite_command(
         """
-        insert into judge_results (interaction_id, judge_config_id, judge_model, label, explanation, time, duration, price)
+        insert into judge_results
+            (interaction_id, judge_config_id, judge_model, label, explanation, time, duration, price)
             values (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (

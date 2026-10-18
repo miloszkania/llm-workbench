@@ -12,9 +12,9 @@ def format_prompt_option(prompt_row) -> str:
 
 
 def save_prompt_button(
-        prompt: str,
-        system_prompt: str | None,
-        categories: list[str],
+    prompt: str,
+    system_prompt: str | None,
+    categories: list[str],
 ) -> None:
     if st.button("Save prompt", type="secondary"):
         if not formatting.normalize_prompt_text(prompt):

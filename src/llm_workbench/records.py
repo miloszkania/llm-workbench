@@ -7,7 +7,7 @@ from llm_workbench import db, formatting
 
 
 def get_all_categories(
-        data_source: pd.DataFrame | None = None,
+    data_source: pd.DataFrame | None = None,
 ) -> list[str]:
     # categories belong to prompts, so all of them are used by default
     if data_source is None:
@@ -65,10 +65,7 @@ def sort_prompts_by_recent_use(prompt_rows: list[dict[str, Any]]) -> list[dict[s
 
 def get_prompts_by_recent_use() -> dict[int, dict[str, Any]]:
     # prompt overview rows by their id, most recently used first
-    return {
-        prompt_row["id"]: prompt_row
-        for prompt_row in sort_prompts_by_recent_use(db.prompts.get_prompt_overview())
-    }
+    return {prompt_row["id"]: prompt_row for prompt_row in sort_prompts_by_recent_use(db.prompts.get_prompt_overview())}
 
 
 def _search_table(table: pd.DataFrame, search: str | None, columns: list[str]) -> pd.DataFrame:
@@ -89,9 +86,7 @@ def search_prompts(prompt_table: pd.DataFrame, search: str | None) -> pd.DataFra
 
 
 def search_interactions(interaction_table: pd.DataFrame, search: str | None) -> pd.DataFrame:
-    return _search_table(
-        interaction_table, search, ["prompt_title", "prompt", "system_prompt", "response", "model"]
-    )
+    return _search_table(interaction_table, search, ["prompt_title", "prompt", "system_prompt", "response", "model"])
 
 
 def get_prompt_interactions(prompt_id: int) -> list[dict[str, Any]]:
@@ -118,12 +113,15 @@ def summarize_runs(prompt_interactions: list[dict[str, Any]]) -> list[dict[str, 
 
     for interaction_object in sorted(prompt_interactions, key=lambda i: i["interaction"]["time"]):
         interaction = interaction_object["interaction"]
-        run = runs.setdefault(interaction["run_id"], {
-            "run_id": interaction["run_id"],
-            "number": len(runs) + 1,
-            "started_at": interaction["time"],
-            "interaction_count": 0,
-        })
+        run = runs.setdefault(
+            interaction["run_id"],
+            {
+                "run_id": interaction["run_id"],
+                "number": len(runs) + 1,
+                "started_at": interaction["time"],
+                "interaction_count": 0,
+            },
+        )
         run["interaction_count"] += 1
 
     return list(runs.values())
@@ -134,15 +132,18 @@ def summarize_recent_runs(interactions: list[dict[str, Any]], limit: int = 5) ->
     runs: dict[str, dict[str, Any]] = {}
 
     for interaction in sorted(interactions, key=lambda i: i["time"]):
-        run = runs.setdefault(interaction["run_id"], {
-            "run_id": interaction["run_id"],
-            "prompt_id": interaction["prompt_id"],
-            "prompt_title": interaction["prompt_title"],
-            "started_at": interaction["time"],
-            "models": [],
-            "interaction_count": 0,
-            "success_count": 0,
-        })
+        run = runs.setdefault(
+            interaction["run_id"],
+            {
+                "run_id": interaction["run_id"],
+                "prompt_id": interaction["prompt_id"],
+                "prompt_title": interaction["prompt_title"],
+                "started_at": interaction["time"],
+                "models": [],
+                "interaction_count": 0,
+                "success_count": 0,
+            },
+        )
         if interaction["model"] not in run["models"]:
             run["models"].append(interaction["model"])
         run["interaction_count"] += 1
@@ -156,10 +157,10 @@ def get_recent_runs(limit: int = 5) -> list[dict[str, Any]]:
 
 
 def filter_prompt_interactions(
-        prompt_interactions: list[dict[str, Any]],
-        run_id: str | None = None,
-        models: Collection[str] = (),
-        manual_labels: Collection[str | None] = (),
+    prompt_interactions: list[dict[str, Any]],
+    run_id: str | None = None,
+    models: Collection[str] = (),
+    manual_labels: Collection[str | None] = (),
 ) -> list[dict[str, Any]]:
     # an empty filter keeps all interactions, a None manual label selects unlabeled ones
     return [
@@ -172,9 +173,9 @@ def filter_prompt_interactions(
 
 
 def save_prompt(
-        prompt: str | None,
-        system_prompt: str | None,
-        categories: list[str] | None,
+    prompt: str | None,
+    system_prompt: str | None,
+    categories: list[str] | None,
 ) -> int:
     # returns the id of the matching prompt, creating it if it doesn't exist yet
     prompt = formatting.normalize_prompt_text(prompt)

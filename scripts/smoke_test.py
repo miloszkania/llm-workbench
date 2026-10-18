@@ -3,6 +3,7 @@
 Uses the database and OpenRouter key from `.env`. Pages are only rendered, nothing is submitted.
 Run from the project root: python3 scripts/smoke_test.py
 """
+
 import sys
 from pathlib import Path
 

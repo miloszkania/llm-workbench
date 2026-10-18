@@ -9,7 +9,6 @@ import streamlit as st
 from llm_workbench.analytics import charts, stats
 from llm_workbench.ui import page
 
-
 FILTER_KEYS = (
     "analytics_date_range",
     "analytics_models",
@@ -36,6 +35,7 @@ COST_FORMAT = st.column_config.NumberColumn(format="$%.6f")
 
 
 ##### FILTERS AND FORMATTING
+
 
 def reset_filters() -> None:
     for key in FILTER_KEYS:
@@ -71,6 +71,7 @@ def order_by_interaction_count(frame: pd.DataFrame, column: str) -> list[str]:
 
 ##### SHARED COMPONENTS
 
+
 def display_chart(figure: go.Figure, export_name: str) -> None:
     st.plotly_chart(figure, width="stretch", config=charts.CHART_CONFIG)
 
@@ -97,9 +98,9 @@ def display_chart(figure: go.Figure, export_name: str) -> None:
 
 
 def display_summary_table(
-        summary: pd.DataFrame,
-        column_titles: dict[str, str],
-        column_config: dict[str, Any],
+    summary: pd.DataFrame,
+    column_titles: dict[str, str],
+    column_config: dict[str, Any],
 ) -> None:
     # show only the listed columns, in the listed order, under their display titles
     table = summary[list(column_titles)].rename(columns=column_titles)
@@ -114,9 +115,9 @@ def display_summary_table(
 
 
 def display_metric_cards(
-        metrics: stats.OverviewMetrics,
-        label_distribution: pd.DataFrame,
-        label_coverage: int,
+    metrics: stats.OverviewMetrics,
+    label_distribution: pd.DataFrame,
+    label_coverage: int,
 ) -> None:
     label_count = int(label_distribution["count"].sum())
     success_count = int(label_distribution.loc[label_distribution["label"] == "success", "count"].iloc[0])
@@ -168,12 +169,13 @@ def display_coverage(label: str, covered: int, total: int) -> None:
 
 ##### ANALYTICS VIEWS
 
+
 def display_overview(
-        filtered_interactions: pd.DataFrame,
-        filtered_judge_results: pd.DataFrame,
-        label_distribution: pd.DataFrame,
-        label_source_caption: str,
-        metrics: stats.OverviewMetrics,
+    filtered_interactions: pd.DataFrame,
+    filtered_judge_results: pd.DataFrame,
+    label_distribution: pd.DataFrame,
+    label_source_caption: str,
+    metrics: stats.OverviewMetrics,
 ) -> None:
     st.subheader("Outcomes")
     st.caption(label_source_caption)
@@ -214,7 +216,7 @@ def display_overview(
         ("Judge-evaluated responses", metrics.judged_interaction_count),
     ]
 
-    for column, (label, covered) in zip(st.columns(len(coverage)), coverage):
+    for column, (label, covered) in zip(st.columns(len(coverage)), coverage, strict=True):
         with column:
             display_coverage(label, covered, metrics.interaction_count)
 
@@ -246,9 +248,9 @@ def display_model_table(model_summary: pd.DataFrame) -> None:
 
 
 def display_model_analytics(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
-        minimum_sample_size: int,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
+    minimum_sample_size: int,
 ) -> None:
     st.subheader("Model comparison")
     st.caption(
@@ -283,8 +285,7 @@ def display_model_analytics(
 
     st.markdown("**Average target cost vs success**")
     scatter_data = comparable_models.loc[
-        comparable_models["success_share"].notna()
-        & comparable_models["average_cost"].notna()
+        comparable_models["success_share"].notna() & comparable_models["average_cost"].notna()
     ].copy()
     if scatter_data.empty:
         st.info("No model has both enough labels and recorded target cost data for this comparison.")
@@ -293,9 +294,9 @@ def display_model_analytics(
 
 
 def display_category_analytics(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
-        minimum_sample_size: int,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
+    minimum_sample_size: int,
 ) -> None:
     st.subheader("Category comparison")
     st.caption(
@@ -356,9 +357,9 @@ def display_prompt_table(prompt_summary: pd.DataFrame) -> None:
 
 
 def display_prompt_analytics(
-        interactions: pd.DataFrame,
-        label_records: pd.DataFrame,
-        minimum_sample_size: int,
+    interactions: pd.DataFrame,
+    label_records: pd.DataFrame,
+    minimum_sample_size: int,
 ) -> None:
     st.subheader("Prompt comparison")
     st.caption(
@@ -433,8 +434,8 @@ def display_judge_table(judge_summary: pd.DataFrame) -> None:
 
 
 def display_judge_analytics(
-        judge_results: pd.DataFrame,
-        minimum_sample_size: int,
+    judge_results: pd.DataFrame,
+    minimum_sample_size: int,
 ) -> None:
     st.subheader("Judge comparison")
     st.caption(
@@ -477,8 +478,7 @@ def display_judge_analytics(
 
     st.markdown("**Judging cost vs duration**")
     efficiency_data = judge_summary.loc[
-        judge_summary["average_cost"].notna()
-        & judge_summary["median_duration_seconds"].notna()
+        judge_summary["average_cost"].notna() & judge_summary["median_duration_seconds"].notna()
     ].copy()
     if efficiency_data.empty:
         st.info("No judge setup has both recorded cost and duration data.")
@@ -520,12 +520,15 @@ def inject_responsive_styles() -> None:
             }}
 
             @media (max-width: {RESPONSIVE_BREAKPOINT}px) {{
-                .st-key-analytics_metrics [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"],
-                .st-key-analytics_primary_filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+                .st-key-analytics_metrics
+                    [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"],
+                .st-key-analytics_primary_filters
+                    [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
                     flex-basis: calc(50% - 0.25rem);
                 }}
 
-                .st-key-analytics_judge_filters [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
+                .st-key-analytics_judge_filters
+                    [data-testid="stHorizontalBlock"] > [data-testid="stElementContainer"] {{
                     flex-basis: 100%;
                 }}
             }}
@@ -700,17 +703,16 @@ selected_view = st.segmented_control(
 if selected_view == "Overview":
     display_overview(filtered_interactions, filtered_judge_results, label_distribution, label_source_caption, metrics)
 else:
-    minimum_sample_size = int(st.number_input(
-        "Minimum labels per group",
-        min_value=1,
-        value=3,
-        step=1,
-        help=(
-            "Hide small samples from outcome and agreement charts. Summary tables "
-            "always show every group."
-        ),
-        key="analytics_minimum_sample_size",
-    ))
+    minimum_sample_size = int(
+        st.number_input(
+            "Minimum labels per group",
+            min_value=1,
+            value=3,
+            step=1,
+            help=("Hide small samples from outcome and agreement charts. Summary tables always show every group."),
+            key="analytics_minimum_sample_size",
+        )
+    )
 
     if selected_view == "Models":
         display_model_analytics(filtered_interactions, label_records, minimum_sample_size)

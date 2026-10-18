@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import streamlit as st
 
@@ -10,10 +10,10 @@ def system_prompt_label(system_prompt: str | None) -> str:
 
 
 def system_prompt_input(
-        key: str,
-        value: str | None = None,
-        on_change: Callable[[], None] | None = None,
-        height: int | str | None = None,
+    key: str,
+    value: str | None = None,
+    on_change: Callable[[], None] | None = None,
+    height: int | str | None = None,
 ) -> str:
     # collapsed by default, but the label shows whether a system prompt will be sent
     current_value = st.session_state.get(key, value)

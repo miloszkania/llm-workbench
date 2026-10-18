@@ -1,46 +1,43 @@
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
-import time
 from typing import Any, Literal
 
 from openrouter import OpenRouter, components, operations
 
 from llm_workbench.config import get_env_config
-from llm_workbench.errors import OpenRouterRequestError, OPENROUTER_ERRORS, ModelResponseError
+from llm_workbench.errors import OPENROUTER_ERRORS, ModelResponseError, OpenRouterRequestError
 
-API_TIMEOUT_MS = 30_000 # network timeout for each metadata or model attempt
-CHAT_TIMEOUT_MS = 120_000 # network timeout for each chat attempt
+API_TIMEOUT_MS = 30_000  # network timeout for each metadata or model attempt
+CHAT_TIMEOUT_MS = 120_000  # network timeout for each chat attempt
 
-RATE_LIMIT_DELAY_S = 4 # default delay when rate-limited and no http retry-after value specified
-RETRY_DELAY_S = 3.2 # default delay when not rate-limited
-REQUEST_DELAY_S = 3.2 # pause between consecutive requests of a batch to avoid rate limits
+RATE_LIMIT_DELAY_S = 4  # default delay when rate-limited and no http retry-after value specified
+RETRY_DELAY_S = 3.2  # default delay when not rate-limited
+REQUEST_DELAY_S = 3.2  # pause between consecutive requests of a batch to avoid rate limits
 
 TARGET_MAX_COMPLETION_TOKENS = 4_096
 JUDGE_MAX_COMPLETION_TOKENS = 1_024
 
 client = OpenRouter(
     api_key=get_env_config().openrouter_api_key,
-    retry_config=None, # disable SDK retries, _safe_run handles them
+    retry_config=None,  # disable SDK retries, _safe_run handles them
 )
+
 
 # runs `function` with `**kwargs` as arguments. retries when specified errors occur.
 # if the error persists, throws a local error class, simplifying the error validation in other functions
 def _safe_run(
-        function: Callable[..., Any],
-        max_retries: int = 2,
-        **kwargs: Any,
+    function: Callable[..., Any],
+    max_retries: int = 2,
+    **kwargs: Any,
 ) -> Any:
     for attempt in range(max_retries + 1):
         try:
             return function(**kwargs)
 
         except tuple(OPENROUTER_ERRORS.keys()) as error:
-            error_specs = (
-                OPENROUTER_ERRORS.get(type(error))
-                or next(
-                    specs for error_type, specs in OPENROUTER_ERRORS.items()
-                    if isinstance(error, error_type)
-                )
+            error_specs = OPENROUTER_ERRORS.get(type(error)) or next(
+                specs for error_type, specs in OPENROUTER_ERRORS.items() if isinstance(error, error_type)
             )
 
             # stop trying (raise) if we encountered a non-retry error or if this is the last attempt
@@ -73,23 +70,27 @@ def get_model_list(sort: str = "most-popular") -> list[components.Model]:
 
 
 def send_prompt(
-        model: str,
-        prompt: str,
-        system_prompt: str | None,
-        conversation_type: Literal["target", "judge"],
+    model: str,
+    prompt: str,
+    system_prompt: str | None,
+    conversation_type: Literal["target", "judge"],
 ) -> tuple[components.ChatResult, datetime, timedelta]:
     # prepare the messages object
     messages = []
     if system_prompt:
-        messages.append({
-            "role": "system",
-            "content": system_prompt,
-        })
+        messages.append(
+            {
+                "role": "system",
+                "content": system_prompt,
+            }
+        )
 
-    messages.append({
-        "role": "user",
-        "content": prompt,
-    })
+    messages.append(
+        {
+            "role": "user",
+            "content": prompt,
+        }
+    )
 
     # set the right completion tokens limit
     if conversation_type == "target":
@@ -149,14 +150,10 @@ def extract_response_text(response: components.ChatResult) -> str:
 
     if choice.finish_reason == "length":
         raise ModelResponseError(
-            "The model reached its completion token limit before returning a final response.",
-            response.model
+            "The model reached its completion token limit before returning a final response.", response.model
         )
 
-    raise ModelResponseError(
-        "The model returned no textual response.",
-        response.model
-    )
+    raise ModelResponseError("The model returned no textual response.", response.model)
 
 
 # returns (total tokens, cost). both can be missing in the response, e.g. for some providers

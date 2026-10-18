@@ -6,9 +6,9 @@ from llm_workbench.ui import error_display
 
 
 def send_prompt_button_with_repetitions(
-        judge_config: str | None = None,
-        judge_models: list[str] | None = None,
-        button_label: str = "Run",
+    judge_config: str | None = None,
+    judge_models: list[str] | None = None,
+    button_label: str = "Run",
 ) -> None:
     model = st.session_state["model"]
     system_prompt = st.session_state["system_prompt"]
@@ -22,7 +22,7 @@ def send_prompt_button_with_repetitions(
         max_value=50,
         value=1,
         help="Each request independently sends the prompt to the target model, and every response will be "
-             "separately evaluated by each selected judge.",
+        "separately evaluated by each selected judge.",
         key="repetition_count",
     )
 
@@ -31,10 +31,10 @@ def send_prompt_button_with_repetitions(
     run_button = col_btn_run.empty()
 
     if run_button.button(
-            button_label,
-            type="primary",
-            width="stretch",
-            key=f"{button_label}_interactions_button",
+        button_label,
+        type="primary",
+        width="stretch",
+        key=f"{button_label}_interactions_button",
     ):
         if not model:
             st.error("You need to enter the model!")
@@ -87,10 +87,7 @@ def send_prompt_button_with_repetitions(
             def update_judgment_progress(current: int, total: int) -> None:
                 # update the label
                 status.update(
-                    label=(
-                        f"Response {current_interaction} of {repetition_count} "
-                        f"· Judgment {current} of {total}…"
-                    ),
+                    label=(f"Response {current_interaction} of {repetition_count} · Judgment {current} of {total}…"),
                     expanded=True,
                 )
 
@@ -132,7 +129,9 @@ def send_prompt_button_with_repetitions(
                 else:
                     # redirect to the results page of the prompt, filtered to this run
                     st.session_state["failed_judgments"] = result.failed_judgments
-                    st.switch_page("pages/experiment_results.py", query_params={"prompt": result.prompt_id, "run": result.run_id})
+                    st.switch_page(
+                        "pages/experiment_results.py", query_params={"prompt": result.prompt_id, "run": result.run_id}
+                    )
 
             except OpenRouterRequestError as error:
                 status.update(label="Run interrupted", state="error")

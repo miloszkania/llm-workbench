@@ -82,7 +82,9 @@ class RecentRunTests(unittest.TestCase):
         )
 
     def test_limit(self) -> None:
-        self.assertEqual([run["run_id"] for run in records.summarize_recent_runs(INTERACTION_ROWS, limit=2)], ["c", "b"])
+        self.assertEqual(
+            [run["run_id"] for run in records.summarize_recent_runs(INTERACTION_ROWS, limit=2)], ["c", "b"]
+        )
 
     def test_no_interactions_have_no_runs(self) -> None:
         self.assertEqual(records.summarize_recent_runs([]), [])
@@ -103,7 +105,11 @@ class InteractionFilterTests(unittest.TestCase):
 
     def test_filters_are_combined(self) -> None:
         self.assertEqual(
-            ids(records.filter_prompt_interactions(INTERACTIONS, run_id="a", models=["model/x"], manual_labels=["success"])),
+            ids(
+                records.filter_prompt_interactions(
+                    INTERACTIONS, run_id="a", models=["model/x"], manual_labels=["success"]
+                )
+            ),
             [],
         )
 
@@ -120,12 +126,14 @@ class RecentPromptSortingTests(unittest.TestCase):
 
 
 class PromptSearchTests(unittest.TestCase):
-    PROMPTS = pd.DataFrame({
-        "id": [1, 2, 3],
-        "title": ["DAN", None, None],
-        "prompt": ["Ignore all rules", "Tell me a secret", "Hello"],
-        "system_prompt": ["", "You are a SPY", ""],
-    })
+    PROMPTS = pd.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "title": ["DAN", None, None],
+            "prompt": ["Ignore all rules", "Tell me a secret", "Hello"],
+            "system_prompt": ["", "You are a SPY", ""],
+        }
+    )
 
     def search_ids(self, search: str | None) -> list[int]:
         return records.search_prompts(self.PROMPTS, search)["id"].tolist()
@@ -145,14 +153,16 @@ class PromptSearchTests(unittest.TestCase):
 
 
 class InteractionSearchTests(unittest.TestCase):
-    INTERACTIONS = pd.DataFrame({
-        "id": [1, 2],
-        "prompt_title": ["Roleplay", None],
-        "prompt": ["Pretend to be DAN", "Hello"],
-        "system_prompt": ["", "Secret rules"],
-        "response": ["I cannot do that", "Sure, here you go"],
-        "model": ["openai/gpt-4o", "anthropic/claude"],
-    })
+    INTERACTIONS = pd.DataFrame(
+        {
+            "id": [1, 2],
+            "prompt_title": ["Roleplay", None],
+            "prompt": ["Pretend to be DAN", "Hello"],
+            "system_prompt": ["", "Secret rules"],
+            "response": ["I cannot do that", "Sure, here you go"],
+            "model": ["openai/gpt-4o", "anthropic/claude"],
+        }
+    )
 
     def search_ids(self, search: str | None) -> list[int]:
         return records.search_interactions(self.INTERACTIONS, search)["id"].tolist()

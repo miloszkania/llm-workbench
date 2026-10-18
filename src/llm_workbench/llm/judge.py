@@ -1,14 +1,15 @@
 import re
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from llm_workbench import db, formatting
+from llm_workbench.errors import ModelResponseError, OpenRouterRequestError
 from llm_workbench.llm import openrouter_api
-from llm_workbench.errors import OpenRouterRequestError, ModelResponseError
 
 
 def get_configuration_details(
-        judge_config_id: str,
+    judge_config_id: str,
 ) -> tuple[str | None, bool]:
     judge_config = db.judges.get_judge_configuration_by_id(judge_config_id)
 
@@ -19,10 +20,10 @@ def get_configuration_details(
 
 
 def compose_judge_prompt(
-        judge_instructions: str,
-        system_prompt: str | None,
-        prompt: str,
-        response: str,
+    judge_instructions: str,
+    system_prompt: str | None,
+    prompt: str,
+    response: str,
 ) -> str:
     # don't include the system_prompt if it doesn't exist
     if system_prompt:
@@ -46,9 +47,9 @@ def compose_judge_prompt(
 
 
 def get_judge_result(
-        judge_prompt: str,
-        judge_model: str,
-        require_explanation: bool,
+    judge_prompt: str,
+    judge_model: str,
+    require_explanation: bool,
 ) -> dict[str, Any]:
     judge_response, time, duration = openrouter_api.send_prompt(
         model=judge_model,
@@ -84,10 +85,7 @@ def get_judge_result(
     # check if judge sent a correct label
     if label not in ["success", "refusal", "unclear"]:
         raise ModelResponseError(
-            message=(
-                f"The judge returned an incorrectly formatted response. "
-                f"Raw response: {judge_message}"
-            ),
+            message=(f"The judge returned an incorrectly formatted response. Raw response: {judge_message}"),
             model=used_model,
         )
 
@@ -102,13 +100,13 @@ def get_judge_result(
 
 
 def evaluate_and_store_interaction(
-        interaction_id: int,
-        system_prompt: str | None,
-        prompt: str,
-        response: str,
-        judge_config_id: str | None,
-        judge_models: list[str] | None,
-        on_judgment_start: Callable[[int, int], None] | None = None,
+    interaction_id: int,
+    system_prompt: str | None,
+    prompt: str,
+    response: str,
+    judge_config_id: str | None,
+    judge_models: list[str] | None,
+    on_judgment_start: Callable[[int, int], None] | None = None,
 ) -> list[dict[str, Any]]:
     if not judge_config_id or not judge_models:
         return []
@@ -122,7 +120,8 @@ def evaluate_and_store_interaction(
     failed_judgments = []
 
     for i, judge_model in enumerate(judge_models, start=1):
-        if i > 1: time.sleep(openrouter_api.REQUEST_DELAY_S)
+        if i > 1:
+            time.sleep(openrouter_api.REQUEST_DELAY_S)
 
         if on_judgment_start:
             on_judgment_start(i, len(judge_models))
@@ -136,23 +135,27 @@ def evaluate_and_store_interaction(
             if isinstance(error, ModelResponseError):
                 failed_model = formatting.remove_timestamp_from_model_id(error.model)
 
-            failed_judgments.append({
-                "interaction_id": interaction_id,
-                "judge_model": failed_model,
-                "error": error,
-            })
+            failed_judgments.append(
+                {
+                    "interaction_id": interaction_id,
+                    "judge_model": failed_model,
+                    "error": error,
+                }
+            )
             continue
 
         # save the judge result into the database
-        db.judges.insert_judge_result({
-            "interaction_id": interaction_id,
-            "judge_config_id": judge_config_id,
-            "judge_model": judge_result["judge_model"],
-            "label": judge_result["label"],
-            "explanation": judge_result["explanation"][:500] if require_explanation else None,
-            "time": judge_result["time"],
-            "duration": str(judge_result["duration"]),
-            "price": judge_result["price"],
-        })
+        db.judges.insert_judge_result(
+            {
+                "interaction_id": interaction_id,
+                "judge_config_id": judge_config_id,
+                "judge_model": judge_result["judge_model"],
+                "label": judge_result["label"],
+                "explanation": judge_result["explanation"][:500] if require_explanation else None,
+                "time": judge_result["time"],
+                "duration": str(judge_result["duration"]),
+                "price": judge_result["price"],
+            }
+        )
 
     return failed_judgments

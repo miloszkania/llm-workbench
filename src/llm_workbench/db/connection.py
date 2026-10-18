@@ -5,7 +5,11 @@ from functools import cache
 from typing import Any
 
 from llm_workbench.config import get_env_config
-from llm_workbench.db.default_judge_config import DEFAULT_JUDGE_CONFIG_ID, DEFAULT_JUDGE_CONFIG_PROMPT, DEFAULT_JUDGE_CONFIG_REQUIRE_EXPLANATION
+from llm_workbench.db.default_judge_config import (
+    DEFAULT_JUDGE_CONFIG_ID,
+    DEFAULT_JUDGE_CONFIG_PROMPT,
+    DEFAULT_JUDGE_CONFIG_REQUIRE_EXPLANATION,
+)
 
 SCHEMA = """
     create table if not exists app_settings (

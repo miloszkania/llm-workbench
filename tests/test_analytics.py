@@ -17,26 +17,28 @@ class AnalyticsPreparationTests(unittest.TestCase):
         self.assertTrue(judge_results.empty)
 
     def test_interactions_parse_database_values_without_mutating_input(self) -> None:
-        source = pd.DataFrame([
-            {
-                "id": 1,
-                "time": "2026-09-20 10:00:00",
-                "model": "model/a",
-                "categories": '["one", "two"]',
-                "duration": "0:00:02.500000",
-                "token_usage": "12",
-                "price": "0.25",
-            },
-            {
-                "id": 2,
-                "time": "invalid",
-                "model": "model/b",
-                "categories": None,
-                "duration": None,
-                "token_usage": None,
-                "price": None,
-            },
-        ])
+        source = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "time": "2026-09-20 10:00:00",
+                    "model": "model/a",
+                    "categories": '["one", "two"]',
+                    "duration": "0:00:02.500000",
+                    "token_usage": "12",
+                    "price": "0.25",
+                },
+                {
+                    "id": 2,
+                    "time": "invalid",
+                    "model": "model/b",
+                    "categories": None,
+                    "duration": None,
+                    "token_usage": None,
+                    "price": None,
+                },
+            ]
+        )
 
         interactions = stats.prepare_interactions(source)
 
@@ -49,14 +51,16 @@ class AnalyticsPreparationTests(unittest.TestCase):
         self.assertEqual(source.loc[0, "categories"], '["one", "two"]')
 
     def test_judge_results_parse_database_values(self) -> None:
-        judge_results = stats.prepare_judge_results([
-            {
-                "id": 1,
-                "time": "2026-09-20 10:00:00",
-                "duration": "0:00:01.250000",
-                "price": "0.05",
-            },
-        ])
+        judge_results = stats.prepare_judge_results(
+            [
+                {
+                    "id": 1,
+                    "time": "2026-09-20 10:00:00",
+                    "duration": "0:00:01.250000",
+                    "price": "0.05",
+                },
+            ]
+        )
         self.assertEqual(judge_results.loc[0, "duration"], pd.Timedelta(seconds=1.25))
         self.assertEqual(judge_results.loc[0, "price"], 0.05)
 
@@ -68,26 +72,28 @@ class AnalyticsPreparationTests(unittest.TestCase):
 
 class AnalyticsFilteringTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.interactions = stats.prepare_interactions([
-            {
-                "id": 1,
-                "time": "2026-09-19 10:00:00",
-                "model": "model/a",
-                "categories": '["alpha"]',
-            },
-            {
-                "id": 2,
-                "time": "2026-09-20 10:00:00",
-                "model": "model/a",
-                "categories": '["beta", "gamma"]',
-            },
-            {
-                "id": 3,
-                "time": "2026-09-21 10:00:00",
-                "model": "model/b",
-                "categories": None,
-            },
-        ])
+        self.interactions = stats.prepare_interactions(
+            [
+                {
+                    "id": 1,
+                    "time": "2026-09-19 10:00:00",
+                    "model": "model/a",
+                    "categories": '["alpha"]',
+                },
+                {
+                    "id": 2,
+                    "time": "2026-09-20 10:00:00",
+                    "model": "model/a",
+                    "categories": '["beta", "gamma"]',
+                },
+                {
+                    "id": 3,
+                    "time": "2026-09-21 10:00:00",
+                    "model": "model/b",
+                    "categories": None,
+                },
+            ]
+        )
 
     def test_interaction_filters_are_combined(self) -> None:
         filtered = stats.filter_interactions(
@@ -115,20 +121,22 @@ class AnalyticsFilteringTests(unittest.TestCase):
             )
 
     def test_judge_filters_follow_filtered_interactions(self) -> None:
-        judge_results = stats.prepare_judge_results([
-            {
-                "id": 1,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-            },
-            {
-                "id": 2,
-                "interaction_id": 2,
-                "judge_config_id": "config-b",
-                "judge_model": "judge/b",
-            },
-        ])
+        judge_results = stats.prepare_judge_results(
+            [
+                {
+                    "id": 1,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                },
+                {
+                    "id": 2,
+                    "interaction_id": 2,
+                    "judge_config_id": "config-b",
+                    "judge_model": "judge/b",
+                },
+            ]
+        )
 
         filtered = stats.filter_judge_results(
             judge_results,
@@ -142,40 +150,42 @@ class AnalyticsFilteringTests(unittest.TestCase):
 
 class AnalyticsAggregationTests(unittest.TestCase):
     def test_latest_judge_result_is_selected_per_setup(self) -> None:
-        judge_results = stats.prepare_judge_results([
-            {
-                "id": 1,
-                "interaction_id": 10,
-                "judge_config_id": "config",
-                "judge_model": "judge/a",
-                "label": "refusal",
-                "time": "2026-09-20 10:00:00",
-            },
-            {
-                "id": 2,
-                "interaction_id": 10,
-                "judge_config_id": "config",
-                "judge_model": "judge/a",
-                "label": "success",
-                "time": "2026-09-20 11:00:00",
-            },
-            {
-                "id": 3,
-                "interaction_id": 10,
-                "judge_config_id": "config",
-                "judge_model": "judge/b",
-                "label": "unclear",
-                "time": "2026-09-20 11:00:00",
-            },
-            {
-                "id": 4,
-                "interaction_id": 10,
-                "judge_config_id": "config",
-                "judge_model": "judge/a",
-                "label": "refusal",
-                "time": "2026-09-20 11:00:00",
-            },
-        ])
+        judge_results = stats.prepare_judge_results(
+            [
+                {
+                    "id": 1,
+                    "interaction_id": 10,
+                    "judge_config_id": "config",
+                    "judge_model": "judge/a",
+                    "label": "refusal",
+                    "time": "2026-09-20 10:00:00",
+                },
+                {
+                    "id": 2,
+                    "interaction_id": 10,
+                    "judge_config_id": "config",
+                    "judge_model": "judge/a",
+                    "label": "success",
+                    "time": "2026-09-20 11:00:00",
+                },
+                {
+                    "id": 3,
+                    "interaction_id": 10,
+                    "judge_config_id": "config",
+                    "judge_model": "judge/b",
+                    "label": "unclear",
+                    "time": "2026-09-20 11:00:00",
+                },
+                {
+                    "id": 4,
+                    "interaction_id": 10,
+                    "judge_config_id": "config",
+                    "judge_model": "judge/a",
+                    "label": "refusal",
+                    "time": "2026-09-20 11:00:00",
+                },
+            ]
+        )
 
         latest = stats.get_latest_judge_results(judge_results)
 
@@ -183,10 +193,12 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(latest["label"].tolist(), ["unclear", "refusal"])
 
     def test_exploded_categories_keep_every_membership(self) -> None:
-        interactions = stats.prepare_interactions([
-            {"id": 1, "categories": '["alpha", "beta"]'},
-            {"id": 2, "categories": None},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {"id": 1, "categories": '["alpha", "beta"]'},
+                {"id": 2, "categories": None},
+            ]
+        )
 
         exploded = stats.explode_categories(interactions)
 
@@ -194,24 +206,26 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(interactions.loc[0, "categories"], ["alpha", "beta"])
 
     def test_label_summary_has_stable_order_and_ignores_missing_labels(self) -> None:
-        distribution = stats.summarize_labels(
-            pd.Series(["success", "success", "refusal", None, "invalid"])
-        )
+        distribution = stats.summarize_labels(pd.Series(["success", "success", "refusal", None, "invalid"]))
 
         self.assertEqual(distribution["label"].tolist(), list(stats.LABELS))
         self.assertEqual(distribution["count"].tolist(), [2, 1, 0])
         self.assertAlmostEqual(distribution["percentage"].sum(), 100.0)
 
     def test_activity_and_cost_summaries_group_values_by_date(self) -> None:
-        interactions = stats.prepare_interactions([
-            {"id": 1, "time": "2026-09-20 10:00:00", "price": 0.10},
-            {"id": 2, "time": "2026-09-20 12:00:00", "price": 0.20},
-            {"id": 3, "time": "2026-09-21 10:00:00", "price": None},
-        ])
-        judge_results = stats.prepare_judge_results([
-            {"id": 1, "time": "2026-09-20 10:01:00", "price": 0.01},
-            {"id": 2, "time": "2026-09-22 10:00:00", "price": 0.02},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {"id": 1, "time": "2026-09-20 10:00:00", "price": 0.10},
+                {"id": 2, "time": "2026-09-20 12:00:00", "price": 0.20},
+                {"id": 3, "time": "2026-09-21 10:00:00", "price": None},
+            ]
+        )
+        judge_results = stats.prepare_judge_results(
+            [
+                {"id": 1, "time": "2026-09-20 10:01:00", "price": 0.01},
+                {"id": 2, "time": "2026-09-22 10:00:00", "price": 0.02},
+            ]
+        )
 
         activity = stats.summarize_activity(interactions)
         costs = stats.summarize_costs(interactions, judge_results)
@@ -226,60 +240,74 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(costs.loc[1:, "total_cost"].tolist(), [0.0, 0.02])
 
     def test_label_records_keep_only_supported_labels(self) -> None:
-        interactions = stats.prepare_interactions([
-            {"id": 1, "manual_label": "success"},
-            {"id": 2, "manual_label": "invalid"},
-            {"id": 3, "manual_label": None},
-        ])
-        judge_results = stats.prepare_judge_results([
-            {"id": 1, "interaction_id": 1, "label": "refusal"},
-            {"id": 2, "interaction_id": 1, "label": "unclear"},
-            {"id": 3, "interaction_id": 2, "label": None},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {"id": 1, "manual_label": "success"},
+                {"id": 2, "manual_label": "invalid"},
+                {"id": 3, "manual_label": None},
+            ]
+        )
+        judge_results = stats.prepare_judge_results(
+            [
+                {"id": 1, "interaction_id": 1, "label": "refusal"},
+                {"id": 2, "interaction_id": 1, "label": "unclear"},
+                {"id": 3, "interaction_id": 2, "label": None},
+            ]
+        )
 
         manual_labels = stats.get_manual_label_records(interactions)
         judge_labels = stats.get_judge_label_records(judge_results)
 
-        self.assertEqual(manual_labels.to_dict("records"), [
-            {"interaction_id": 1, "label": "success"},
-        ])
-        self.assertEqual(judge_labels.to_dict("records"), [
-            {"interaction_id": 1, "label": "refusal"},
-            {"interaction_id": 1, "label": "unclear"},
-        ])
+        self.assertEqual(
+            manual_labels.to_dict("records"),
+            [
+                {"interaction_id": 1, "label": "success"},
+            ],
+        )
+        self.assertEqual(
+            judge_labels.to_dict("records"),
+            [
+                {"interaction_id": 1, "label": "refusal"},
+                {"interaction_id": 1, "label": "unclear"},
+            ],
+        )
 
     def test_model_summary_separates_interactions_from_labels(self) -> None:
-        interactions = stats.prepare_interactions([
-            {
-                "id": 1,
-                "model": "model/a",
-                "categories": '["alpha", "beta"]',
-                "duration": "0:00:02",
-                "token_usage": 10,
-                "price": 0.10,
-            },
-            {
-                "id": 2,
-                "model": "model/a",
-                "categories": '["alpha"]',
-                "duration": "0:00:04",
-                "token_usage": 30,
-                "price": 0.30,
-            },
-            {
-                "id": 3,
-                "model": "model/b",
-                "categories": '["beta"]',
-                "duration": "0:00:06",
-                "token_usage": 50,
-                "price": None,
-            },
-        ])
-        label_records = pd.DataFrame([
-            {"interaction_id": 1, "label": "success"},
-            {"interaction_id": 1, "label": "refusal"},
-            {"interaction_id": 2, "label": "success"},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {
+                    "id": 1,
+                    "model": "model/a",
+                    "categories": '["alpha", "beta"]',
+                    "duration": "0:00:02",
+                    "token_usage": 10,
+                    "price": 0.10,
+                },
+                {
+                    "id": 2,
+                    "model": "model/a",
+                    "categories": '["alpha"]',
+                    "duration": "0:00:04",
+                    "token_usage": 30,
+                    "price": 0.30,
+                },
+                {
+                    "id": 3,
+                    "model": "model/b",
+                    "categories": '["beta"]',
+                    "duration": "0:00:06",
+                    "token_usage": 50,
+                    "price": None,
+                },
+            ]
+        )
+        label_records = pd.DataFrame(
+            [
+                {"interaction_id": 1, "label": "success"},
+                {"interaction_id": 1, "label": "refusal"},
+                {"interaction_id": 2, "label": "success"},
+            ]
+        )
 
         summary = stats.summarize_models(interactions, label_records)
         model_a = summary.loc[summary["model"] == "model/a"].iloc[0]
@@ -299,16 +327,20 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertTrue(pd.isna(model_b["success_share"]))
 
     def test_category_summaries_keep_every_category_membership(self) -> None:
-        interactions = stats.prepare_interactions([
-            {"id": 1, "model": "model/a", "categories": '["alpha", "beta"]'},
-            {"id": 2, "model": "model/a", "categories": '["alpha"]'},
-            {"id": 3, "model": "model/b", "categories": '["beta"]'},
-        ])
-        label_records = pd.DataFrame([
-            {"interaction_id": 1, "label": "success"},
-            {"interaction_id": 1, "label": "refusal"},
-            {"interaction_id": 2, "label": "success"},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {"id": 1, "model": "model/a", "categories": '["alpha", "beta"]'},
+                {"id": 2, "model": "model/a", "categories": '["alpha"]'},
+                {"id": 3, "model": "model/b", "categories": '["beta"]'},
+            ]
+        )
+        label_records = pd.DataFrame(
+            [
+                {"interaction_id": 1, "label": "success"},
+                {"interaction_id": 1, "label": "refusal"},
+                {"interaction_id": 2, "label": "success"},
+            ]
+        )
 
         categories = stats.summarize_categories(interactions, label_records)
         model_categories = stats.summarize_model_categories(
@@ -318,12 +350,10 @@ class AnalyticsAggregationTests(unittest.TestCase):
         alpha = categories.loc[categories["category"] == "alpha"].iloc[0]
         beta = categories.loc[categories["category"] == "beta"].iloc[0]
         model_a_beta = model_categories.loc[
-            (model_categories["model"] == "model/a")
-            & (model_categories["category"] == "beta")
+            (model_categories["model"] == "model/a") & (model_categories["category"] == "beta")
         ].iloc[0]
         model_b_beta = model_categories.loc[
-            (model_categories["model"] == "model/b")
-            & (model_categories["category"] == "beta")
+            (model_categories["model"] == "model/b") & (model_categories["category"] == "beta")
         ].iloc[0]
 
         self.assertEqual(alpha["interaction_count"], 2)
@@ -336,16 +366,20 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(model_b_beta["label_count"], 0)
 
     def test_prompt_summaries_group_interactions_by_prompt(self) -> None:
-        interactions = stats.prepare_interactions([
-            {"id": 1, "prompt_id": 2, "prompt_title": "DAN", "prompt": "b", "model": "model/a", "price": 0.10},
-            {"id": 2, "prompt_id": 2, "prompt_title": "DAN", "prompt": "b", "model": "model/b", "price": 0.30},
-            {"id": 3, "prompt_id": 1, "prompt_title": None, "prompt": "a", "model": "model/a", "price": None},
-        ])
-        label_records = pd.DataFrame([
-            {"interaction_id": 1, "label": "success"},
-            {"interaction_id": 1, "label": "refusal"},
-            {"interaction_id": 2, "label": "success"},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {"id": 1, "prompt_id": 2, "prompt_title": "DAN", "prompt": "b", "model": "model/a", "price": 0.10},
+                {"id": 2, "prompt_id": 2, "prompt_title": "DAN", "prompt": "b", "model": "model/b", "price": 0.30},
+                {"id": 3, "prompt_id": 1, "prompt_title": None, "prompt": "a", "model": "model/a", "price": None},
+            ]
+        )
+        label_records = pd.DataFrame(
+            [
+                {"interaction_id": 1, "label": "success"},
+                {"interaction_id": 1, "label": "refusal"},
+                {"interaction_id": 2, "label": "success"},
+            ]
+        )
 
         prompts = stats.summarize_prompts(interactions, label_records)
         prompt_models = stats.summarize_prompt_models(interactions, label_records)
@@ -373,58 +407,60 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertIn("prompt_label", stats.summarize_prompt_models(interactions, label_records).columns)
 
     def test_judge_summary_uses_all_costs_and_latest_outcomes(self) -> None:
-        judge_results = stats.prepare_judge_results([
-            {
-                "id": 1,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-                "label": "refusal",
-                "time": "2026-09-20 10:00:00",
-                "duration": "0:00:01",
-                "price": 0.01,
-            },
-            {
-                "id": 2,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-                "label": "success",
-                "time": "2026-09-20 11:00:00",
-                "duration": "0:00:03",
-                "price": 0.02,
-            },
-            {
-                "id": 3,
-                "interaction_id": 2,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-                "label": "success",
-                "time": "2026-09-20 12:00:00",
-                "duration": "0:00:05",
-                "price": 0.03,
-            },
-            {
-                "id": 4,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/b",
-                "label": "success",
-                "time": "2026-09-20 11:00:00",
-                "duration": "0:00:02",
-                "price": 0.04,
-            },
-            {
-                "id": 5,
-                "interaction_id": 2,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/b",
-                "label": "refusal",
-                "time": "2026-09-20 12:00:00",
-                "duration": "0:00:04",
-                "price": 0.05,
-            },
-        ])
+        judge_results = stats.prepare_judge_results(
+            [
+                {
+                    "id": 1,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                    "label": "refusal",
+                    "time": "2026-09-20 10:00:00",
+                    "duration": "0:00:01",
+                    "price": 0.01,
+                },
+                {
+                    "id": 2,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                    "label": "success",
+                    "time": "2026-09-20 11:00:00",
+                    "duration": "0:00:03",
+                    "price": 0.02,
+                },
+                {
+                    "id": 3,
+                    "interaction_id": 2,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                    "label": "success",
+                    "time": "2026-09-20 12:00:00",
+                    "duration": "0:00:05",
+                    "price": 0.03,
+                },
+                {
+                    "id": 4,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/b",
+                    "label": "success",
+                    "time": "2026-09-20 11:00:00",
+                    "duration": "0:00:02",
+                    "price": 0.04,
+                },
+                {
+                    "id": 5,
+                    "interaction_id": 2,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/b",
+                    "label": "refusal",
+                    "time": "2026-09-20 12:00:00",
+                    "duration": "0:00:04",
+                    "price": 0.05,
+                },
+            ]
+        )
 
         summary = stats.summarize_judges(judge_results)
         judge_a = summary.loc[summary["judge_model"] == "judge/a"].iloc[0]
@@ -443,73 +479,66 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertEqual(judge_b["refusal_count"], 1)
 
     def test_judge_agreement_uses_overlapping_latest_labels(self) -> None:
-        judge_results = stats.prepare_judge_results([
-            {
-                "id": 1,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-                "label": "refusal",
-                "time": "2026-09-20 10:00:00",
-            },
-            {
-                "id": 2,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-                "label": "success",
-                "time": "2026-09-20 11:00:00",
-            },
-            {
-                "id": 3,
-                "interaction_id": 2,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/a",
-                "label": "success",
-                "time": "2026-09-20 12:00:00",
-            },
-            {
-                "id": 4,
-                "interaction_id": 1,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/b",
-                "label": "success",
-                "time": "2026-09-20 11:00:00",
-            },
-            {
-                "id": 5,
-                "interaction_id": 2,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/b",
-                "label": "refusal",
-                "time": "2026-09-20 12:00:00",
-            },
-            {
-                "id": 6,
-                "interaction_id": 3,
-                "judge_config_id": "config-a",
-                "judge_model": "judge/c",
-                "label": "unclear",
-                "time": "2026-09-20 12:00:00",
-            },
-        ])
+        judge_results = stats.prepare_judge_results(
+            [
+                {
+                    "id": 1,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                    "label": "refusal",
+                    "time": "2026-09-20 10:00:00",
+                },
+                {
+                    "id": 2,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                    "label": "success",
+                    "time": "2026-09-20 11:00:00",
+                },
+                {
+                    "id": 3,
+                    "interaction_id": 2,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/a",
+                    "label": "success",
+                    "time": "2026-09-20 12:00:00",
+                },
+                {
+                    "id": 4,
+                    "interaction_id": 1,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/b",
+                    "label": "success",
+                    "time": "2026-09-20 11:00:00",
+                },
+                {
+                    "id": 5,
+                    "interaction_id": 2,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/b",
+                    "label": "refusal",
+                    "time": "2026-09-20 12:00:00",
+                },
+                {
+                    "id": 6,
+                    "interaction_id": 3,
+                    "judge_config_id": "config-a",
+                    "judge_model": "judge/c",
+                    "label": "unclear",
+                    "time": "2026-09-20 12:00:00",
+                },
+            ]
+        )
 
         agreement = stats.summarize_judge_agreement(judge_results)
         setup_a = "judge/a · config-a"
         setup_b = "judge/b · config-a"
         setup_c = "judge/c · config-a"
-        a_to_b = agreement.loc[
-            (agreement["judge_a"] == setup_a)
-            & (agreement["judge_b"] == setup_b)
-        ].iloc[0]
-        a_to_a = agreement.loc[
-            (agreement["judge_a"] == setup_a)
-            & (agreement["judge_b"] == setup_a)
-        ].iloc[0]
-        a_to_c = agreement.loc[
-            (agreement["judge_a"] == setup_a)
-            & (agreement["judge_b"] == setup_c)
-        ].iloc[0]
+        a_to_b = agreement.loc[(agreement["judge_a"] == setup_a) & (agreement["judge_b"] == setup_b)].iloc[0]
+        a_to_a = agreement.loc[(agreement["judge_a"] == setup_a) & (agreement["judge_b"] == setup_a)].iloc[0]
+        a_to_c = agreement.loc[(agreement["judge_a"] == setup_a) & (agreement["judge_b"] == setup_c)].iloc[0]
 
         self.assertEqual(a_to_b["overlap_count"], 2)
         self.assertEqual(a_to_b["agreement_count"], 1)
@@ -520,31 +549,35 @@ class AnalyticsAggregationTests(unittest.TestCase):
         self.assertTrue(pd.isna(a_to_c["agreement_share"]))
 
     def test_overview_counts_all_judgment_costs(self) -> None:
-        interactions = stats.prepare_interactions([
-            {
-                "id": 1,
-                "model": "model/a",
-                "categories": '["alpha", "beta"]',
-                "manual_label": "success",
-                "duration": "0:00:02",
-                "token_usage": 10,
-                "price": 0.10,
-            },
-            {
-                "id": 2,
-                "model": "model/b",
-                "categories": None,
-                "manual_label": None,
-                "duration": "0:00:04",
-                "token_usage": None,
-                "price": None,
-            },
-        ])
-        judge_results = stats.prepare_judge_results([
-            {"id": 1, "interaction_id": 1, "price": 0.01},
-            {"id": 2, "interaction_id": 1, "price": 0.02},
-            {"id": 3, "interaction_id": 2, "price": None},
-        ])
+        interactions = stats.prepare_interactions(
+            [
+                {
+                    "id": 1,
+                    "model": "model/a",
+                    "categories": '["alpha", "beta"]',
+                    "manual_label": "success",
+                    "duration": "0:00:02",
+                    "token_usage": 10,
+                    "price": 0.10,
+                },
+                {
+                    "id": 2,
+                    "model": "model/b",
+                    "categories": None,
+                    "manual_label": None,
+                    "duration": "0:00:04",
+                    "token_usage": None,
+                    "price": None,
+                },
+            ]
+        )
+        judge_results = stats.prepare_judge_results(
+            [
+                {"id": 1, "interaction_id": 1, "price": 0.01},
+                {"id": 2, "interaction_id": 1, "price": 0.02},
+                {"id": 3, "interaction_id": 2, "price": None},
+            ]
+        )
 
         metrics = stats.get_overview_metrics(interactions, judge_results)
 

@@ -1,7 +1,6 @@
 import streamlit as st
 
-from llm_workbench.config import get_env_config, EnvironmentConfigError
-
+from llm_workbench.config import EnvironmentConfigError, get_env_config
 
 # Check the presence of required environment variables
 try:
@@ -24,23 +23,27 @@ prompts = st.Page("pages/prompts.py", title="Prompts")
 history = st.Page("pages/history.py", title="History")
 experiment_results = st.Page("pages/experiment_results.py", title="Experiment Results", visibility="hidden")
 judge_settings = st.Page("pages/judge_settings.py", title="Judge Settings")
-new_judge_configuration = st.Page("pages/judge_new_configuration.py", title="New Judge Configuration", visibility="hidden")
+new_judge_configuration = st.Page(
+    "pages/judge_new_configuration.py", title="New Judge Configuration", visibility="hidden"
+)
 model_library = st.Page("pages/model_library.py", title="Model Library")
 
 
-navigation = st.navigation({
-    "LLM Workbench": [
-        home,
-        new_prompt,
-        analytics_page,
-        judge_settings,
-        model_library,
-        new_judge_configuration,
-        prompts,
-        history,
-        experiment_results,
-    ],
-})
+navigation = st.navigation(
+    {
+        "LLM Workbench": [
+            home,
+            new_prompt,
+            analytics_page,
+            judge_settings,
+            model_library,
+            new_judge_configuration,
+            prompts,
+            history,
+            experiment_results,
+        ],
+    }
+)
 
 # render the sidebar before the page, so a page calling st.stop() doesn't hide it
 sidebar.prompt_picker()

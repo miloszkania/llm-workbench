@@ -23,3 +23,27 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_workbench"]
+
+[project.optional-dependencies]
+dev = ["ruff==0.17.1"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+
+[tool.ruff.lint.per-file-ignores]
+# the default judge prompt is sent to the model as written, so its lines are not wrapped
+"src/llm_workbench/db/default_judge_config.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["llm_workbench"]
