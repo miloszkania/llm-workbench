@@ -38,7 +38,9 @@ try:
     credits = sidebar.get_credits()
 except OpenRouterRequestError as error:
     with status_tile(api_key_column, ":red[:material/key:]"):
-        error_display.display_error(error, context="Could not check the API key.")
+        # error_display.display_error(error, context="Could not check the API key.")
+        st.markdown(":red[**Invalid API key**]")
+        st.caption("Please check your env file.")
 else:
     with status_tile(api_key_column, ":green[:material/key:]"):
         st.markdown(":green[**API key valid**]")
