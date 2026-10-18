@@ -56,19 +56,21 @@ if not all_configs.empty:
 
     st.space()
 
-    all_configs["require_explanation"] = all_configs["require_explanation"].apply(lambda x: x == 1)
+    for config in all_configs.to_dict("records"):
+        with st.container(border=True):
+            st.markdown(f"**{config['id']}**")
 
-    st.dataframe(
-        all_configs,
-        row_height=100,
-        height="content",
-        column_order=("id", "judge_prompt", "require_explanation"),
-        column_config={
-            "id": st.column_config.TextColumn("ID"),
-            "judge_prompt": st.column_config.TextColumn("Introductory prompt"),
-            "require_explanation": st.column_config.CheckboxColumn("Explanation required?"),
-        },
-    )
+            badges = []
+            if config["id"] == judge_config:
+                badges.append(":green-badge[Default]")
+            if config["require_explanation"] == 1:
+                badges.append(":blue-badge[Explanation required]")
+            else:
+                badges.append(":gray-badge[Label only]")
+            st.markdown(" ".join(badges))
+
+            with st.expander("Introductory prompt"):
+                st.code(config["judge_prompt"], language=None, wrap_lines=True)
 
 else:
     st.info("No configurations yet!")
