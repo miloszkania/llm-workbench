@@ -43,6 +43,51 @@ class RunSummaryTests(unittest.TestCase):
         self.assertEqual(records.summarize_runs([]), [])
 
 
+def interaction_row(run_id: str, time: str, model: str, manual_label: str | None, prompt_id: int = 1) -> dict:
+    return {
+        "run_id": run_id,
+        "prompt_id": prompt_id,
+        "prompt_title": f"Title {prompt_id}",
+        "time": time,
+        "model": model,
+        "manual_label": manual_label,
+    }
+
+
+INTERACTION_ROWS = [
+    interaction_row("a", "2026-10-16 10:00:00", "model/x", "success"),
+    interaction_row("a", "2026-10-16 10:00:05", "model/y", "refusal"),
+    interaction_row("a", "2026-10-16 10:00:10", "model/x", "success"),
+    interaction_row("c", "2026-10-16 14:00:00", "model/x", None, prompt_id=3),
+    interaction_row("b", "2026-10-16 12:00:00", "model/z", "unclear", prompt_id=2),
+]
+
+
+class RecentRunTests(unittest.TestCase):
+    def test_runs_are_sorted_newest_first(self) -> None:
+        self.assertEqual([run["run_id"] for run in records.summarize_recent_runs(INTERACTION_ROWS)], ["c", "b", "a"])
+
+    def test_run_is_summarized(self) -> None:
+        self.assertEqual(
+            records.summarize_recent_runs(INTERACTION_ROWS)[2],
+            {
+                "run_id": "a",
+                "prompt_id": 1,
+                "prompt_title": "Title 1",
+                "started_at": "2026-10-16 10:00:00",
+                "models": ["model/x", "model/y"],
+                "interaction_count": 3,
+                "success_count": 2,
+            },
+        )
+
+    def test_limit(self) -> None:
+        self.assertEqual([run["run_id"] for run in records.summarize_recent_runs(INTERACTION_ROWS, limit=2)], ["c", "b"])
+
+    def test_no_interactions_have_no_runs(self) -> None:
+        self.assertEqual(records.summarize_recent_runs([]), [])
+
+
 class InteractionFilterTests(unittest.TestCase):
     def test_empty_filters_keep_everything(self) -> None:
         self.assertEqual(ids(records.filter_prompt_interactions(INTERACTIONS)), [1, 2, 3])

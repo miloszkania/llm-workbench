@@ -43,9 +43,9 @@ def format_results_page_url(prompt_id: int) -> str:
     return f"/experiment_results?prompt={prompt_id}"
 
 
-def pluralize(count: int, word: str) -> str:
-    # e.g. "1 response", "2 responses"
-    return f"{count} {word}{'s' if count != 1 else ''}"
+def pluralize(count: int, word: str, plural: str | None = None) -> str:
+    # e.g. "1 response", "2 responses"; irregular plurals are passed explicitly
+    return f"{count} {word if count == 1 else plural or word + 's'}"
 
 
 def format_run_label(number: int, started_at: str, response_count: int) -> str:

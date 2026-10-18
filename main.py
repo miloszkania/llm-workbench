@@ -17,6 +17,7 @@ page.page_config()
 
 
 # Define all subpages
+home = st.Page("pages/home.py", title="Home", default=True)
 new_prompt = st.Page("pages/new_prompt.py", title="New Prompt")
 analytics_page = st.Page("pages/analytics.py", title="Analytics")
 prompts = st.Page("pages/prompts.py", title="Prompts")
@@ -29,6 +30,7 @@ model_library = st.Page("pages/model_library.py", title="Model Library")
 
 navigation = st.navigation({
     "LLM Workbench": [
+        home,
         new_prompt,
         analytics_page,
         judge_settings,
