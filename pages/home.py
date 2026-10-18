@@ -1,3 +1,5 @@
+from typing import Any
+
 import streamlit as st
 
 from llm_workbench import db, formatting, records
@@ -24,24 +26,32 @@ st.caption("Run jailbreak experiments against LLMs, grade the responses with jud
 ##### STATUS
 api_key_column, judge_column, data_column = st.columns(3)
 
+def status_tile(column: Any, icon: str) -> Any:
+    # a bordered tile with a large icon on the left, returns the container for its text
+    tile = column.container(border=True, height="stretch", horizontal=True, vertical_alignment="center", gap="medium")
+    tile.markdown(f"<span style='font-size: 3rem; line-height: 1'>{icon}</span>", unsafe_allow_html=True, width="content")
+    return tile.container()
+
+
 # the loaders are cached, so this shares its requests with the sidebar
-with api_key_column.container(border=True, height="stretch"):
-    try:
-        credits = sidebar.get_credits()
-        remaining_credits = credits.total_credits - credits.total_usage
-        st.markdown(":green[:material/check: **API key valid**]")
-        st.caption(f"${remaining_credits:.2f} credits left")
-    except OpenRouterRequestError as error:
+try:
+    credits = sidebar.get_credits()
+except OpenRouterRequestError as error:
+    with status_tile(api_key_column, ":red[:material/key:]"):
         error_display.display_error(error, context="Could not check the API key.")
+else:
+    with status_tile(api_key_column, ":green[:material/key:]"):
+        st.markdown(":green[**API key valid**]")
+        st.caption(f"${credits.total_credits - credits.total_usage:.2f} credits left")
 
 judge_config_count = len(db.judges.get_all_judge_configurations())
-with judge_column.container(border=True, height="stretch"):
+with status_tile(judge_column, ":material/gavel:"):
     st.markdown(f"**{formatting.pluralize(judge_config_count, 'judge configuration')}**")
     st.page_link("pages/judge_settings.py", label="Manage judges")
 
 prompt_overview = records.get_prompt_overview()
 response_count = int(prompt_overview["interaction_count"].sum()) if not prompt_overview.empty else 0
-with data_column.container(border=True, height="stretch"):
+with status_tile(data_column, ":material/chat:"):
     st.markdown(f"**{formatting.pluralize(len(prompt_overview), 'prompt')}**")
     st.caption(formatting.pluralize(response_count, "response"))
 
