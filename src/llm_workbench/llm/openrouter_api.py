@@ -1,6 +1,7 @@
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from functools import cache
 from typing import Any, Literal
 
 from openrouter import OpenRouter, components, operations
@@ -18,10 +19,14 @@ REQUEST_DELAY_S = 3.2  # pause between consecutive requests of a batch to avoid 
 TARGET_MAX_COMPLETION_TOKENS = 4_096
 JUDGE_MAX_COMPLETION_TOKENS = 1_024
 
-client = OpenRouter(
-    api_key=get_env_config().openrouter_api_key,
-    retry_config=None,  # disable SDK retries, _safe_run handles them
-)
+
+# created on first use, so importing this module doesn't require the api key (e.g. in tests)
+@cache
+def get_client() -> OpenRouter:
+    return OpenRouter(
+        api_key=get_env_config().openrouter_api_key,
+        retry_config=None,  # disable SDK retries, _safe_run handles them
+    )
 
 
 # runs `function` with `**kwargs` as arguments. retries when specified errors occur.
@@ -65,7 +70,7 @@ def _safe_run(
 
 
 def get_model_list(sort: str = "most-popular") -> list[components.Model]:
-    model_list = _safe_run(client.models.list, sort=sort, timeout_ms=API_TIMEOUT_MS)
+    model_list = _safe_run(get_client().models.list, sort=sort, timeout_ms=API_TIMEOUT_MS)
     return model_list.result.data
 
 
@@ -104,7 +109,7 @@ def send_prompt(
     timestamp_start = datetime.now()
 
     response = _safe_run(
-        client.chat.send,
+        get_client().chat.send,
         model=model,
         messages=messages,
         timeout_ms=CHAT_TIMEOUT_MS,
@@ -117,18 +122,18 @@ def send_prompt(
 
 
 def get_key_metadata() -> operations.GetCurrentKeyData:
-    metadata = _safe_run(client.api_keys.get_current_key_metadata, timeout_ms=API_TIMEOUT_MS)
+    metadata = _safe_run(get_client().api_keys.get_current_key_metadata, timeout_ms=API_TIMEOUT_MS)
     return metadata.data
 
 
 def get_credits() -> operations.GetCreditsData:
-    credits_data = _safe_run(client.credits.get_credits, timeout_ms=API_TIMEOUT_MS)
+    credits_data = _safe_run(get_client().credits.get_credits, timeout_ms=API_TIMEOUT_MS)
     return credits_data.data
 
 
 def get_model_object(model_id: str) -> components.ModelResponse:
     author, slug = model_id.split("/", maxsplit=1)
-    model_object = _safe_run(client.models.get, author=author, slug=slug, timeout_ms=API_TIMEOUT_MS)
+    model_object = _safe_run(get_client().models.get, author=author, slug=slug, timeout_ms=API_TIMEOUT_MS)
     return model_object
 
 
