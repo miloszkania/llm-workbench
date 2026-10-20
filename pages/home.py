@@ -44,11 +44,15 @@ def status_tile(column: Any, icon: str) -> Any:
 # the loaders are cached, so this shares its requests with the sidebar
 try:
     credits = sidebar.get_credits()
-except OpenRouterRequestError:
+except OpenRouterRequestError as error:
     with status_tile(api_key_column, ":red[:material/key:]"):
-        # error_display.display_error(error, context="Could not check the API key.")
-        st.markdown(":red[**Invalid API key**]")
-        st.caption("Please check your env file.")
+        # only an authentication error means the key itself is wrong, e.g. not a network or rate limit problem
+        if error.kind == "auth":
+            st.markdown(":red[**Invalid API key**]")
+            st.caption("Please check your env file.")
+        else:
+            st.markdown(":red[**API key not checked**]")
+            st.caption(str(error))
 else:
     with status_tile(api_key_column, ":green[:material/key:]"):
         st.markdown(":green[**API key valid**]")
