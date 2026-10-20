@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 import streamlit as st
 
@@ -7,7 +9,7 @@ from llm_workbench.ui import editor_changes, page
 page.page_config("Prompts")
 
 
-def save_changes(original_data: pd.DataFrame) -> None:
+def save_changes(changes: dict[str, Any], original_data: pd.DataFrame) -> None:
     for prompt_id in editor_changes.deleted_ids(changes, original_data):
         db.prompts.delete_prompt(prompt_id)
 
@@ -111,7 +113,7 @@ else:
 
         if editor_changes.has_changes(changes):
             if st.button("Save changes", type="primary"):
-                save_changes(prompt_table)
+                save_changes(changes, prompt_table)
                 st.success("Saved!")
 
 st.divider()
