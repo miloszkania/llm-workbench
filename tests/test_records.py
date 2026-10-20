@@ -90,6 +90,21 @@ class RecentRunTests(unittest.TestCase):
         self.assertEqual(records.summarize_recent_runs([]), [])
 
 
+class JudgeLabelCountTests(unittest.TestCase):
+    def test_labels_are_counted_over_all_interactions(self) -> None:
+        interaction_objects = [
+            {"judge_results": [{"label": "success"}, {"label": "refusal"}]},
+            {"judge_results": [{"label": "success"}, {"label": None}]},
+        ]
+
+        self.assertEqual(records.count_judge_labels(interaction_objects), {"success": 2, "refusal": 1, "unclear": 0})
+
+    def test_no_judge_results_count_zero_for_every_label(self) -> None:
+        self.assertEqual(
+            records.count_judge_labels([{"judge_results": []}]), {"success": 0, "refusal": 0, "unclear": 0}
+        )
+
+
 class InteractionFilterTests(unittest.TestCase):
     def test_empty_filters_keep_everything(self) -> None:
         self.assertEqual(ids(records.filter_prompt_interactions(INTERACTIONS)), [1, 2, 3])

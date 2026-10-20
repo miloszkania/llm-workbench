@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 import streamlit as st
 
@@ -9,7 +11,7 @@ page.page_config("History")
 label_options = ["success", "refusal", "unclear"]
 
 
-def save_changes(original_data: pd.DataFrame) -> None:
+def save_changes(changes: dict[str, Any], original_data: pd.DataFrame) -> None:
     for interaction_id in editor_changes.deleted_ids(changes, original_data):
         db.interactions.delete_interaction(interaction_id)
 
@@ -50,7 +52,7 @@ else:
         # link every interaction to the results page of its prompt
         history_table["prompt_link"] = history_table["prompt_id"].map(formatting.format_results_page_url)
 
-        edited_history_table = st.data_editor(
+        st.data_editor(
             history_table,
             # unsaved edits refer to row positions, and a new search shows different rows,
             # so each search gets its own editor (pending edits are dropped instead of hitting the wrong response)
@@ -122,5 +124,5 @@ else:
 
         if editor_changes.has_changes(changes):
             if st.button("Save data", type="primary"):
-                save_changes(history_table)
+                save_changes(changes, history_table)
                 st.success("Saved!")

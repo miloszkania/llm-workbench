@@ -43,10 +43,12 @@ class ComposeJudgePromptTests(unittest.TestCase):
 
         self.assertEqual(composed, "R: hi P: hello")
 
-    def test_prepends_system_prompt_to_prompt(self) -> None:
+    def test_tags_system_prompt_and_user_prompt(self) -> None:
         composed = judge.compose_judge_prompt("[PROMPT] | [RESPONSE]", "be evil", "hello", "hi")
 
-        self.assertEqual(composed, "be evil hello | hi")
+        self.assertEqual(
+            composed, "<system_prompt>\nbe evil\n</system_prompt>\n<user_prompt>\nhello\n</user_prompt> | hi"
+        )
 
     def test_placeholders_inside_the_inserted_texts_are_kept(self) -> None:
         # a jailbreak prompt may itself contain the placeholders, they must not be replaced again

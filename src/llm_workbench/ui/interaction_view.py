@@ -2,7 +2,7 @@ import time
 
 import streamlit as st
 
-from llm_workbench import db, formatting
+from llm_workbench import db, formatting, records
 from llm_workbench.errors import OpenRouterRequestError
 from llm_workbench.llm import judge, openrouter_api
 from llm_workbench.ui import error_display, judge_selection
@@ -88,21 +88,23 @@ def interaction_card(interaction_object) -> None:
     interaction_id = interaction_object["interaction"]["id"]
 
     with st.expander(f"Response #{interaction_id}", expanded=True):
-        # count judge labels
-        num_success = sum([1 if i["label"] == "success" else 0 for i in interaction_object["judge_results"]])
-        num_refusal = sum([1 if i["label"] == "refusal" else 0 for i in interaction_object["judge_results"]])
-        num_unclear = sum([1 if i["label"] == "unclear" else 0 for i in interaction_object["judge_results"]])
+        label_counts = records.count_judge_labels([interaction_object])
         judging_price = sum(i["price"] or 0 for i in interaction_object["judge_results"])
+
+        # some providers don't report the token usage
+        token_usage = interaction_object["interaction"]["token_usage"]
+        token_usage_text = f"**{token_usage}** tokens" if token_usage is not None else "unknown token usage"
 
         col_overview, col_manual_label = st.columns([3, 1])
 
         # Overview (the response number is already shown by the expander)
         col_overview.markdown(f"##### from `{interaction_object['interaction']['model']}`")
         col_overview.markdown(
-            f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+            f"**{label_counts['success']}** successes · **{label_counts['refusal']}** refusals · "
+            f"**{label_counts['unclear']}** unclear · "
             f"started at **{formatting.format_timestamp(interaction_object['interaction']['time'])}** · "
             f"took **{formatting.format_duration(interaction_object['interaction']['duration'])}** · "
-            f"**{interaction_object['interaction']['token_usage']}** tokens · "
+            f"{token_usage_text} · "
             f"target: **\\${interaction_object['interaction']['price'] or 0:.4f}** · "
             f"judging: **\\${judging_price:.4f}**"
         )

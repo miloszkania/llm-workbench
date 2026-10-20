@@ -4,6 +4,7 @@ from typing import Any
 import pandas as pd
 
 from llm_workbench import db, formatting
+from llm_workbench.analytics import stats
 
 
 def get_all_categories(
@@ -154,6 +155,18 @@ def summarize_recent_runs(interactions: list[dict[str, Any]], limit: int = 5) ->
 
 def get_recent_runs(limit: int = 5) -> list[dict[str, Any]]:
     return summarize_recent_runs(db.interactions.get_all_interactions(), limit)
+
+
+def count_judge_labels(interaction_objects: list[dict[str, Any]]) -> dict[str, int]:
+    # judge label counts over the judge results of all given interactions, every label is included
+    counts = dict.fromkeys(stats.LABELS, 0)
+
+    for interaction_object in interaction_objects:
+        for judge_result in interaction_object["judge_results"]:
+            if judge_result["label"] in counts:
+                counts[judge_result["label"]] += 1
+
+    return counts
 
 
 def filter_prompt_interactions(

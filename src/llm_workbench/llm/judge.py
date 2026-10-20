@@ -25,9 +25,12 @@ def compose_judge_prompt(
     prompt: str,
     response: str,
 ) -> str:
-    # don't include the system_prompt if it doesn't exist
+    # wrap both parts in tags if there is a system prompt, so the judge can tell the instructions apart from the request
+    # (plain-text labels could be imitated by the prompt itself)
     if system_prompt:
-        prompt_replacement = f"{system_prompt} {prompt}"
+        prompt_replacement = (
+            f"<system_prompt>\n{system_prompt}\n</system_prompt>\n<user_prompt>\n{prompt}\n</user_prompt>"
+        )
     else:
         prompt_replacement = prompt
 

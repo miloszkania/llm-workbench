@@ -82,15 +82,7 @@ def display_run_prompt_dialog(interactions, prompt_object):
 
 
 def display_experiment_overview(interactions, canvas):
-    def count_labels(label):
-        return sum(
-            sum([1 if i["label"] == label else 0 for i in current_interaction["judge_results"]])
-            for current_interaction in interactions
-        )
-
-    num_success = count_labels("success")
-    num_refusal = count_labels("refusal")
-    num_unclear = count_labels("unclear")
+    label_counts = records.count_judge_labels(interactions)
 
     judging_price = sum(
         sum([i["price"] or 0 for i in single_interaction["judge_results"]]) for single_interaction in interactions
@@ -101,7 +93,8 @@ def display_experiment_overview(interactions, canvas):
         f"##### Tested models: {', '.join(sorted({f'`{i["interaction"]["model"]}`' for i in interactions}))}"
     )
     canvas.markdown(
-        f"**{num_success}** successes · **{num_refusal}** refusals · **{num_unclear}** unclear · "
+        f"**{label_counts['success']}** successes · **{label_counts['refusal']}** refusals · "
+        f"**{label_counts['unclear']}** unclear · "
         f"target: **\\${interaction_price:.4f}** · "
         f"judging: **\\${judging_price:.4f}**"
     )
