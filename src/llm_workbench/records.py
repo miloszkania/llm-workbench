@@ -181,7 +181,7 @@ def save_prompt(
     prompt = formatting.normalize_prompt_text(prompt)
 
     if not prompt:
-        raise ValueError("The prompt must not be empty.")
+        raise ValueError("The prompt cannot be empty!")
 
     return db.prompts.upsert_prompt(
         prompt,

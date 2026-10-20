@@ -18,7 +18,7 @@ def save_prompt_button(
 ) -> None:
     if st.button("Save prompt", type="secondary"):
         if not formatting.normalize_prompt_text(prompt):
-            st.error("You need to enter the prompt!")
+            st.error("The prompt cannot be empty!")
         else:
             prompt_id = records.save_prompt(prompt, system_prompt, categories)
             st.success(f"Saved as prompt #{prompt_id}")

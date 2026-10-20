@@ -77,14 +77,14 @@ if st.button("Save configuration", type="primary"):
     judge_prompt = judge_prompt.strip()
 
     if not config_name:
-        st.error("You need to enter the configuration name!")
+        st.error("The configuration name cannot be empty!")
     elif len(config_name) > 64:
         st.error("The configuration name can have at most 64 characters!")
     elif db.judges.get_judge_configuration_by_id(config_name) is not None:
         st.error(f"A configuration with name `{config_name}` already exists!")
 
     elif not judge_prompt:
-        st.error("You need to enter the evaluation instructions!")
+        st.error("The evaluation instructions cannot be empty!")
     elif len(judge_prompt) > 4000:
         st.error("The evaluation instructions can have at most 4000 characters!")
     elif "[PROMPT]" not in judge_prompt or "[RESPONSE]" not in judge_prompt:

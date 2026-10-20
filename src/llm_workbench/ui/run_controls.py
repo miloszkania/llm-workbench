@@ -37,7 +37,7 @@ def send_prompt_button_with_repetitions(
         key=f"{button_label}_interactions_button",
     ):
         if not model:
-            st.error("You need to enter the model!")
+            st.error("The model name cannot be empty!")
         # whitespace-only prompts are empty once saved
         elif not formatting.normalize_prompt_text(prompt):
             st.error("The prompt cannot be empty!")
