@@ -30,7 +30,10 @@ if not all_configs.empty:
     )
 
     if judging_enabled:
-        st.write("The following judge configuration and models will be used by default when [sending a new prompt](/).")
+        st.write(
+            "The following judge configuration and models will be used by default when "
+            "[sending a new prompt](/new_prompt)."
+        )
         st.space()
 
         selected_config, selected_models = judge_selection.judge_model_and_configuration_selector(
