@@ -1,3 +1,4 @@
+import math
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -13,6 +14,7 @@ API_TIMEOUT_MS = 30_000  # network timeout for each metadata or model attempt
 CHAT_TIMEOUT_MS = 120_000  # network timeout for each chat attempt
 
 RATE_LIMIT_DELAY_S = 4  # default delay when rate-limited and no http retry-after value specified
+MAX_RATE_LIMIT_DELAY_S = 60  # upper bound for the retry-after value, so a run never blocks for long
 RETRY_DELAY_S = 3.2  # default delay when not rate-limited
 REQUEST_DELAY_S = 3.2  # pause between consecutive requests of a batch to avoid rate limits
 
@@ -63,6 +65,13 @@ def _safe_run(
                 # if non-existent or wrongly formatted, fix the delay
                 except (TypeError, ValueError):
                     delay = RATE_LIMIT_DELAY_S
+
+                # negative, infinite or nan values can't be slept on
+                if not math.isfinite(delay) or delay < 0:
+                    delay = RATE_LIMIT_DELAY_S
+
+                # cap too long delay values
+                delay = min(delay, MAX_RATE_LIMIT_DELAY_S)
             else:
                 delay = RETRY_DELAY_S
 

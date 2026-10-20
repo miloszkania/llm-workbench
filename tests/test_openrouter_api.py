@@ -62,7 +62,13 @@ class SafeRunTests(unittest.TestCase):
         sleep.assert_called_once_with(7.0)
 
     def test_rate_limit_without_valid_header_uses_default_delay(self, sleep) -> None:
-        for headers in (None, {"retry-after": "soon"}):
+        for headers in (
+            None,
+            {"retry-after": "soon"},
+            {"retry-after": "-1"},
+            {"retry-after": "nan"},
+            {"retry-after": "inf"},
+        ):
             sleep.reset_mock()
             error = sdk_error(openrouter.errors.TooManyRequestsResponseError, headers=headers)
             function = mock.Mock(side_effect=[error, "result"])
@@ -70,6 +76,16 @@ class SafeRunTests(unittest.TestCase):
             with self.subTest(headers=headers):
                 self.assertEqual(openrouter_api._safe_run(function), "result")
                 sleep.assert_called_once_with(openrouter_api.RATE_LIMIT_DELAY_S)
+
+    def test_rate_limit_caps_long_retry_after_header(self, sleep) -> None:
+        for retry_after in ("61", "600"):
+            sleep.reset_mock()
+            error = sdk_error(openrouter.errors.TooManyRequestsResponseError, headers={"retry-after": retry_after})
+            function = mock.Mock(side_effect=[error, "result"])
+
+            with self.subTest(retry_after=retry_after):
+                self.assertEqual(openrouter_api._safe_run(function), "result")
+                sleep.assert_called_once_with(openrouter_api.MAX_RATE_LIMIT_DELAY_S)
 
     def test_subclass_of_known_error_uses_parent_specs(self, sleep) -> None:
         # ConnectTimeout isn't listed itself, it's handled as its parent httpx.TransportError
