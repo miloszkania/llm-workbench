@@ -110,6 +110,10 @@ class DurationAndTimestampTests(unittest.TestCase):
             "0:02:03": "2 minutes and 3 seconds",
             "1:02:03": "1:02:03",
             "1:00:05": "1:00:05",
+            "0:00:01": "1 second",
+            "0:01:01": "1 minute and 1 second",
+            "1 day, 2:03:04.5": "26:03:04",
+            "2 days, 0:00:05": "48:00:05",
         }
         for value, expected in cases.items():
             with self.subTest(value=value):

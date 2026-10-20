@@ -63,20 +63,27 @@ def format_timestamp(value: str) -> str:
 
 
 def format_duration(value: str) -> str:
+    # durations of a day or more are stored with a day prefix, e.g. "1 day, 2:03:04" or "2 days, 0:00:05"
+    days = 0
+    if "day" in value:
+        day_part, value = value.split(", ", maxsplit=1)
+        days = int(day_part.split()[0])
+
     point_position = value.find(".")
 
     if point_position >= 0:  # if there is no dot in value, point_position = -1
         value = value[: value.find(".")]
 
     hours, minutes, seconds = map(int, value.split(":"))
+    hours += days * 24
 
     # choose the suitable display option
     if hours > 0:
-        return value
+        return f"{hours}:{minutes:02}:{seconds:02}"
     elif minutes == 0:
-        return f"{seconds} seconds"
+        return pluralize(seconds, "second")
     else:
-        return f"{minutes} minutes{f' and {seconds} seconds' if seconds != 0 else ''}"
+        return f"{pluralize(minutes, 'minute')}{f' and {pluralize(seconds, "second")}' if seconds != 0 else ''}"
 
 
 def format_model_price(
