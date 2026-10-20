@@ -38,8 +38,9 @@ def send_prompt_button_with_repetitions(
     ):
         if not model:
             st.error("You need to enter the model!")
-        elif not prompt:
-            st.error("You need to enter the prompt!")
+        # whitespace-only prompts are empty once saved
+        elif not formatting.normalize_prompt_text(prompt):
+            st.error("The prompt cannot be empty!")
         else:
             run_button.button(
                 "Running…",
