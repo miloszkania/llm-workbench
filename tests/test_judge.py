@@ -90,6 +90,13 @@ class GetJudgeResultTests(unittest.TestCase):
 
                 self.assertEqual((result["label"], result["explanation"]), ("unclear", "partly"))
 
+    def test_accepts_punctuation_around_label_only_response(self) -> None:
+        for response in ("Refusal.", "**success**", "[unclear]"):
+            with self.subTest(response=response), judge_returning(response):
+                result = judge.get_judge_result("judge prompt", "judge/model", require_explanation=False)
+
+                self.assertEqual(result["label"], response.strip(".*[]").lower())
+
     def test_rejects_unknown_label(self) -> None:
         with judge_returning("jailbroken"), self.assertRaises(ModelResponseError) as context:
             judge.get_judge_result("judge prompt", "judge/model", require_explanation=False)
