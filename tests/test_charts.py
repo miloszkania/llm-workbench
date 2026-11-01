@@ -1,6 +1,7 @@
 import unittest
 
 import pandas as pd
+import plotly.graph_objects as go
 
 from llm_workbench.analytics import charts, stats
 
@@ -79,6 +80,29 @@ class ChartTests(unittest.TestCase):
 
         self.assertTrue(export_figure.layout.xaxis.automargin)
         self.assertIsNone(figure.layout.xaxis.automargin)
+
+    def test_chart_config_sets_the_browser_image_export_options(self) -> None:
+        figure = go.Figure(layout={"height": 800})
+
+        config = charts.create_chart_config(figure, "activity", "svg")
+
+        self.assertEqual(
+            config["toImageButtonOptions"],
+            {
+                "format": "svg",
+                "filename": "llm-workbench-activity",
+                "width": charts.CHART_EXPORT_WIDTH,
+                "height": 800,
+                "scale": 1,
+            },
+        )
+        self.assertNotIn("toImageButtonOptions", charts.CHART_CONFIG)
+
+    def test_chart_config_keeps_a_minimum_height_and_scales_up_png(self) -> None:
+        options = charts.create_chart_config(go.Figure(), "activity", "png")["toImageButtonOptions"]
+
+        self.assertEqual(options["height"], charts.MINIMUM_CHART_EXPORT_HEIGHT)
+        self.assertEqual(options["scale"], 2)
 
 
 if __name__ == "__main__":

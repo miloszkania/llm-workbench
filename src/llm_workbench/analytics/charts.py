@@ -47,7 +47,7 @@ LABEL_HOVER_LINES = (
 
 
 def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
-    # copy the figure, so export changes don't affect the dashboard
+    # copy the figure, so the builder's figure stays unchanged
     export_figure = go.Figure(figure)
 
     # add enough space for axis titles and long values
@@ -60,14 +60,18 @@ def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
     return export_figure
 
 
-def export_chart_image(figure: go.Figure, image_format: str) -> bytes:
-    export_figure = prepare_chart_for_export(figure)
-    height = max(export_figure.layout.height or 0, MINIMUM_CHART_EXPORT_HEIGHT)
+def create_chart_config(figure: go.Figure, export_name: str, image_format: str) -> dict:
+    # the browser renders the image when the camera button in the chart's toolbar is clicked
+    image_options = {
+        "format": image_format,
+        "filename": f"llm-workbench-{export_name}",
+        "width": CHART_EXPORT_WIDTH,
+        "height": max(figure.layout.height or 0, MINIMUM_CHART_EXPORT_HEIGHT),
+        # png needs a larger scale, while svg remains vector-based
+        "scale": 2 if image_format == "png" else 1,
+    }
 
-    # png needs a larger scale, while pdf remains vector-based
-    scale = 2 if image_format == "png" else 1
-
-    return export_figure.to_image(format=image_format, width=CHART_EXPORT_WIDTH, height=height, scale=scale)
+    return {**CHART_CONFIG, "toImageButtonOptions": image_options}
 
 
 def export_chart_html(figure: go.Figure) -> bytes:

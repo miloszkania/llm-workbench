@@ -73,28 +73,39 @@ def order_by_interaction_count(frame: pd.DataFrame, column: str) -> list[str]:
 
 
 def display_chart(figure: go.Figure, export_name: str) -> None:
-    st.plotly_chart(figure, width="stretch", config=charts.CHART_CONFIG)
+    # the toolbar exports the displayed figure, so it needs the export margins and unclipped labels
+    figure = charts.prepare_chart_for_export(figure)
 
-    export_options = [
-        ("Download PDF", partial(charts.export_chart_image, figure, "pdf"), "pdf", "application/pdf"),
-        ("Download PNG", partial(charts.export_chart_image, figure, "png"), "png", "image/png"),
-        ("Download interactive HTML", partial(charts.export_chart_html, figure), "html", "text/html"),
-    ]
+    # the chart is shown above the popover, but its config depends on the format selected there
+    chart_area = st.container()
 
     with st.popover("Export chart", icon=":material/download:"):
-        st.caption("Select the export file format.")
+        image_format = st.segmented_control(
+            "Image format",
+            ["png", "svg"],
+            default="png",
+            format_func=str.upper,
+            required=True,
+            key=f"analytics_export_{export_name}_format",
+        )
+        st.caption("The camera icon in the chart's toolbar saves the image in this format.")
 
-        # generate the file only after the user selects a format
-        for label, data, extension, mime in export_options:
-            st.download_button(
-                label,
-                data=data,
-                file_name=f"llm-workbench-{export_name}.{extension}",
-                mime=mime,
-                key=f"analytics_export_{export_name}_{extension}",
-                on_click="ignore",
-                width="stretch",
-            )
+        # generate the file only after the user selects it
+        st.download_button(
+            "Download interactive HTML",
+            data=partial(charts.export_chart_html, figure),
+            file_name=f"llm-workbench-{export_name}.html",
+            mime="text/html",
+            key=f"analytics_export_{export_name}_html",
+            on_click="ignore",
+            width="stretch",
+        )
+
+    chart_area.plotly_chart(
+        figure,
+        width="stretch",
+        config=charts.create_chart_config(figure, export_name, image_format),
+    )
 
 
 def display_summary_table(

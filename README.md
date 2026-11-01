@@ -95,7 +95,8 @@ Filter by model, category, judge configuration and judge model, then switch betw
 - **Prompts:** success rate per prompt and model
 - **Judges:** pairwise agreement between judge setups, and their cost against speed
 
-Every chart can be exported as PDF, PNG or interactive HTML.
+Every chart can be exported as PNG, SVG or interactive HTML. The browser renders the images, using the camera icon in
+the chart's toolbar.
 
 ### Model library
 
@@ -155,7 +156,7 @@ python3 -m streamlit run main.py
 - **App:** Python 3.12+, [Streamlit](https://streamlit.io/)
 - **Models:** the [OpenRouter](https://openrouter.ai/) Python SDK
 - **Storage:** SQLite through Python's built-in sqlite3 module
-- **Analytics:** pandas, Plotly, and Kaleido for chart export
+- **Analytics:** pandas, Plotly
 - **Tooling:** ruff for formatting and linting, unittest for tests, GitHub Actions for CI
 
 ### Setup
