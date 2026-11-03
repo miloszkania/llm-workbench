@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import pandas as pd
 
@@ -79,6 +80,18 @@ class ChartTests(unittest.TestCase):
 
         self.assertTrue(export_figure.layout.xaxis.automargin)
         self.assertIsNone(figure.layout.xaxis.automargin)
+
+    def test_only_png_export_is_scaled_up(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        for image_format, scale in (("png", 2), ("pdf", 1), ("svg", 1)):
+            with mock.patch("plotly.graph_objects.Figure.to_image", return_value=b"image") as to_image:
+                self.assertEqual(charts.export_chart_image(figure, image_format), b"image")
+
+            self.assertEqual(to_image.call_args.kwargs["format"], image_format)
+            self.assertEqual(to_image.call_args.kwargs["scale"], scale)
 
 
 if __name__ == "__main__":

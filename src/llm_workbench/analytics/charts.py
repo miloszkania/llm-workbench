@@ -64,7 +64,7 @@ def export_chart_image(figure: go.Figure, image_format: str) -> bytes:
     export_figure = prepare_chart_for_export(figure)
     height = max(export_figure.layout.height or 0, MINIMUM_CHART_EXPORT_HEIGHT)
 
-    # png needs a larger scale, while pdf remains vector-based
+    # png needs a larger scale, while pdf and svg remain vector-based
     scale = 2 if image_format == "png" else 1
 
     return export_figure.to_image(format=image_format, width=CHART_EXPORT_WIDTH, height=height, scale=scale)

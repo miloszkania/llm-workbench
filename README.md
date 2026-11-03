@@ -95,7 +95,7 @@ Filter by model, category, judge configuration and judge model, then switch betw
 - **Prompts:** success rate per prompt and model
 - **Judges:** pairwise agreement between judge setups, and their cost against speed
 
-Every chart can be exported as PDF, PNG or interactive HTML.
+Every chart can be exported as PDF, PNG, SVG or interactive HTML.
 
 ### Model library
 

@@ -78,6 +78,7 @@ def display_chart(figure: go.Figure, export_name: str) -> None:
     export_options = [
         ("Download PDF", partial(charts.export_chart_image, figure, "pdf"), "pdf", "application/pdf"),
         ("Download PNG", partial(charts.export_chart_image, figure, "png"), "png", "image/png"),
+        ("Download SVG", partial(charts.export_chart_image, figure, "svg"), "svg", "image/svg+xml"),
         ("Download interactive HTML", partial(charts.export_chart_html, figure), "html", "text/html"),
     ]
 
