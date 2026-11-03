@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import date
 
 import pandas as pd
 import plotly.express as px
@@ -32,6 +33,8 @@ CHART_CONFIG = {
 
 CHART_EXPORT_WIDTH = 1400
 MINIMUM_CHART_EXPORT_HEIGHT = 500
+CHART_EXPORT_TITLE_HEIGHT = 60
+CHART_EXPORT_DATE_HEIGHT = 20
 DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 DAILY_BAR_WIDTH = DAY_IN_MILLISECONDS * 7 // 10
 
@@ -46,9 +49,26 @@ LABEL_HOVER_LINES = (
 ##### EXPORT
 
 
-def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
+def _export_title_height(export_date: date | None) -> int:
+    return CHART_EXPORT_TITLE_HEIGHT + (CHART_EXPORT_DATE_HEIGHT if export_date else 0)
+
+
+def prepare_chart_for_export(figure: go.Figure, title: str, export_date: date | None = None) -> go.Figure:
     # copy the figure, so export changes don't affect the dashboard
     export_figure = go.Figure(figure)
+    title_height = _export_title_height(export_date)
+
+    # the title is only part of the export, the extra space keeps the plot area the same size
+    export_figure.update_layout(
+        title=dict(
+            text=title,
+            x=0.5,
+            xanchor="center",
+            subtitle_text=f"Exported {export_date.isoformat()}" if export_date else None,
+        ),
+        height=figure.layout.height + title_height,
+        margin_t=figure.layout.margin.t + title_height,
+    )
 
     # add enough space for axis titles and long values
     export_figure.update_xaxes(automargin=True)
@@ -60,18 +80,18 @@ def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
     return export_figure
 
 
-def export_chart_image(figure: go.Figure, image_format: str) -> bytes:
-    export_figure = prepare_chart_for_export(figure)
-    height = max(export_figure.layout.height or 0, MINIMUM_CHART_EXPORT_HEIGHT)
+def export_chart_image(figure: go.Figure, title: str, image_format: str, export_date: date | None = None) -> bytes:
+    export_figure = prepare_chart_for_export(figure, title, export_date)
+    height = max(export_figure.layout.height, MINIMUM_CHART_EXPORT_HEIGHT + _export_title_height(export_date))
 
-    # png needs a larger scale, while pdf remains vector-based
+    # png needs a larger scale, while pdf and svg remain vector-based
     scale = 2 if image_format == "png" else 1
 
     return export_figure.to_image(format=image_format, width=CHART_EXPORT_WIDTH, height=height, scale=scale)
 
 
-def export_chart_html(figure: go.Figure) -> bytes:
-    export_figure = prepare_chart_for_export(figure)
+def export_chart_html(figure: go.Figure, title: str, export_date: date | None = None) -> bytes:
+    export_figure = prepare_chart_for_export(figure, title, export_date)
 
     # include plotly, so the downloaded chart also works offline
     return export_figure.to_html(config=CHART_CONFIG, full_html=True, include_plotlyjs=True).encode("utf-8")

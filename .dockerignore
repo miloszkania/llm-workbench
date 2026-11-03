@@ -1,0 +1,19 @@
+# secrets and local data never go into the image
+.env
+data/
+*.db
+
+# not needed at runtime
+.git/
+.github/
+.claude/
+.idea/
+.venv/
+.ruff_cache/
+__pycache__/
+.DS_Store
+docs/
+scripts/
+tests/
+CLAUDE.md
+AGENTS.md

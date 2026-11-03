@@ -1,4 +1,6 @@
 import unittest
+from datetime import date
+from unittest import mock
 
 import pandas as pd
 
@@ -75,10 +77,65 @@ class ChartTests(unittest.TestCase):
         )
         figure = charts.create_activity_chart(activity)
 
-        export_figure = charts.prepare_chart_for_export(figure)
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time")
 
         self.assertTrue(export_figure.layout.xaxis.automargin)
         self.assertIsNone(figure.layout.xaxis.automargin)
+        self.assertEqual(export_figure.layout.title.text, "Responses over time")
+        self.assertIsNone(figure.layout.title.text)
+
+    def test_export_title_gets_its_own_space_above_the_plot_area(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time")
+
+        self.assertEqual(export_figure.layout.height, figure.layout.height + charts.CHART_EXPORT_TITLE_HEIGHT)
+        self.assertEqual(export_figure.layout.margin.t, figure.layout.margin.t + charts.CHART_EXPORT_TITLE_HEIGHT)
+        self.assertEqual(figure.layout.margin.t, 10)
+
+    def test_export_date_is_left_out_by_default(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time")
+
+        self.assertIsNone(export_figure.layout.title.subtitle.text)
+
+    def test_export_date_is_added_below_the_title_with_extra_space(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time", date(2026, 11, 3))
+
+        self.assertEqual(export_figure.layout.title.subtitle.text, "Exported 2026-11-03")
+        self.assertEqual(
+            export_figure.layout.margin.t,
+            figure.layout.margin.t + charts.CHART_EXPORT_TITLE_HEIGHT + charts.CHART_EXPORT_DATE_HEIGHT,
+        )
+        self.assertIn(b"Exported 2026-11-03", charts.export_chart_html(figure, "Title", date(2026, 11, 3)))
+
+    def test_html_export_contains_the_title(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        self.assertIn(b"Responses over time", charts.export_chart_html(figure, "Responses over time"))
+
+    def test_only_png_export_is_scaled_up(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        for image_format, scale in (("png", 2), ("pdf", 1), ("svg", 1)):
+            with mock.patch("plotly.graph_objects.Figure.to_image", return_value=b"image") as to_image:
+                self.assertEqual(charts.export_chart_image(figure, "Title", image_format), b"image")
+
+            self.assertEqual(to_image.call_args.kwargs["format"], image_format)
+            self.assertEqual(to_image.call_args.kwargs["scale"], scale)
 
 
 if __name__ == "__main__":

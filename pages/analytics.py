@@ -72,16 +72,26 @@ def order_by_interaction_count(frame: pd.DataFrame, column: str) -> list[str]:
 ##### SHARED COMPONENTS
 
 
-def display_chart(figure: go.Figure, export_name: str) -> None:
+def display_chart(figure: go.Figure, export_name: str, export_title: str) -> None:
     st.plotly_chart(figure, width="stretch", config=charts.CHART_CONFIG)
 
-    export_options = [
-        ("Download PDF", partial(charts.export_chart_image, figure, "pdf"), "pdf", "application/pdf"),
-        ("Download PNG", partial(charts.export_chart_image, figure, "png"), "png", "image/png"),
-        ("Download interactive HTML", partial(charts.export_chart_html, figure), "html", "text/html"),
-    ]
-
     with st.popover("Export chart", icon=":material/download:"):
+        include_date = st.checkbox("Include the current date", key=f"analytics_export_{export_name}_include_date")
+        export_date = date.today() if include_date else None
+
+        export_image = partial(charts.export_chart_image, figure, export_title, export_date=export_date)
+        export_options = [
+            ("Download PDF", partial(export_image, image_format="pdf"), "pdf", "application/pdf"),
+            ("Download PNG", partial(export_image, image_format="png"), "png", "image/png"),
+            ("Download SVG", partial(export_image, image_format="svg"), "svg", "image/svg+xml"),
+            (
+                "Download interactive HTML",
+                partial(charts.export_chart_html, figure, export_title, export_date),
+                "html",
+                "text/html",
+            ),
+        ]
+
         st.caption("Select the export file format.")
 
         # generate the file only after the user selects a format
@@ -181,7 +191,7 @@ def display_overview(
     st.caption(label_source_caption)
 
     if int(label_distribution["count"].sum()) > 0:
-        display_chart(charts.create_label_distribution_chart(label_distribution), "label_distribution")
+        display_chart(charts.create_label_distribution_chart(label_distribution), "label_distribution", "Outcomes")
     else:
         st.info("No labels from the selected source match the current filters.")
 
@@ -191,14 +201,16 @@ def display_overview(
     costs = stats.summarize_costs(filtered_interactions, filtered_judge_results)
 
     with activity_column:
-        st.markdown("**Responses over time**")
+        title = "Responses over time"
+        st.markdown(f"**{title}**")
         if activity.empty:
             st.info("No valid response timestamps are available.")
         else:
-            display_chart(charts.create_activity_chart(activity), "interactions_over_time")
+            display_chart(charts.create_activity_chart(activity), "interactions_over_time", title)
 
     with cost_column:
-        st.markdown("**Cost over time**")
+        title = "Cost over time"
+        st.markdown(f"**{title}**")
         if costs.empty:
             st.info("No valid cost timestamps are available.")
         elif not costs["total_cost"].gt(0).any():
@@ -207,7 +219,7 @@ def display_overview(
                 "The selected models may be free, or pricing data may be unavailable."
             )
         else:
-            display_chart(charts.create_cost_chart(costs), "cost_over_time")
+            display_chart(charts.create_cost_chart(costs), "cost_over_time", title)
 
     st.subheader("Data coverage")
     coverage = [
@@ -261,15 +273,19 @@ def display_model_analytics(
     display_model_table(model_summary)
 
     comparable_models = stats.filter_by_sample_size(model_summary, minimum_sample_size)
-    st.markdown("**Label distribution by model**")
+    title = "Label distribution by model"
+    st.markdown(f"**{title}**")
     if comparable_models.empty:
         st.info("No model has enough labels for the selected minimum sample size.")
     else:
         display_chart(
-            charts.create_group_label_distribution_chart(comparable_models, "model"), "model_label_distribution"
+            charts.create_group_label_distribution_chart(comparable_models, "model"),
+            "model_label_distribution",
+            title,
         )
 
-    st.markdown("**Success by model and category**")
+    title = "Success by model and category"
+    st.markdown(f"**{title}**")
     model_categories = stats.summarize_model_categories(interactions, label_records)
     comparable_cells = stats.filter_by_sample_size(model_categories, minimum_sample_size)
     if comparable_cells.empty:
@@ -281,16 +297,18 @@ def display_model_analytics(
         display_chart(
             charts.create_model_category_heatmap(comparable_cells, model_order, category_order),
             "model_category_success",
+            title,
         )
 
-    st.markdown("**Average target cost vs success**")
+    title = "Average target cost vs success"
+    st.markdown(f"**{title}**")
     scatter_data = comparable_models.loc[
         comparable_models["success_share"].notna() & comparable_models["average_cost"].notna()
     ].copy()
     if scatter_data.empty:
         st.info("No model has both enough labels and recorded target cost data for this comparison.")
     else:
-        display_chart(charts.create_model_cost_scatter(scatter_data), "model_cost_success")
+        display_chart(charts.create_model_cost_scatter(scatter_data), "model_cost_success", title)
 
 
 def display_category_analytics(
@@ -309,10 +327,12 @@ def display_category_analytics(
         st.info("No categorized responses match the current filters.")
         return
 
-    st.markdown("**Responses by category**")
-    display_chart(charts.create_category_usage_chart(category_summary), "category_usage")
+    title = "Responses by category"
+    st.markdown(f"**{title}**")
+    display_chart(charts.create_category_usage_chart(category_summary), "category_usage", title)
 
-    st.markdown("**Label distribution by category**")
+    title = "Label distribution by category"
+    st.markdown(f"**{title}**")
     comparable_categories = stats.filter_by_sample_size(category_summary, minimum_sample_size)
     if comparable_categories.empty:
         st.info("No category has enough labels for the selected minimum sample size.")
@@ -320,6 +340,7 @@ def display_category_analytics(
         display_chart(
             charts.create_group_label_distribution_chart(comparable_categories, "category"),
             "category_label_distribution",
+            title,
         )
 
 
@@ -376,7 +397,8 @@ def display_prompt_analytics(
     display_prompt_table(prompt_summary)
 
     comparable_prompts = stats.filter_by_sample_size(prompt_summary, minimum_sample_size)
-    st.markdown("**Label distribution by prompt**")
+    title = "Label distribution by prompt"
+    st.markdown(f"**{title}**")
     if comparable_prompts.empty:
         st.info("No prompt has enough labels for the selected minimum sample size.")
     else:
@@ -391,9 +413,10 @@ def display_prompt_analytics(
             tickvals=prompt_order,
             ticktext=prompt_order,
         )
-        display_chart(label_distribution_chart, "prompt_label_distribution")
+        display_chart(label_distribution_chart, "prompt_label_distribution", title)
 
-    st.markdown("**Success by prompt and target model**")
+    title = "Success by prompt and target model"
+    st.markdown(f"**{title}**")
     prompt_models = stats.summarize_prompt_models(interactions, label_records)
     comparable_cells = stats.filter_by_sample_size(prompt_models, minimum_sample_size)
     if comparable_cells.empty:
@@ -405,6 +428,7 @@ def display_prompt_analytics(
         display_chart(
             charts.create_prompt_model_heatmap(comparable_cells, prompt_order, model_order),
             "prompt_model_success",
+            title,
         )
 
 
@@ -452,16 +476,19 @@ def display_judge_analytics(
     display_judge_table(judge_summary)
 
     comparable_judges = stats.filter_by_sample_size(judge_summary, minimum_sample_size)
-    st.markdown("**Label distribution by judge setup**")
+    title = "Label distribution by judge setup"
+    st.markdown(f"**{title}**")
     if comparable_judges.empty:
         st.info("No judge setup has enough labels for the selected minimum sample size.")
     else:
         display_chart(
             charts.create_group_label_distribution_chart(comparable_judges, "judge_setup"),
             "judge_label_distribution",
+            title,
         )
 
-    st.markdown("**Agreement between judge setups**")
+    title = "Agreement between judge setups"
+    st.markdown(f"**{title}**")
     judge_order = comparable_judges["judge_setup"].tolist()
     if len(judge_order) < 2:
         st.info("Select at least two judge setups with enough labels to compare agreement.")
@@ -474,16 +501,17 @@ def display_judge_analytics(
         if pairwise_agreement.empty:
             st.info("No pair of judge setups has enough shared responses for the selected minimum sample size.")
         else:
-            display_chart(charts.create_judge_agreement_heatmap(agreement, judge_order), "judge_agreement")
+            display_chart(charts.create_judge_agreement_heatmap(agreement, judge_order), "judge_agreement", title)
 
-    st.markdown("**Judging cost vs duration**")
+    title = "Judging cost vs duration"
+    st.markdown(f"**{title}**")
     efficiency_data = judge_summary.loc[
         judge_summary["average_cost"].notna() & judge_summary["median_duration_seconds"].notna()
     ].copy()
     if efficiency_data.empty:
         st.info("No judge setup has both recorded cost and duration data.")
     else:
-        display_chart(charts.create_judge_efficiency_scatter(efficiency_data), "judge_cost_duration")
+        display_chart(charts.create_judge_efficiency_scatter(efficiency_data), "judge_cost_duration", title)
 
 
 def inject_responsive_styles() -> None:
