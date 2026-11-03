@@ -32,6 +32,7 @@ CHART_CONFIG = {
 
 CHART_EXPORT_WIDTH = 1400
 MINIMUM_CHART_EXPORT_HEIGHT = 500
+CHART_EXPORT_TITLE_HEIGHT = 60
 DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 DAILY_BAR_WIDTH = DAY_IN_MILLISECONDS * 7 // 10
 
@@ -46,9 +47,16 @@ LABEL_HOVER_LINES = (
 ##### EXPORT
 
 
-def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
+def prepare_chart_for_export(figure: go.Figure, title: str) -> go.Figure:
     # copy the figure, so export changes don't affect the dashboard
     export_figure = go.Figure(figure)
+
+    # the title is only part of the export, the extra space keeps the plot area the same size
+    export_figure.update_layout(
+        title=dict(text=title, x=0.5, xanchor="center"),
+        height=figure.layout.height + CHART_EXPORT_TITLE_HEIGHT,
+        margin_t=figure.layout.margin.t + CHART_EXPORT_TITLE_HEIGHT,
+    )
 
     # add enough space for axis titles and long values
     export_figure.update_xaxes(automargin=True)
@@ -60,9 +68,9 @@ def prepare_chart_for_export(figure: go.Figure) -> go.Figure:
     return export_figure
 
 
-def export_chart_image(figure: go.Figure, image_format: str) -> bytes:
-    export_figure = prepare_chart_for_export(figure)
-    height = max(export_figure.layout.height or 0, MINIMUM_CHART_EXPORT_HEIGHT)
+def export_chart_image(figure: go.Figure, title: str, image_format: str) -> bytes:
+    export_figure = prepare_chart_for_export(figure, title)
+    height = max(export_figure.layout.height, MINIMUM_CHART_EXPORT_HEIGHT + CHART_EXPORT_TITLE_HEIGHT)
 
     # png needs a larger scale, while pdf and svg remain vector-based
     scale = 2 if image_format == "png" else 1
@@ -70,8 +78,8 @@ def export_chart_image(figure: go.Figure, image_format: str) -> bytes:
     return export_figure.to_image(format=image_format, width=CHART_EXPORT_WIDTH, height=height, scale=scale)
 
 
-def export_chart_html(figure: go.Figure) -> bytes:
-    export_figure = prepare_chart_for_export(figure)
+def export_chart_html(figure: go.Figure, title: str) -> bytes:
+    export_figure = prepare_chart_for_export(figure, title)
 
     # include plotly, so the downloaded chart also works offline
     return export_figure.to_html(config=CHART_CONFIG, full_html=True, include_plotlyjs=True).encode("utf-8")

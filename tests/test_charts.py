@@ -76,10 +76,30 @@ class ChartTests(unittest.TestCase):
         )
         figure = charts.create_activity_chart(activity)
 
-        export_figure = charts.prepare_chart_for_export(figure)
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time")
 
         self.assertTrue(export_figure.layout.xaxis.automargin)
         self.assertIsNone(figure.layout.xaxis.automargin)
+        self.assertEqual(export_figure.layout.title.text, "Responses over time")
+        self.assertIsNone(figure.layout.title.text)
+
+    def test_export_title_gets_its_own_space_above_the_plot_area(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time")
+
+        self.assertEqual(export_figure.layout.height, figure.layout.height + charts.CHART_EXPORT_TITLE_HEIGHT)
+        self.assertEqual(export_figure.layout.margin.t, figure.layout.margin.t + charts.CHART_EXPORT_TITLE_HEIGHT)
+        self.assertEqual(figure.layout.margin.t, 10)
+
+    def test_html_export_contains_the_title(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        self.assertIn(b"Responses over time", charts.export_chart_html(figure, "Responses over time"))
 
     def test_only_png_export_is_scaled_up(self) -> None:
         figure = charts.create_activity_chart(
@@ -88,7 +108,7 @@ class ChartTests(unittest.TestCase):
 
         for image_format, scale in (("png", 2), ("pdf", 1), ("svg", 1)):
             with mock.patch("plotly.graph_objects.Figure.to_image", return_value=b"image") as to_image:
-                self.assertEqual(charts.export_chart_image(figure, image_format), b"image")
+                self.assertEqual(charts.export_chart_image(figure, "Title", image_format), b"image")
 
             self.assertEqual(to_image.call_args.kwargs["format"], image_format)
             self.assertEqual(to_image.call_args.kwargs["scale"], scale)
