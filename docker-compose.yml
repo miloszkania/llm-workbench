@@ -1,0 +1,18 @@
+name: llm-workbench
+
+services:
+  app:
+    build: .
+    image: llm-workbench
+    ports:
+      - "8501:8501"
+    environment:
+      # taken from the shell or the .env file next to this file
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    volumes:
+      # the SQLite database lives at DB_PATH=/data/database.db (set in the Dockerfile)
+      - app-data:/data
+    restart: unless-stopped
+
+volumes:
+  app-data:

@@ -42,3 +42,13 @@ jobs:
       # runs isolated: temporary database, no API key, no network access to OpenRouter
       - name: Smoke test
         run: python scripts/smoke_test.py
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # only checks that the image builds, nothing is pushed
+      - name: Build the image
+        run: docker build -t llm-workbench .

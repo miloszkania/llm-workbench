@@ -132,12 +132,27 @@ cp .env.example .env  # then fill in your API key
 python3 -m streamlit run main.py
 ```
 
+### Run with Docker
+
+Requires [Docker](https://docs.docker.com/get-docker/) with Docker Compose.
+
+```shell
+cp .env.example .env  # then fill in your API key
+docker compose up -d --build
+```
+
+Open <http://localhost:8501>. Compose passes only `OPENROUTER_API_KEY` from `.env` into the container; the key is never
+part of the image. The database lives at `/data/database.db` in the named volume `llm-workbench_app-data`, so it
+survives `docker compose down` and rebuilds. `docker compose down -v` deletes it.
+
+The image includes a headless Chromium for the PNG, PDF and SVG chart exports, which makes it about 1.2 GB.
+
 ### Environment variables
 
-| Variable             | Description                                                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `OPENROUTER_API_KEY` | Your OpenRouter API key (required).                                                                                     |
-| `DB_PATH`            | Path to the SQLite database, relative to the project root (required). The file and its tables are created on first use. |
+| Variable             | Description                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key (required).                                                                                                 |
+| `DB_PATH`            | Path to the SQLite database, absolute or relative to the project root (required). The file and its tables are created on first use. |
 
 ### Data and costs
 
@@ -202,7 +217,8 @@ submitted.
 ### Continuous integration
 
 GitHub Actions checks formatting, lints, and runs the unit tests and the smoke test on
-Python 3.12 and 3.14, for every push to `main` and every pull request.
+Python 3.12 and 3.14, for every push to `main` and every pull request. It also builds the Docker image (without
+pushing it).
 
 ### Project layout
 
