@@ -1,4 +1,5 @@
 import unittest
+from datetime import date
 from unittest import mock
 
 import pandas as pd
@@ -93,6 +94,29 @@ class ChartTests(unittest.TestCase):
         self.assertEqual(export_figure.layout.height, figure.layout.height + charts.CHART_EXPORT_TITLE_HEIGHT)
         self.assertEqual(export_figure.layout.margin.t, figure.layout.margin.t + charts.CHART_EXPORT_TITLE_HEIGHT)
         self.assertEqual(figure.layout.margin.t, 10)
+
+    def test_export_date_is_left_out_by_default(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time")
+
+        self.assertIsNone(export_figure.layout.title.subtitle.text)
+
+    def test_export_date_is_added_below_the_title_with_extra_space(self) -> None:
+        figure = charts.create_activity_chart(
+            stats.summarize_activity(stats.prepare_interactions([{"id": 1, "time": "2026-09-20 10:00:00"}]))
+        )
+
+        export_figure = charts.prepare_chart_for_export(figure, "Responses over time", date(2026, 11, 3))
+
+        self.assertEqual(export_figure.layout.title.subtitle.text, "Exported 2026-11-03")
+        self.assertEqual(
+            export_figure.layout.margin.t,
+            figure.layout.margin.t + charts.CHART_EXPORT_TITLE_HEIGHT + charts.CHART_EXPORT_DATE_HEIGHT,
+        )
+        self.assertIn(b"Exported 2026-11-03", charts.export_chart_html(figure, "Title", date(2026, 11, 3)))
 
     def test_html_export_contains_the_title(self) -> None:
         figure = charts.create_activity_chart(

@@ -75,14 +75,23 @@ def order_by_interaction_count(frame: pd.DataFrame, column: str) -> list[str]:
 def display_chart(figure: go.Figure, export_name: str, export_title: str) -> None:
     st.plotly_chart(figure, width="stretch", config=charts.CHART_CONFIG)
 
-    export_options = [
-        ("Download PDF", partial(charts.export_chart_image, figure, export_title, "pdf"), "pdf", "application/pdf"),
-        ("Download PNG", partial(charts.export_chart_image, figure, export_title, "png"), "png", "image/png"),
-        ("Download SVG", partial(charts.export_chart_image, figure, export_title, "svg"), "svg", "image/svg+xml"),
-        ("Download interactive HTML", partial(charts.export_chart_html, figure, export_title), "html", "text/html"),
-    ]
-
     with st.popover("Export chart", icon=":material/download:"):
+        include_date = st.checkbox("Include the current date", key=f"analytics_export_{export_name}_include_date")
+        export_date = date.today() if include_date else None
+
+        export_image = partial(charts.export_chart_image, figure, export_title, export_date=export_date)
+        export_options = [
+            ("Download PDF", partial(export_image, image_format="pdf"), "pdf", "application/pdf"),
+            ("Download PNG", partial(export_image, image_format="png"), "png", "image/png"),
+            ("Download SVG", partial(export_image, image_format="svg"), "svg", "image/svg+xml"),
+            (
+                "Download interactive HTML",
+                partial(charts.export_chart_html, figure, export_title, export_date),
+                "html",
+                "text/html",
+            ),
+        ]
+
         st.caption("Select the export file format.")
 
         # generate the file only after the user selects a format
